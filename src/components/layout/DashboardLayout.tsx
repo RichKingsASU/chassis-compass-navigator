@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   SidebarProvider, 
@@ -22,7 +21,8 @@ import {
   Settings, 
   Menu,
   MapPin,
-  Bell
+  Bell,
+  Database
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -41,6 +41,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const navItems = [
     { title: "Dashboard", path: "/", icon: LayoutDashboard },
     { title: "Chassis Management", path: "/chassis", icon: Truck },
+    { title: "TMS Data", path: "/tms", icon: Database },
     { 
       title: "GPS Providers", 
       path: "/gps", 

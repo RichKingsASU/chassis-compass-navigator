@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import ChassisManagement from "./pages/ChassisManagement";
 import ChassisValidation from "./pages/ChassisValidation";
 import DocumentUpload from "./pages/DocumentUpload";
+import TMSData from "./pages/TMSData";
 import NotFound from "./pages/NotFound";
 
 // GPS Provider Pages
@@ -43,6 +44,11 @@ const App = () => (
           <Route path="/chassis" element={
             <DashboardLayout>
               <ChassisManagement />
+            </DashboardLayout>
+          } />
+          <Route path="/tms" element={
+            <DashboardLayout>
+              <TMSData />
             </DashboardLayout>
           } />
           <Route path="/validation" element={
