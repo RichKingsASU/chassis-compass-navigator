@@ -23,6 +23,7 @@ interface DashboardLayoutProps {
 const navItems = [
   { title: "Dashboard", path: "/", icon: LayoutDashboard },
   { title: "Chassis Management", path: "/chassis", icon: Truck },
+  { title: "Document Upload", path: "/documents", icon: Upload },
   { title: "TMS Data", path: "/tms", icon: Database },
   { 
     title: "Yard Report", 
@@ -58,7 +59,6 @@ const navItems = [
       { title: "FLEXIVAN", path: "/vendors/flexivan" },
     ]
   },
-  { title: "Document Upload", path: "/documents", icon: Upload },
   { title: "Settings", path: "/settings", icon: Settings },
 ];
 
