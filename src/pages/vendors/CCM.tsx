@@ -1,10 +1,12 @@
 
 import React from 'react';
-import VendorUpload from '../VendorUpload';
+import CCMDashboard from '../../components/ccm/CCMDashboard';
 
 const CCM = () => {
   return (
-    <VendorUpload vendorName="CCM" />
+    <div className="flex-1">
+      <CCMDashboard />
+    </div>
   );
 };
 

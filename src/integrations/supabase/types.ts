@@ -501,6 +501,120 @@ export type Database = {
         }
         Relationships: []
       }
+      master_chassis_list: {
+        Row: {
+          chassis_number: string | null
+          chassis_type: string | null
+          contract_number: string | null
+          created_at: string | null
+          daily_rate: number | null
+          id: string
+          plate_number: string | null
+          plate_state: string | null
+          region: string | null
+          serial_number: string | null
+        }
+        Insert: {
+          chassis_number?: string | null
+          chassis_type?: string | null
+          contract_number?: string | null
+          created_at?: string | null
+          daily_rate?: number | null
+          id?: string
+          plate_number?: string | null
+          plate_state?: string | null
+          region?: string | null
+          serial_number?: string | null
+        }
+        Update: {
+          chassis_number?: string | null
+          chassis_type?: string | null
+          contract_number?: string | null
+          created_at?: string | null
+          daily_rate?: number | null
+          id?: string
+          plate_number?: string | null
+          plate_state?: string | null
+          region?: string | null
+          serial_number?: string | null
+        }
+        Relationships: []
+      }
+      master_chassis_ltl_owned: {
+        Row: {
+          anytrek_unit_number: string | null
+          charge_code: string | null
+          chassis_number: string | null
+          chassis_type: string | null
+          created_at: string | null
+          current_daily_rate: number | null
+          description: string | null
+          extended_gps_rate: number | null
+          extended_rate: number | null
+          gps_provider: string | null
+          gps_rate_daily: number | null
+          hard_gps_number: string | null
+          id: string
+          lessor: string | null
+          notes: string | null
+          old_chz_number: string | null
+          region: string | null
+          reporting_category: string | null
+          serial_number: string | null
+          status: string | null
+          total_rate_1: number | null
+          total_rate_2: number | null
+        }
+        Insert: {
+          anytrek_unit_number?: string | null
+          charge_code?: string | null
+          chassis_number?: string | null
+          chassis_type?: string | null
+          created_at?: string | null
+          current_daily_rate?: number | null
+          description?: string | null
+          extended_gps_rate?: number | null
+          extended_rate?: number | null
+          gps_provider?: string | null
+          gps_rate_daily?: number | null
+          hard_gps_number?: string | null
+          id?: string
+          lessor?: string | null
+          notes?: string | null
+          old_chz_number?: string | null
+          region?: string | null
+          reporting_category?: string | null
+          serial_number?: string | null
+          status?: string | null
+          total_rate_1?: number | null
+          total_rate_2?: number | null
+        }
+        Update: {
+          anytrek_unit_number?: string | null
+          charge_code?: string | null
+          chassis_number?: string | null
+          chassis_type?: string | null
+          created_at?: string | null
+          current_daily_rate?: number | null
+          description?: string | null
+          extended_gps_rate?: number | null
+          extended_rate?: number | null
+          gps_provider?: string | null
+          gps_rate_daily?: number | null
+          hard_gps_number?: string | null
+          id?: string
+          lessor?: string | null
+          notes?: string | null
+          old_chz_number?: string | null
+          region?: string | null
+          reporting_category?: string | null
+          serial_number?: string | null
+          status?: string | null
+          total_rate_1?: number | null
+          total_rate_2?: number | null
+        }
+        Relationships: []
+      }
       wilmington_yard_inventory: {
         Row: {
           chassis_number: string | null
