@@ -25,7 +25,9 @@ import {
   Eye, 
   Trash2,
   Tag,
-  CalendarCheck
+  CalendarCheck,
+  Search,
+  FileText
 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -48,6 +50,7 @@ const VendorUpload: React.FC<VendorUploadProps> = ({ vendorName, vendorLogo }) =
   const [activeTab, setActiveTab] = useState("upload");
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Mock data for uploaded documents
   const documents = [
@@ -57,7 +60,8 @@ const VendorUpload: React.FC<VendorUploadProps> = ({ vendorName, vendorLogo }) =
       uploadDate: "2025-04-09",
       usagePeriod: "Apr 1-30, 2025",
       fileType: "invoice",
-      size: "1.2 MB"
+      size: "1.2 MB",
+      tags: ["invoice", "april-2025"]
     },
     {
       id: 2,
@@ -65,7 +69,8 @@ const VendorUpload: React.FC<VendorUploadProps> = ({ vendorName, vendorLogo }) =
       uploadDate: "2025-03-15",
       usagePeriod: "Mar 1-31, 2025",
       fileType: "statement",
-      size: "852 KB"
+      size: "852 KB",
+      tags: ["statement", "march-2025"]
     },
     {
       id: 3,
@@ -73,7 +78,8 @@ const VendorUpload: React.FC<VendorUploadProps> = ({ vendorName, vendorLogo }) =
       uploadDate: "2025-01-10",
       usagePeriod: "Jan 1-Dec 31, 2025",
       fileType: "contract",
-      size: "3.1 MB"
+      size: "3.1 MB",
+      tags: ["contract", "2025"]
     },
   ];
 
@@ -81,6 +87,16 @@ const VendorUpload: React.FC<VendorUploadProps> = ({ vendorName, vendorLogo }) =
     setSelectedDocument(document);
     setPreviewDialogOpen(true);
   };
+
+  const filteredDocuments = documents.filter(doc => {
+    if (!searchTerm) return true;
+    
+    return (
+      doc.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.fileType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+  });
 
   return (
     <div className="dashboard-layout">
@@ -96,9 +112,10 @@ const VendorUpload: React.FC<VendorUploadProps> = ({ vendorName, vendorLogo }) =
       </div>
 
       <Tabs defaultValue="upload" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2 mb-6">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
           <TabsTrigger value="upload">Upload Document</TabsTrigger>
           <TabsTrigger value="documents">Uploaded Documents</TabsTrigger>
+          <TabsTrigger value="repository">Document Repository</TabsTrigger>
         </TabsList>
         
         <TabsContent value="upload" className="space-y-6">
@@ -282,6 +299,91 @@ const VendorUpload: React.FC<VendorUploadProps> = ({ vendorName, vendorLogo }) =
                     </Button>
                   </div>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="repository" className="space-y-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <CardTitle className="text-lg font-medium">Document Repository</CardTitle>
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search documents..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Filename</TableHead>
+                      <TableHead>Upload Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Size</TableHead>
+                      <TableHead>Tags</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredDocuments.length > 0 ? (
+                      filteredDocuments.map((doc) => (
+                        <TableRow key={doc.id}>
+                          <TableCell className="font-medium flex items-center gap-2">
+                            <FileText size={16} className="text-muted-foreground" />
+                            {doc.filename}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Calendar size={14} className="text-muted-foreground" />
+                              {doc.uploadDate}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{doc.fileType}</Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{doc.size}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1 flex-wrap">
+                              {doc.tags.map((tag, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => handlePreviewDocument(doc)}>
+                                <Eye size={16} />
+                              </Button>
+                              <Button variant="ghost" size="sm">
+                                <Download size={16} />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="text-destructive">
+                                <Trash2 size={16} />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                          No documents found matching your search.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </CardContent>
           </Card>
