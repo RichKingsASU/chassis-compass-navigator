@@ -19,46 +19,55 @@ import {
   Truck
 } from 'lucide-react';
 
-// Import our new components
+// Import our components with improved type definitions
 import TMSFilters from '@/components/tms/TMSFilters';
 import TMSTable from '@/components/tms/TMSTable';
 import TMSTabPlaceholder from '@/components/tms/TMSTabPlaceholder';
-import { tmsData } from '@/components/tms/TMSDataModel';
+import { tmsData, TMSFiltersState, TMSDataItem } from '@/components/tms/TMSDataModel';
 
 const TMSData = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFilters, setSelectedFilters] = useState({
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedFilters, setSelectedFilters] = useState<TMSFiltersState>({
     source: '',
     type: '',
     status: '',
   });
   
-  const filteredData = tmsData.filter(data => {
-    // Search term filter
-    if (
-      searchTerm && 
-      !data.id.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !data.referenceId.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !data.details.toLowerCase().includes(searchTerm.toLowerCase())
-    ) {
-      return false;
-    }
-    
-    // Dropdown filters
-    if (selectedFilters.source && data.source !== selectedFilters.source) {
-      return false;
-    }
-    if (selectedFilters.type && data.type !== selectedFilters.type) {
-      return false;
-    }
-    if (selectedFilters.status && data.status !== selectedFilters.status) {
-      return false;
-    }
-    
-    return true;
-  });
+  /**
+   * Filters the TMS data based on search term and selected filters
+   * @returns Filtered array of TMSDataItem objects
+   */
+  const getFilteredData = (): TMSDataItem[] => {
+    return tmsData.filter(data => {
+      // Search term filter
+      if (
+        searchTerm && 
+        !data.id.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !data.referenceId.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !data.details.toLowerCase().includes(searchTerm.toLowerCase())
+      ) {
+        return false;
+      }
+      
+      // Dropdown filters
+      if (selectedFilters.source && data.source !== selectedFilters.source) {
+        return false;
+      }
+      if (selectedFilters.type && data.type !== selectedFilters.type) {
+        return false;
+      }
+      if (selectedFilters.status && data.status !== selectedFilters.status) {
+        return false;
+      }
+      
+      return true;
+    });
+  };
 
-  const resetFilters = () => {
+  /**
+   * Resets all filters to their default state
+   */
+  const resetFilters = (): void => {
     setSelectedFilters({
       source: '',
       type: '',
@@ -66,6 +75,9 @@ const TMSData = () => {
     });
     setSearchTerm('');
   };
+
+  // Get filtered data
+  const filteredData = getFilteredData();
 
   return (
     <div className="dashboard-layout">

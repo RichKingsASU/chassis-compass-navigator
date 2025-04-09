@@ -1,11 +1,28 @@
 
+// Define status type to restrict possible values
+export type TMSStatus = 'active' | 'pending' | 'completed';
+
+// Define type for TMS data sources
+export type TMSSource = 'McLeod' | 'Trimble' | 'MercuryGate' | 'Oracle TMS';
+
+// Define type for TMS data types
+export type TMSType = 'Order' | 'Dispatch' | 'Shipment' | 'Invoice';
+
+// Main data interface with more specific types
 export interface TMSDataItem {
   id: string;
-  source: string;
-  type: string;
+  source: TMSSource;
+  type: TMSType;
   referenceId: string;
   timestamp: string;
   details: string;
+  status: TMSStatus;
+}
+
+// Filter interface for type safety when filtering data
+export interface TMSFiltersState {
+  source: string;
+  type: string;
   status: string;
 }
 

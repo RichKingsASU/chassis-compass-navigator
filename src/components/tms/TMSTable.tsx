@@ -11,23 +11,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileCheck, Truck, Route, Calendar, FileText } from 'lucide-react';
-
-interface TMSData {
-  id: string;
-  source: string;
-  type: string;
-  referenceId: string;
-  timestamp: string;
-  details: string;
-  status: string;
-}
+import { TMSDataItem, TMSStatus, TMSType } from './TMSDataModel';
 
 interface TMSTableProps {
-  data: TMSData[];
+  data: TMSDataItem[];
 }
 
 const TMSTable: React.FC<TMSTableProps> = ({ data }) => {
-  const getStatusBadge = (status: string) => {
+  /**
+   * Returns the appropriate badge component based on status
+   * @param status - The status of the TMS item
+   */
+  const getStatusBadge = (status: TMSStatus) => {
     switch (status) {
       case 'active':
         return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Active</Badge>;
@@ -37,6 +32,23 @@ const TMSTable: React.FC<TMSTableProps> = ({ data }) => {
         return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Completed</Badge>;
       default:
         return <Badge variant="outline">Unknown</Badge>;
+    }
+  };
+
+  /**
+   * Returns the appropriate icon based on the TMS data type
+   * @param type - The type of TMS data
+   */
+  const getTypeIcon = (type: TMSType) => {
+    switch (type) {
+      case 'Order':
+        return <FileText size={14} className="mr-1 inline" />;
+      case 'Dispatch':
+        return <Truck size={14} className="mr-1 inline" />;
+      case 'Shipment':
+        return <Route size={14} className="mr-1 inline" />;
+      case 'Invoice':
+        return <FileCheck size={14} className="mr-1 inline" />;
     }
   };
 
@@ -62,10 +74,7 @@ const TMSTable: React.FC<TMSTableProps> = ({ data }) => {
                 <TableCell className="font-medium">{item.id}</TableCell>
                 <TableCell>{item.source}</TableCell>
                 <TableCell>
-                  {item.type === 'Order' && <FileText size={14} className="mr-1 inline" />}
-                  {item.type === 'Dispatch' && <Truck size={14} className="mr-1 inline" />}
-                  {item.type === 'Shipment' && <Route size={14} className="mr-1 inline" />}
-                  {item.type === 'Invoice' && <FileCheck size={14} className="mr-1 inline" />}
+                  {getTypeIcon(item.type)}
                   {item.type}
                 </TableCell>
                 <TableCell>{item.referenceId}</TableCell>
@@ -74,7 +83,7 @@ const TMSTable: React.FC<TMSTableProps> = ({ data }) => {
                   {item.timestamp}
                 </TableCell>
                 <TableCell>{item.details}</TableCell>
-                <TableCell>{getStatusBadge(item.status)}</TableCell>
+                <TableCell>{getStatusBadge(item.status as TMSStatus)}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
                     <Button variant="ghost" size="sm">

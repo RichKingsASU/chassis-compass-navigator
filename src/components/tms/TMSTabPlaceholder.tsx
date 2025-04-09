@@ -3,11 +3,20 @@ import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
 import { LucideIcon } from 'lucide-react';
 
+/**
+ * Props for the TMSTabPlaceholder component
+ */
 interface TMSTabPlaceholderProps {
+  /** Lucide icon component to display */
   icon: LucideIcon;
+  /** Message to display in the placeholder */
   message: string;
 }
 
+/**
+ * A placeholder component for empty tab content
+ * Used to display an icon and message when a tab has no content
+ */
 const TMSTabPlaceholder: React.FC<TMSTabPlaceholderProps> = ({ icon: Icon, message }) => {
   return (
     <Card>

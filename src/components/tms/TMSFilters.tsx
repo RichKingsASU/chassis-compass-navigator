@@ -8,21 +8,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FormLabel } from "@/components/ui/form";
+import { TMSFiltersState, TMSSource, TMSType, TMSStatus } from './TMSDataModel';
 
 interface TMSFiltersProps {
-  selectedFilters: {
-    source: string;
-    type: string;
-    status: string;
-  };
-  setSelectedFilters: React.Dispatch<React.SetStateAction<{
-    source: string;
-    type: string;
-    status: string;
-  }>>;
+  selectedFilters: TMSFiltersState;
+  setSelectedFilters: React.Dispatch<React.SetStateAction<TMSFiltersState>>;
 }
 
 const TMSFilters: React.FC<TMSFiltersProps> = ({ selectedFilters, setSelectedFilters }) => {
+  // Array of available sources for type safety and maintainability
+  const sources: TMSSource[] = ['McLeod', 'Trimble', 'MercuryGate', 'Oracle TMS'];
+  
+  // Array of available data types
+  const dataTypes: TMSType[] = ['Order', 'Dispatch', 'Shipment', 'Invoice'];
+  
+  // Array of available statuses
+  const statuses: TMSStatus[] = ['active', 'pending', 'completed'];
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <div>
@@ -36,10 +38,9 @@ const TMSFilters: React.FC<TMSFiltersProps> = ({ selectedFilters, setSelectedFil
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="">All Sources</SelectItem>
-            <SelectItem value="McLeod">McLeod</SelectItem>
-            <SelectItem value="Trimble">Trimble</SelectItem>
-            <SelectItem value="MercuryGate">MercuryGate</SelectItem>
-            <SelectItem value="Oracle TMS">Oracle TMS</SelectItem>
+            {sources.map((source) => (
+              <SelectItem key={source} value={source}>{source}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -55,10 +56,9 @@ const TMSFilters: React.FC<TMSFiltersProps> = ({ selectedFilters, setSelectedFil
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="">All Types</SelectItem>
-            <SelectItem value="Order">Order</SelectItem>
-            <SelectItem value="Dispatch">Dispatch</SelectItem>
-            <SelectItem value="Shipment">Shipment</SelectItem>
-            <SelectItem value="Invoice">Invoice</SelectItem>
+            {dataTypes.map((type) => (
+              <SelectItem key={type} value={type}>{type}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -74,9 +74,11 @@ const TMSFilters: React.FC<TMSFiltersProps> = ({ selectedFilters, setSelectedFil
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
+            {statuses.map((status) => (
+              <SelectItem key={status} value={status}>
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
