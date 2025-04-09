@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,6 +19,7 @@ import {
 } from 'recharts';
 import DashboardMap from '@/components/dashboard/DashboardMap';
 import RecentActivityList from '@/components/dashboard/RecentActivityList';
+import ActivityLog from '@/components/dashboard/ActivityLog';
 
 const Dashboard = () => {
   const [timeRange, setTimeRange] = useState('week');
@@ -175,39 +175,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium">Notifications</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {notifications.map((notification) => (
-                <div key={notification.id} className="flex items-start gap-3 p-3 rounded-md bg-muted/50">
-                  {notification.type === 'warning' && (
-                    <div className="bg-yellow-100 text-yellow-600 p-2 rounded-full">
-                      <AlertTriangle size={16} />
-                    </div>
-                  )}
-                  {notification.type === 'error' && (
-                    <div className="bg-red-100 text-red-600 p-2 rounded-full">
-                      <AlertTriangle size={16} />
-                    </div>
-                  )}
-                  {notification.type === 'info' && (
-                    <div className="bg-blue-100 text-blue-600 p-2 rounded-full">
-                      <FileCheck size={16} />
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{notification.title}</div>
-                    <div className="text-xs text-muted-foreground">{notification.description}</div>
-                    <div className="text-xs text-muted-foreground mt-1">{notification.time}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <ActivityLog />
       </div>
 
       {/* Charts and Analytics */}
