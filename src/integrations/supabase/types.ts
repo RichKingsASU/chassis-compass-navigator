@@ -116,6 +116,9 @@ export type Database = {
           days_disputed: number | null
           disputed_amount: number | null
           equipment_group: string | null
+          file_name: string | null
+          file_path: string | null
+          file_type: string | null
           id: string
           invoice_date: string | null
           invoice_number: string | null
@@ -128,6 +131,7 @@ export type Database = {
           st_date: string | null
           start_move_date: string | null
           state: string | null
+          status: string | null
           stop_move_date: string | null
           total_amount_usd: number | null
           total_usage: number | null
@@ -143,6 +147,9 @@ export type Database = {
           days_disputed?: number | null
           disputed_amount?: number | null
           equipment_group?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_type?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
@@ -155,6 +162,7 @@ export type Database = {
           st_date?: string | null
           start_move_date?: string | null
           state?: string | null
+          status?: string | null
           stop_move_date?: string | null
           total_amount_usd?: number | null
           total_usage?: number | null
@@ -170,6 +178,9 @@ export type Database = {
           days_disputed?: number | null
           disputed_amount?: number | null
           equipment_group?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_type?: string | null
           id?: string
           invoice_date?: string | null
           invoice_number?: string | null
@@ -182,6 +193,7 @@ export type Database = {
           st_date?: string | null
           start_move_date?: string | null
           state?: string | null
+          status?: string | null
           stop_move_date?: string | null
           total_amount_usd?: number | null
           total_usage?: number | null
