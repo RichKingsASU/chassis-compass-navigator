@@ -12,6 +12,10 @@ import DocumentUpload from "./pages/DocumentUpload";
 import TMSData from "./pages/TMSData";
 import NotFound from "./pages/NotFound";
 
+// Yard Report Pages
+import POLAYard from "./pages/yards/POLAYard";
+import JEDYard from "./pages/yards/JEDYard";
+
 // GPS Provider Pages
 import Samsara from "./pages/gps/Samsara";
 import BlackBerry from "./pages/gps/BlackBerry";
@@ -51,6 +55,19 @@ const App = () => (
               <TMSData />
             </DashboardLayout>
           } />
+          
+          {/* Yard Report Routes */}
+          <Route path="/yards/pola" element={
+            <DashboardLayout>
+              <POLAYard />
+            </DashboardLayout>
+          } />
+          <Route path="/yards/jed" element={
+            <DashboardLayout>
+              <JEDYard />
+            </DashboardLayout>
+          } />
+          
           <Route path="/validation" element={
             <DashboardLayout>
               <ChassisValidation />
