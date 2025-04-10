@@ -2,6 +2,7 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
+import { Loader2 } from "lucide-react";
 
 interface InvoiceFormFooterProps {
   isUploading: boolean;
@@ -18,7 +19,12 @@ const InvoiceFormFooter: React.FC<InvoiceFormFooterProps> = ({
         Cancel
       </Button>
       <Button type="submit" disabled={isUploading}>
-        {isUploading ? "Uploading..." : "Upload Invoice"}
+        {isUploading ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Uploading...
+          </>
+        ) : "Upload Invoice"}
       </Button>
     </DialogFooter>
   );

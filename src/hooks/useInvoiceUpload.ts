@@ -36,17 +36,27 @@ export const useInvoiceUpload = (fetchInvoices: () => Promise<void>, fetchExcelD
       const fileName = `${Date.now()}_${data.invoice_number}.${fileExt}`;
       const filePath = `ccm_invoices/${fileName}`;
       
+      console.log("Uploading file to path:", filePath);
+      
       // Parse tags if provided
       const tags = data.tags 
         ? data.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
         : [];
       
       // 1. Upload file to storage
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadedFile, error: uploadError } = await supabase.storage
         .from('invoice_files')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
         
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("File upload error:", uploadError);
+        throw new Error(`Failed to upload file: ${uploadError.message}`);
+      }
+      
+      console.log("File uploaded successfully:", uploadedFile);
       
       // 2. Insert invoice data into the database
       const { data: insertedInvoice, error: insertError } = await supabase
@@ -66,15 +76,22 @@ export const useInvoiceUpload = (fetchInvoices: () => Promise<void>, fetchExcelD
         .select()
         .single();
         
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("Invoice insert error:", insertError);
+        throw new Error(`Failed to save invoice data: ${insertError.message}`);
+      }
+
+      console.log("Invoice inserted successfully:", insertedInvoice);
 
       // 3. If it's an Excel file, parse the data
       if (data.file_type === 'excel' && ['xlsx', 'xls', 'csv'].includes(fileExt)) {
         try {
+          console.log("Starting Excel parsing for invoice:", insertedInvoice.id);
           await parseExcelFile(file, insertedInvoice.id);
+          
           // Refresh Excel data if we're on the Excel data tab
           if (activeTab === 'excel-data') {
-            fetchExcelData();
+            await fetchExcelData();
           }
         } catch (parseError) {
           console.error('Error parsing Excel file:', parseError);
@@ -101,7 +118,7 @@ export const useInvoiceUpload = (fetchInvoices: () => Promise<void>, fetchExcelD
       console.error('Error uploading invoice:', error);
       toast({
         title: "Error",
-        description: "Failed to upload invoice. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to upload invoice. Please try again.",
         variant: "destructive",
       });
     } finally {

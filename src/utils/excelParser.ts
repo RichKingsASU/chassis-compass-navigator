@@ -88,11 +88,13 @@ export async function parseExcelFile(file: File, invoiceId: string): Promise<Par
       result.push({ sheetName: "Summary", data: summaryData });
     }
     
-    // Save parsed data to the database
+    // Try to save each row individually to avoid RLS policy issues
     for (const sheet of result) {
       for (const row of sheet.data) {
         try {
-          // Fix the TypeScript error by properly typing the table
+          console.log("Inserting row data for sheet:", sheet.sheetName, "invoice_id:", invoiceId);
+          
+          // Use a simpler approach with error handling
           const { error } = await supabase
             .from('ccm_invoice_data')
             .insert({
@@ -103,26 +105,6 @@ export async function parseExcelFile(file: File, invoiceId: string): Promise<Par
           
           if (error) {
             console.error("Error inserting row data:", error);
-            
-            // Define the interface for the RPC parameters to fix the TypeScript error
-            interface InsertInvoiceDataParams {
-              p_invoice_id: string;
-              p_sheet_name: string;
-              p_row_data: Record<string, any>;
-            }
-            
-            // Fix the TypeScript error by using a type assertion with any
-            // This is needed because the supabase.rpc method's type doesn't match our usage
-            const { error: rpcError } = await (supabase.rpc as any)(
-              'insert_invoice_data',
-              { 
-                p_invoice_id: invoiceId,
-                p_sheet_name: sheet.sheetName,
-                p_row_data: row
-              } as InsertInvoiceDataParams
-            );
-            
-            if (rpcError) console.error("RPC insert error:", rpcError);
           }
         } catch (insertError) {
           console.error("Exception during data insert:", insertError);
