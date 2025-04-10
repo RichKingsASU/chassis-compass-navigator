@@ -45,9 +45,14 @@ const CCMInvoiceManager: React.FC = () => {
   // Fetch Excel data when active tab changes
   useEffect(() => {
     if (activeTab === "excel-data") {
+      console.log("Tab changed to excel-data, fetching data...");
       fetchExcelData();
     }
   }, [activeTab]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+  };
 
   return (
     <div className="space-y-6">
@@ -60,7 +65,7 @@ const CCMInvoiceManager: React.FC = () => {
       />
       
       {/* Main Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="mb-4">
           <TabsTrigger value="invoices">Invoice Documents</TabsTrigger>
           <TabsTrigger value="excel-data">Excel Data</TabsTrigger>

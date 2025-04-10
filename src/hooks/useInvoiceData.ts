@@ -57,17 +57,26 @@ export const useInvoiceData = () => {
   const fetchExcelData = async () => {
     setExcelLoading(true);
     try {
-      // Fix the TypeScript error by using a different approach to query the table
+      console.log("Fetching Excel data...");
       const { data, error } = await supabase
         .from('ccm_invoice_data')
         .select('*')
-        .order('created_at', { ascending: false }) as { data: ExcelDataItem[] | null, error: any };
+        .order('created_at', { ascending: false });
 
       if (error) {
+        console.error("Error in Supabase query:", error);
         throw error;
       }
 
-      setExcelData(data || []);
+      console.log("Excel data fetched:", data?.length || 0, "rows");
+      
+      // Transform data to include validated field if it doesn't exist
+      const formattedData = (data || []).map(item => ({
+        ...item,
+        validated: item.validated === undefined ? false : item.validated
+      }));
+
+      setExcelData(formattedData);
     } catch (error) {
       console.error('Error fetching Excel data:', error);
       toast({

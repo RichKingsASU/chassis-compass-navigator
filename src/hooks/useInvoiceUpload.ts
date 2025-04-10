@@ -88,11 +88,7 @@ export const useInvoiceUpload = (fetchInvoices: () => Promise<void>, fetchExcelD
         try {
           console.log("Starting Excel parsing for invoice:", insertedInvoice.id);
           await parseExcelFile(file, insertedInvoice.id);
-          
-          // Refresh Excel data if we're on the Excel data tab
-          if (activeTab === 'excel-data') {
-            await fetchExcelData();
-          }
+          console.log("Excel parsing completed successfully");
         } catch (parseError) {
           console.error('Error parsing Excel file:', parseError);
           toast({
@@ -103,8 +99,13 @@ export const useInvoiceUpload = (fetchInvoices: () => Promise<void>, fetchExcelD
         }
       }
       
-      // 4. Refresh the invoices list
+      // 4. Refresh the data based on active tab
       await fetchInvoices();
+      
+      // Always fetch Excel data after Excel file upload
+      if (data.file_type === 'excel') {
+        await fetchExcelData();
+      }
       
       toast({
         title: "Success",

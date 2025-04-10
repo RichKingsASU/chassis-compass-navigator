@@ -1,10 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Download, FileSpreadsheet } from 'lucide-react';
+import { Search, Download, FileSpreadsheet, RefreshCw } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import {
   Pagination,
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 
 interface ExcelDataItem {
   id: string;
@@ -35,13 +36,26 @@ interface ExcelDataTableProps {
   data: ExcelDataItem[];
   loading: boolean;
   invoiceId?: string;
+  onRefresh?: () => Promise<void>;
 }
 
-const ExcelDataTable: React.FC<ExcelDataTableProps> = ({ data, loading, invoiceId }) => {
+const ExcelDataTable: React.FC<ExcelDataTableProps> = ({ 
+  data, 
+  loading, 
+  invoiceId,
+  onRefresh 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSheet, setSelectedSheet] = useState<string>('all');
   const [page, setPage] = useState(1);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { toast } = useToast();
   const rowsPerPage = 10;
+
+  // Reset page when data changes
+  useEffect(() => {
+    setPage(1);
+  }, [data]);
 
   // Get unique sheet names
   const sheetNames = Array.from(new Set(data.map(item => item.sheet_name)));
@@ -97,6 +111,29 @@ const ExcelDataTable: React.FC<ExcelDataTableProps> = ({ data, loading, invoiceI
 
   // Display a maximum of 8 columns
   const displayColumns = columns.slice(0, 8);
+
+  // Handle refresh button click
+  const handleRefresh = async () => {
+    if (!onRefresh) return;
+    
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+      toast({
+        title: "Data Refreshed",
+        description: "Excel data has been updated successfully.",
+      });
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      toast({
+        title: "Refresh Failed",
+        description: "Could not refresh Excel data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
   
   return (
     <Card className="w-full">
@@ -129,6 +166,15 @@ const ExcelDataTable: React.FC<ExcelDataTableProps> = ({ data, loading, invoiceI
                 ))}
               </SelectContent>
             </Select>
+            
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={handleRefresh}
+              disabled={isRefreshing || !onRefresh}
+            >
+              <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+            </Button>
             
             <Button variant="outline" size="icon">
               <Download size={16} />
