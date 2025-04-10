@@ -112,7 +112,7 @@ export async function parseExcelFile(file: File, invoiceId: string): Promise<Par
             }
             
             // Use the interface to type the parameters correctly
-            const { error: rpcError } = await supabase.rpc<void>(
+            const { error: rpcError } = await supabase.rpc<void, InsertInvoiceDataParams>(
               'insert_invoice_data',
               { 
                 p_invoice_id: invoiceId,

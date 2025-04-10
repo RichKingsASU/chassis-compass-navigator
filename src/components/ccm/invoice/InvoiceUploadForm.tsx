@@ -3,22 +3,10 @@ import React, { useState } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
-import { Upload, FileText, FileSpreadsheet } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { invoiceFormSchema, InvoiceFormValues, InvoiceFormProps } from './schema/invoiceFormSchema';
-import PDFUploadTab from './components/PDFUploadTab';
-import ExcelUploadTab from './components/ExcelUploadTab';
+import InvoiceUploadTabs from './components/InvoiceUploadTabs';
 import InvoiceMetadataFields from './components/InvoiceMetadataFields';
+import InvoiceFormFooter from './components/InvoiceFormFooter';
 
 const InvoiceUploadForm: React.FC<InvoiceFormProps> = ({
   onSubmit,
@@ -55,59 +43,27 @@ const InvoiceUploadForm: React.FC<InvoiceFormProps> = ({
     form.setValue("file_type", value as "pdf" | "excel");
   };
 
+  const handleCancel = () => {
+    setOpenDialog(false);
+  };
+
   return (
-    <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-      <DialogTrigger asChild>
-        <Button className="mb-4">
-          <Upload className="h-4 w-4 mr-2" /> 
-          Upload Invoice
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Upload Invoice</DialogTitle>
-          <DialogDescription>
-            Complete the form below to upload a new invoice document
-          </DialogDescription>
-        </DialogHeader>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <InvoiceUploadTabs 
+          form={form}
+          activeTab={activeTab}
+          handleTabChange={handleTabChange}
+        />
         
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="pdf" className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  PDF File
-                </TabsTrigger>
-                <TabsTrigger value="excel" className="flex items-center gap-2">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  Excel File
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="pdf" className="mt-4">
-                <PDFUploadTab form={form} />
-              </TabsContent>
-              
-              <TabsContent value="excel" className="mt-4">
-                <ExcelUploadTab form={form} />
-              </TabsContent>
-            </Tabs>
-            
-            <InvoiceMetadataFields form={form} />
-            
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isUploading}>
-                {isUploading ? "Uploading..." : "Upload Invoice"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+        <InvoiceMetadataFields form={form} />
+        
+        <InvoiceFormFooter 
+          isUploading={isUploading}
+          onCancel={handleCancel}
+        />
+      </form>
+    </Form>
   );
 };
 

@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import InvoiceUploadForm from './invoice/InvoiceUploadForm';
 import InvoiceTable from './invoice/InvoiceTable';
 import InvoiceFilters from './invoice/InvoiceFilters';
 import StorageBucketWarning from './invoice/StorageBucketWarning';
@@ -10,6 +9,7 @@ import ExcelDataTable from './invoice/ExcelDataTable';
 import { useInvoiceData } from '@/hooks/useInvoiceData';
 import { useInvoiceFilters } from './invoice/useInvoiceFilters';
 import { useInvoiceUpload } from '@/hooks/useInvoiceUpload';
+import InvoiceUploadDialog from './invoice/components/InvoiceUploadDialog';
 
 const CCMInvoiceManager: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("invoices");
@@ -51,8 +51,8 @@ const CCMInvoiceManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Upload Form */}
-      <InvoiceUploadForm 
+      {/* Upload Dialog */}
+      <InvoiceUploadDialog
         onSubmit={onSubmit}
         isUploading={isUploading}
         openDialog={openDialog}
