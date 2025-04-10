@@ -7,12 +7,14 @@ interface ParsedExcelData {
 }
 
 /**
- * Parse Excel file content using Supabase Storage and Excel Parsing Function
+ * Parse Excel file content and store results in the database
  * @param file The Excel file to parse
  * @param invoiceId The ID of the invoice related to this Excel file
  */
 export async function parseExcelFile(file: File, invoiceId: string): Promise<ParsedExcelData[]> {
   try {
+    console.log("Starting to parse Excel file for invoice ID:", invoiceId);
+    
     // For demonstration purposes, we'll simulate parsing with a mocked parser
     // In a real implementation, you would:
     // 1. Upload the file to temporary storage
@@ -88,27 +90,29 @@ export async function parseExcelFile(file: File, invoiceId: string): Promise<Par
       result.push({ sheetName: "Summary", data: summaryData });
     }
     
-    // Try to save each row individually to avoid RLS policy issues
+    // Store the parsed data in the database - one bulk insert per sheet to improve performance
     for (const sheet of result) {
-      for (const row of sheet.data) {
-        try {
-          console.log("Inserting row data for sheet:", sheet.sheetName, "invoice_id:", invoiceId);
-          
-          // Use a simpler approach with error handling
-          const { error } = await supabase
-            .from('ccm_invoice_data')
-            .insert({
-              invoice_id: invoiceId,
-              sheet_name: sheet.sheetName,
-              row_data: row
-            });
-          
-          if (error) {
-            console.error("Error inserting row data:", error);
-          }
-        } catch (insertError) {
-          console.error("Exception during data insert:", insertError);
+      try {
+        const rowsToInsert = sheet.data.map(row => ({
+          invoice_id: invoiceId,
+          sheet_name: sheet.sheetName,
+          row_data: row
+        }));
+        
+        console.log(`Inserting ${rowsToInsert.length} rows for sheet ${sheet.sheetName}`);
+        
+        // Use a single bulk insert per sheet
+        const { error } = await supabase
+          .from('ccm_invoice_data')
+          .insert(rowsToInsert);
+        
+        if (error) {
+          console.error("Error inserting sheet data:", error);
+        } else {
+          console.log(`Successfully inserted data for sheet ${sheet.sheetName}`);
         }
+      } catch (insertError) {
+        console.error("Exception during data insert:", insertError);
       }
     }
     

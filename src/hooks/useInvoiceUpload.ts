@@ -43,9 +43,9 @@ export const useInvoiceUpload = (fetchInvoices: () => Promise<void>, fetchExcelD
         ? data.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
         : [];
       
-      // 1. Upload file to storage
+      // 1. Upload file to storage - USING THE CORRECT BUCKET NAME
       const { data: uploadedFile, error: uploadError } = await supabase.storage
-        .from('invoice_files')
+        .from('invoices')  // Changed from 'invoice_files' to 'invoices'
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false

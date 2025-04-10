@@ -14,11 +14,20 @@ const InvoiceFormFooter: React.FC<InvoiceFormFooterProps> = ({
   onCancel
 }) => {
   return (
-    <DialogFooter>
-      <Button type="button" variant="outline" onClick={onCancel}>
+    <DialogFooter className="flex justify-end gap-2 mt-4">
+      <Button 
+        type="button" 
+        variant="outline" 
+        onClick={onCancel}
+        disabled={isUploading}
+      >
         Cancel
       </Button>
-      <Button type="submit" disabled={isUploading}>
+      <Button 
+        type="submit" 
+        disabled={isUploading}
+        className="min-w-[120px]"
+      >
         {isUploading ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
