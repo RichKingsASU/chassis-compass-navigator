@@ -23,3 +23,10 @@ export interface ExcelDataItem {
   created_at: string;
   validated: boolean;
 }
+
+export interface InvoiceFilters {
+  selectedVendor: string;
+  selectedStatus: string;
+  selectedFileType: string;
+  searchQuery: string;
+}
