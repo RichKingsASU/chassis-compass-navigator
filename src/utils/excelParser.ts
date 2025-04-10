@@ -111,8 +111,9 @@ export async function parseExcelFile(file: File, invoiceId: string): Promise<Par
               p_row_data: Record<string, any>;
             }
             
-            // Use the interface to type the parameters correctly
-            const { error: rpcError } = await supabase.rpc<void, InsertInvoiceDataParams>(
+            // Use the interface to correctly type the RPC call with no explicit return type
+            // This fixes the error TS2344 by not constraining the return type
+            const { error: rpcError } = await supabase.rpc(
               'insert_invoice_data',
               { 
                 p_invoice_id: invoiceId,
