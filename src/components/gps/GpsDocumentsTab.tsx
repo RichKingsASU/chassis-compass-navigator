@@ -7,6 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Upload, Eye, Download, Trash2, FileText, Calendar } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "@/hooks/use-toast";
 
 interface Document {
   id: number;
@@ -22,14 +33,40 @@ interface GpsDocumentsTabProps {
   documents: Document[];
 }
 
-const GpsDocumentsTab: React.FC<GpsDocumentsTabProps> = ({ providerName, documents }) => {
+const GpsDocumentsTab: React.FC<GpsDocumentsTabProps> = ({ providerName, documents: initialDocuments }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [documents, setDocuments] = useState<Document[]>(initialDocuments);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
 
   const handlePreviewDocument = (document: Document) => {
     setSelectedDocument(document);
     setPreviewDialogOpen(true);
+  };
+
+  const handleDeleteDocument = (document: Document) => {
+    setDocumentToDelete(document);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (documentToDelete) {
+      // Filter out the document to delete
+      const updatedDocuments = documents.filter(doc => doc.id !== documentToDelete.id);
+      setDocuments(updatedDocuments);
+      
+      // Show success toast
+      toast({
+        title: "Document deleted",
+        description: `${documentToDelete.filename} has been removed successfully.`,
+      });
+      
+      // Close the dialog
+      setDeleteDialogOpen(false);
+      setDocumentToDelete(null);
+    }
   };
 
   const filteredDocuments = documents.filter(doc => {
@@ -116,7 +153,12 @@ const GpsDocumentsTab: React.FC<GpsDocumentsTabProps> = ({ providerName, documen
                           <Button variant="ghost" size="sm">
                             <Download size={16} />
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-destructive">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-destructive"
+                            onClick={() => handleDeleteDocument(doc)}
+                          >
                             <Trash2 size={16} />
                           </Button>
                         </div>
@@ -136,6 +178,7 @@ const GpsDocumentsTab: React.FC<GpsDocumentsTabProps> = ({ providerName, documen
         </CardContent>
       </Card>
 
+      {/* Document preview dialog */}
       <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -164,6 +207,28 @@ const GpsDocumentsTab: React.FC<GpsDocumentsTabProps> = ({ providerName, documen
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{documentToDelete?.filename}"? 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDocumentToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
