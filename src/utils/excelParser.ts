@@ -104,13 +104,17 @@ export async function parseExcelFile(file: File, invoiceId: string): Promise<Par
           if (error) {
             console.error("Error inserting row data:", error);
             
-            // Corrected RPC call with properly typed parameters
+            // Fix the TypeScript error by using type assertion for RPC parameters
             const { error: rpcError } = await supabase.rpc(
               'insert_invoice_data',
               { 
                 p_invoice_id: invoiceId,
                 p_sheet_name: sheet.sheetName,
                 p_row_data: row
+              } as {
+                p_invoice_id: string;
+                p_sheet_name: string;
+                p_row_data: Record<string, any>;
               }
             );
             
