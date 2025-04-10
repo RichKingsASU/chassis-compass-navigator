@@ -112,6 +112,7 @@ const CCMInvoiceManager: React.FC = () => {
           <ExcelDataTable 
             data={excelData}
             loading={excelLoading}
+            onRefresh={fetchExcelData}
           />
         </TabsContent>
       </Tabs>
