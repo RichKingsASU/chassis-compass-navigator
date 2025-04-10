@@ -12,4 +12,14 @@ export interface Invoice {
   file_path?: string;
   file_name?: string;
   file_type?: string;
+  tags?: string[];
+}
+
+export interface ExcelDataItem {
+  id: string;
+  invoice_id: string;
+  sheet_name: string;
+  row_data: Record<string, any>;
+  created_at: string;
+  validated: boolean;
 }

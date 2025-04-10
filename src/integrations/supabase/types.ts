@@ -133,6 +133,7 @@ export type Database = {
           state: string | null
           status: string | null
           stop_move_date: string | null
+          tags: string[] | null
           total_amount_usd: number | null
           total_usage: number | null
           usage_type: string | null
@@ -164,6 +165,7 @@ export type Database = {
           state?: string | null
           status?: string | null
           stop_move_date?: string | null
+          tags?: string[] | null
           total_amount_usd?: number | null
           total_usage?: number | null
           usage_type?: string | null
@@ -195,11 +197,47 @@ export type Database = {
           state?: string | null
           status?: string | null
           stop_move_date?: string | null
+          tags?: string[] | null
           total_amount_usd?: number | null
           total_usage?: number | null
           usage_type?: string | null
         }
         Relationships: []
+      }
+      ccm_invoice_data: {
+        Row: {
+          created_at: string | null
+          id: string
+          invoice_id: string | null
+          row_data: Json
+          sheet_name: string | null
+          validated: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          row_data: Json
+          sheet_name?: string | null
+          validated?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          row_data?: Json
+          sheet_name?: string | null
+          validated?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ccm_invoice_data_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "ccm_invoice"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fleet_state_log: {
         Row: {
