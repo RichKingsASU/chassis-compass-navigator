@@ -306,7 +306,7 @@ const ChassisManagement = () => {
                   <SelectValue placeholder="All Sizes" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Sizes</SelectItem>
+                  <SelectItem value="all">All Sizes</SelectItem>
                   <SelectItem value="20'">20'</SelectItem>
                   <SelectItem value="40'">40'</SelectItem>
                   <SelectItem value="45'">45'</SelectItem>
@@ -324,7 +324,7 @@ const ChassisManagement = () => {
                   <SelectValue placeholder="All Providers" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Providers</SelectItem>
+                  <SelectItem value="all">All Providers</SelectItem>
                   <SelectItem value="Samsara">Samsara</SelectItem>
                   <SelectItem value="BlackBerry">BlackBerry</SelectItem>
                   <SelectItem value="Fleetview">Fleetview</SelectItem>
@@ -344,7 +344,7 @@ const ChassisManagement = () => {
                   <SelectValue placeholder="All Vendors" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Vendors</SelectItem>
+                  <SelectItem value="all">All Vendors</SelectItem>
                   <SelectItem value="DCLI">DCLI</SelectItem>
                   <SelectItem value="CCM">CCM</SelectItem>
                   <SelectItem value="SCSPA">SCSPA</SelectItem>
@@ -365,7 +365,7 @@ const ChassisManagement = () => {
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="idle">Idle</SelectItem>
                   <SelectItem value="repair">In Repair</SelectItem>

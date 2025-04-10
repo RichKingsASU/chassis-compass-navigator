@@ -37,7 +37,7 @@ const TMSFilters: React.FC<TMSFiltersProps> = ({ selectedFilters, setSelectedFil
             <SelectValue placeholder="All Sources" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Sources</SelectItem>
+            <SelectItem value="all">All Sources</SelectItem>
             {sources.map((source) => (
               <SelectItem key={source} value={source}>{source}</SelectItem>
             ))}
@@ -55,7 +55,7 @@ const TMSFilters: React.FC<TMSFiltersProps> = ({ selectedFilters, setSelectedFil
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Types</SelectItem>
+            <SelectItem value="all">All Types</SelectItem>
             {dataTypes.map((type) => (
               <SelectItem key={type} value={type}>{type}</SelectItem>
             ))}
@@ -73,7 +73,7 @@ const TMSFilters: React.FC<TMSFiltersProps> = ({ selectedFilters, setSelectedFil
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Status</SelectItem>
+            <SelectItem value="all">All Status</SelectItem>
             {statuses.map((status) => (
               <SelectItem key={status} value={status}>
                 {status.charAt(0).toUpperCase() + status.slice(1)}
