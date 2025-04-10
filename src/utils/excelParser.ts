@@ -89,30 +89,34 @@ export async function parseExcelFile(file: File, invoiceId: string): Promise<Par
     }
     
     // Save parsed data to the database
-    // Fix the TypeScript error by using a special RPC call or casting
     for (const sheet of result) {
       for (const row of sheet.data) {
-        // Use a manual query execution to insert into ccm_invoice_data table
-        const { error } = await supabase.rpc(
-          'insert_invoice_data',
-          { 
-            p_invoice_id: invoiceId,
-            p_sheet_name: sheet.sheetName,
-            p_row_data: row
-          }
-        );
-          
-        if (error) {
-          console.error("Error inserting row data:", error);
-          // Fallback method if RPC doesn't exist
-          const { error: insertError } = await supabase.from('ccm_invoice_data')
+        try {
+          // Fix the TypeScript error by using a more specific type
+          const { error } = await supabase.from('ccm_invoice_data')
             .insert({
               invoice_id: invoiceId,
               sheet_name: sheet.sheetName,
-              row_data: row,
-            } as any);
+              row_data: row
+            });
           
-          if (insertError) console.error("Fallback insert error:", insertError);
+          if (error) {
+            console.error("Error inserting row data:", error);
+            
+            // Fallback method if direct insert doesn't work
+            const { error: rpcError } = await supabase.rpc(
+              'insert_invoice_data',
+              { 
+                p_invoice_id: invoiceId,
+                p_sheet_name: sheet.sheetName,
+                p_row_data: row
+              }
+            );
+            
+            if (rpcError) console.error("RPC insert error:", rpcError);
+          }
+        } catch (insertError) {
+          console.error("Exception during data insert:", insertError);
         }
       }
     }

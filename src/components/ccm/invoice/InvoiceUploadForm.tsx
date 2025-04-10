@@ -1,19 +1,10 @@
 
 import React, { useState } from 'react';
-import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, FileSpreadsheet } from 'lucide-react';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -24,33 +15,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { invoiceFormSchema, InvoiceFormValues, InvoiceFormProps } from './schema/invoiceFormSchema';
+import PDFUploadTab from './components/PDFUploadTab';
+import ExcelUploadTab from './components/ExcelUploadTab';
+import InvoiceMetadataFields from './components/InvoiceMetadataFields';
 
-// Define form schema for invoice upload
-const invoiceFormSchema = z.object({
-  invoice_number: z.string().min(1, { message: "Invoice number is required" }),
-  invoice_date: z.string().min(1, { message: "Invoice date is required" }),
-  provider: z.string().default("CCM"),
-  total_amount_usd: z.coerce.number().min(0, { message: "Amount must be a positive number" }),
-  status: z.string().default("pending"),
-  reason_for_dispute: z.string().optional(),
-  file: z.instanceof(FileList).refine(files => files.length > 0, {
-    message: "File is required",
-  }),
-  file_type: z.enum(["pdf", "excel"]).default("pdf"),
-  tags: z.string().optional(),
-});
-
-type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
-
-interface InvoiceUploadFormProps {
-  onSubmit: (data: InvoiceFormValues) => Promise<void>;
-  isUploading: boolean;
-  openDialog: boolean;
-  setOpenDialog: (open: boolean) => void;
-}
-
-const InvoiceUploadForm: React.FC<InvoiceUploadFormProps> = ({
+const InvoiceUploadForm: React.FC<InvoiceFormProps> = ({
   onSubmit,
   isUploading,
   openDialog,
@@ -115,159 +85,16 @@ const InvoiceUploadForm: React.FC<InvoiceUploadFormProps> = ({
                 </TabsTrigger>
               </TabsList>
               
-              <FormField
-                control={form.control}
-                name="file_type"
-                render={({ field }) => (
-                  <FormItem className="hidden">
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-              
               <TabsContent value="pdf" className="mt-4">
-                <div className="text-sm text-muted-foreground mb-4">
-                  Upload a PDF invoice that will be stored securely and linked to the invoice record
-                </div>
+                <PDFUploadTab form={form} />
               </TabsContent>
               
               <TabsContent value="excel" className="mt-4">
-                <div className="text-sm text-muted-foreground mb-4">
-                  Upload an Excel file (.xlsx or .xls) containing structured invoice data. 
-                  The system will parse the file and store the data in the database.
-                </div>
+                <ExcelUploadTab form={form} />
               </TabsContent>
             </Tabs>
             
-            <FormField
-              control={form.control}
-              name="invoice_number"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Invoice Number</FormLabel>
-                  <FormControl>
-                    <Input placeholder="INV-12345" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="invoice_date"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Invoice Date</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="total_amount_usd"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount (USD)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-            
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="disputed">Disputed</SelectItem>
-                      <SelectItem value="review">Under Review</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="reason_for_dispute"
-              render={({ field }) => (
-                <FormItem className={form.watch("status") !== "disputed" ? "hidden" : ""}>
-                  <FormLabel>Reason for Dispute</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Describe the reason for dispute" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="tags"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Tags</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter tags separated by commas" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    Add tags to organize your invoices (e.g. "Q2, 2025, California")
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="file"
-              render={({ field: { onChange, value, ...fieldProps } }) => (
-                <FormItem>
-                  <FormLabel>Upload File</FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="file" 
-                      accept={activeTab === "pdf" ? 
-                        ".pdf,.eml,.msg,.jpg,.jpeg,.png,.gif" : 
-                        ".xlsx,.xls,.csv"} 
-                      onChange={(e) => onChange(e.target.files)}
-                      {...fieldProps}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    {activeTab === "pdf" 
-                      ? "Upload PDF invoices, email attachments (.eml, .msg), or images" 
-                      : "Upload Excel (.xlsx, .xls) or CSV spreadsheets"}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <InvoiceMetadataFields form={form} />
             
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setOpenDialog(false)}>
