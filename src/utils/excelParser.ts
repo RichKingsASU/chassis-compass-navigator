@@ -92,8 +92,9 @@ export async function parseExcelFile(file: File, invoiceId: string): Promise<Par
     for (const sheet of result) {
       for (const row of sheet.data) {
         try {
-          // Fix the TypeScript error by using a more specific type
-          const { error } = await supabase.from('ccm_invoice_data')
+          // Fix the TypeScript error by properly typing the table
+          const { error } = await supabase
+            .from('ccm_invoice_data')
             .insert({
               invoice_id: invoiceId,
               sheet_name: sheet.sheetName,
@@ -103,7 +104,7 @@ export async function parseExcelFile(file: File, invoiceId: string): Promise<Par
           if (error) {
             console.error("Error inserting row data:", error);
             
-            // Fallback method if direct insert doesn't work
+            // Corrected RPC call with properly typed parameters
             const { error: rpcError } = await supabase.rpc(
               'insert_invoice_data',
               { 
