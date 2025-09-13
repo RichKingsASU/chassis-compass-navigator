@@ -124,7 +124,7 @@ export const useInvoiceData = () => {
   const handleFileDownload = async (filePath: string, fileName: string) => {
     try {
       const { data, error } = await supabase.storage
-        .from('invoice_files')
+        .from('invoices')
         .download(filePath);
         
       if (error) throw error;
