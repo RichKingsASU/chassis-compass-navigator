@@ -112,8 +112,9 @@ const VendorUpload: React.FC<VendorUploadProps> = ({ vendorName, vendorLogo }) =
       </div>
 
       <Tabs defaultValue="upload" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+        <TabsList className="grid w-full grid-cols-4 mb-6">
           <TabsTrigger value="upload">Upload Document</TabsTrigger>
+          <TabsTrigger value="upload-copy">Upload Document</TabsTrigger>
           <TabsTrigger value="documents">Uploaded Documents</TabsTrigger>
           <TabsTrigger value="repository">Document Repository</TabsTrigger>
         </TabsList>
