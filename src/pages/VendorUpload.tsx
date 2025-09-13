@@ -1,67 +1,112 @@
+
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+  CardDescription 
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileType, Calendar, Download, Eye, Trash2, Tag, CalendarCheck, Search, FileText } from 'lucide-react';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { 
+  Upload, 
+  FileType, 
+  Calendar, 
+  Download, 
+  Eye, 
+  Trash2,
+  Tag,
+  CalendarCheck,
+  Search,
+  FileText
+} from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FormLabel } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+
 interface VendorUploadProps {
   vendorName: string;
   vendorLogo?: string;
 }
-const VendorUpload: React.FC<VendorUploadProps> = ({
-  vendorName,
-  vendorLogo
-}) => {
+
+const VendorUpload: React.FC<VendorUploadProps> = ({ vendorName, vendorLogo }) => {
   const [activeTab, setActiveTab] = useState("upload");
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
-
+  
   // Mock data for uploaded documents
-  const documents = [{
-    id: 1,
-    filename: `${vendorName}_Invoice_April2025.pdf`,
-    uploadDate: "2025-04-09",
-    usagePeriod: "Apr 1-30, 2025",
-    fileType: "invoice",
-    size: "1.2 MB",
-    tags: ["invoice", "april-2025"]
-  }, {
-    id: 2,
-    filename: `${vendorName}_Statement_Mar2025.pdf`,
-    uploadDate: "2025-03-15",
-    usagePeriod: "Mar 1-31, 2025",
-    fileType: "statement",
-    size: "852 KB",
-    tags: ["statement", "march-2025"]
-  }, {
-    id: 3,
-    filename: `${vendorName}_ContractRenewal_2025.pdf`,
-    uploadDate: "2025-01-10",
-    usagePeriod: "Jan 1-Dec 31, 2025",
-    fileType: "contract",
-    size: "3.1 MB",
-    tags: ["contract", "2025"]
-  }];
+  const documents = [
+    {
+      id: 1,
+      filename: `${vendorName}_Invoice_April2025.pdf`,
+      uploadDate: "2025-04-09",
+      usagePeriod: "Apr 1-30, 2025",
+      fileType: "invoice",
+      size: "1.2 MB",
+      tags: ["invoice", "april-2025"]
+    },
+    {
+      id: 2,
+      filename: `${vendorName}_Statement_Mar2025.pdf`,
+      uploadDate: "2025-03-15",
+      usagePeriod: "Mar 1-31, 2025",
+      fileType: "statement",
+      size: "852 KB",
+      tags: ["statement", "march-2025"]
+    },
+    {
+      id: 3,
+      filename: `${vendorName}_ContractRenewal_2025.pdf`,
+      uploadDate: "2025-01-10",
+      usagePeriod: "Jan 1-Dec 31, 2025",
+      fileType: "contract",
+      size: "3.1 MB",
+      tags: ["contract", "2025"]
+    },
+  ];
+
   const handlePreviewDocument = (document: any) => {
     setSelectedDocument(document);
     setPreviewDialogOpen(true);
   };
+
   const filteredDocuments = documents.filter(doc => {
     if (!searchTerm) return true;
-    return doc.filename.toLowerCase().includes(searchTerm.toLowerCase()) || doc.fileType.toLowerCase().includes(searchTerm.toLowerCase()) || doc.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    return (
+      doc.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.fileType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      doc.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
   });
-  return <div className="dashboard-layout">
+
+  return (
+    <div className="dashboard-layout">
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="flex items-center gap-3">
-          {vendorLogo && <div className="w-10 h-10 rounded overflow-hidden flex items-center justify-center bg-white p-1">
+          {vendorLogo && (
+            <div className="w-10 h-10 rounded overflow-hidden flex items-center justify-center bg-white p-1">
               <img src={vendorLogo} alt={`${vendorName} logo`} className="max-w-full max-h-full" />
-            </div>}
+            </div>
+          )}
           <h1 className="dash-title">{vendorName} Document Upload</h1>
         </div>
       </div>
@@ -69,8 +114,8 @@ const VendorUpload: React.FC<VendorUploadProps> = ({
       <Tabs defaultValue="upload" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3 mb-6">
           <TabsTrigger value="upload">Upload Document</TabsTrigger>
-          
-          
+          <TabsTrigger value="documents">Uploaded Documents</TabsTrigger>
+          <TabsTrigger value="repository">Document Repository</TabsTrigger>
         </TabsList>
         
         <TabsContent value="upload" className="space-y-6">
@@ -134,7 +179,12 @@ const VendorUpload: React.FC<VendorUploadProps> = ({
                     or
                   </div>
                   <div className="mt-2">
-                    <Input type="file" id="file-upload" accept=".csv,.pdf" className="hidden" />
+                    <Input
+                      type="file"
+                      id="file-upload"
+                      accept=".csv,.pdf"
+                      className="hidden"
+                    />
                     <Button onClick={() => document.getElementById('file-upload')?.click()}>
                       Select File
                     </Button>
@@ -172,7 +222,8 @@ const VendorUpload: React.FC<VendorUploadProps> = ({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {documents.map(doc => <TableRow key={doc.id}>
+                    {documents.map((doc) => (
+                      <TableRow key={doc.id}>
                         <TableCell className="font-medium">{doc.filename}</TableCell>
                         <TableCell>{doc.uploadDate}</TableCell>
                         <TableCell>
@@ -198,7 +249,8 @@ const VendorUpload: React.FC<VendorUploadProps> = ({
                             </Button>
                           </div>
                         </TableCell>
-                      </TableRow>)}
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
@@ -219,7 +271,9 @@ const VendorUpload: React.FC<VendorUploadProps> = ({
                         <SelectValue placeholder="Select document" />
                       </SelectTrigger>
                       <SelectContent>
-                        {documents.map(doc => <SelectItem key={doc.id} value={doc.id.toString()}>{doc.filename}</SelectItem>)}
+                        {documents.map(doc => (
+                          <SelectItem key={doc.id} value={doc.id.toString()}>{doc.filename}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -257,7 +311,12 @@ const VendorUpload: React.FC<VendorUploadProps> = ({
                 <CardTitle className="text-lg font-medium">Document Repository</CardTitle>
                 <div className="relative flex-1 sm:w-64">
                   <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search documents..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-8" />
+                  <Input
+                    placeholder="Search documents..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
                 </div>
               </div>
             </CardHeader>
@@ -275,7 +334,9 @@ const VendorUpload: React.FC<VendorUploadProps> = ({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredDocuments.length > 0 ? filteredDocuments.map(doc => <TableRow key={doc.id}>
+                    {filteredDocuments.length > 0 ? (
+                      filteredDocuments.map((doc) => (
+                        <TableRow key={doc.id}>
                           <TableCell className="font-medium flex items-center gap-2">
                             <FileText size={16} className="text-muted-foreground" />
                             {doc.filename}
@@ -292,9 +353,11 @@ const VendorUpload: React.FC<VendorUploadProps> = ({
                           <TableCell className="text-muted-foreground">{doc.size}</TableCell>
                           <TableCell>
                             <div className="flex gap-1 flex-wrap">
-                              {doc.tags.map((tag, index) => <Badge key={index} variant="outline" className="text-xs">
+                              {doc.tags.map((tag, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
                                   {tag}
-                                </Badge>)}
+                                </Badge>
+                              ))}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -310,11 +373,15 @@ const VendorUpload: React.FC<VendorUploadProps> = ({
                               </Button>
                             </div>
                           </TableCell>
-                        </TableRow>) : <TableRow>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
                         <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                           No documents found matching your search.
                         </TableCell>
-                      </TableRow>}
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -351,6 +418,8 @@ const VendorUpload: React.FC<VendorUploadProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>;
+    </div>
+  );
 };
+
 export default VendorUpload;
