@@ -14,7 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ccm_invoice: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_path: string | null
+          file_type: string | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          provider: string
+          reason_for_dispute: string | null
+          status: string | null
+          tags: string[] | null
+          total_amount_usd: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          file_type?: string | null
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          provider?: string
+          reason_for_dispute?: string | null
+          status?: string | null
+          tags?: string[] | null
+          total_amount_usd: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          file_type?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          provider?: string
+          reason_for_dispute?: string | null
+          status?: string | null
+          tags?: string[] | null
+          total_amount_usd?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ccm_invoice_data: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_id: string
+          row_data: Json
+          sheet_name: string
+          validated: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_id: string
+          row_data: Json
+          sheet_name: string
+          validated?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          row_data?: Json
+          sheet_name?: string
+          validated?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ccm_invoice_data_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "ccm_invoice"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
