@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
@@ -35,9 +34,8 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { FormLabel } from "@/components/ui/form";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const ChassisValidation = () => {
   const [selectedVendor, setSelectedVendor] = useState("");
@@ -76,15 +74,6 @@ const ChassisValidation = () => {
         hasDocument: true,
         notes: "Confirmed with GPS data"
       },
-      { 
-        id: 3, 
-        chassisId: "NYKU9876543", 
-        dateRange: "Apr 5-20, 2025", 
-        usageDays: 16, 
-        disputeStatus: "disputed",
-        hasDocument: true,
-        notes: "Only used for 12 days according to our records"
-      },
     ],
     trac: [
       { 
@@ -96,38 +85,9 @@ const ChassisValidation = () => {
         hasDocument: false,
         notes: ""
       },
-      { 
-        id: 5, 
-        chassisId: "APHU1122334", 
-        dateRange: "Apr 1-30, 2025", 
-        usageDays: 30, 
-        disputeStatus: "pending",
-        hasDocument: false,
-        notes: ""
-      },
     ],
-    ccm: [
-      { 
-        id: 6, 
-        chassisId: "MSCU5544332", 
-        dateRange: "Apr 1-15, 2025", 
-        usageDays: 15, 
-        disputeStatus: "pending",
-        hasDocument: false,
-        notes: ""
-      },
-    ],
-    flexivan: [
-      { 
-        id: 7, 
-        chassisId: "OOLU8899776", 
-        dateRange: "Apr 1-20, 2025", 
-        usageDays: 20, 
-        disputeStatus: "accepted",
-        hasDocument: true,
-        notes: "Validated with GPS data"
-      },
-    ],
+    ccm: [],
+    flexivan: [],
     scspa: [],
     wccp: [],
   };
@@ -151,18 +111,11 @@ const ChassisValidation = () => {
   };
 
   const handleSaveNote = () => {
-    // Save note logic would go here
     setNoteDialogOpen(false);
   };
 
   const handleToggleDispute = (item: any, newStatus: string) => {
-    // Update dispute status logic would go here
     console.log("Toggling dispute for", item.chassisId, "to", newStatus);
-  };
-
-  const handleViewVendor = (vendorId: string) => {
-    setSelectedVendor(vendorId);
-    setActiveTab('validation');
   };
 
   return (
@@ -184,7 +137,6 @@ const ChassisValidation = () => {
         </TabsList>
         
         <TabsContent value="analytics" className="space-y-6 pt-4">
-          {/* Simple Analytics Content */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="card-stats">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -204,125 +156,143 @@ const ChassisValidation = () => {
                 <Badge variant="secondary" className="text-xs">25% of total</Badge>
               </CardContent>
             </Card>
+            <Card className="card-stats">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Acceptance Rate</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="stats-value text-green-600">74.5%</div>
+                <Badge variant="outline" className="text-xs">+2.1% vs last month</Badge>
+              </CardContent>
+            </Card>
+            <Card className="card-stats">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Dispute Rate</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="stats-value text-red-600">14.9%</div>
+                <Badge variant="outline" className="text-xs">-1.2% vs last month</Badge>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
         
         <TabsContent value="validation" className="pt-4">
           <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-medium">Validation Workflow</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-6">
-            <FormLabel className="mb-2 block">Select Vendor</FormLabel>
-            <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-              <SelectTrigger className="w-full sm:w-72">
-                <SelectValue placeholder="Choose a vendor" />
-              </SelectTrigger>
-              <SelectContent>
-                {vendors.map(vendor => (
-                  <SelectItem key={vendor.id} value={vendor.id}>{vendor.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          {selectedVendor && (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Chassis ID</TableHead>
-                    <TableHead>Date Range</TableHead>
-                    <TableHead>Usage Days</TableHead>
-                    <TableHead>Document</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {validationItems[selectedVendor as keyof typeof validationItems].length > 0 ? (
-                    validationItems[selectedVendor as keyof typeof validationItems].map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.chassisId}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Calendar size={14} className="text-muted-foreground" />
-                            {item.dateRange}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Clock size={14} className="text-muted-foreground" />
-                            {item.usageDays} days
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {item.hasDocument ? (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200">
-                              Uploaded
-                            </Badge>
-                          ) : (
-                            <Button variant="outline" size="sm" className="gap-1">
-                              <Upload size={14} />
-                              Upload
-                            </Button>
-                          )}
-                        </TableCell>
-                        <TableCell>{getDisputeStatusBadge(item.disputeStatus)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {item.disputeStatus === "pending" && (
-                              <>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="text-green-600 hover:text-green-800 hover:bg-green-50"
-                                  onClick={() => handleToggleDispute(item, "accepted")}
-                                >
-                                  <Check size={16} />
-                                </Button>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                                  onClick={() => handleToggleDispute(item, "disputed")}
-                                >
-                                  <X size={16} />
-                                </Button>
-                              </>
-                            )}
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                              onClick={() => handleAddNote(item)}
-                            >
-                              <MessageSquare size={16} />
-                            </Button>
-                          </div>
-                        </TableCell>
+            <CardHeader>
+              <CardTitle className="text-lg font-medium">Validation Workflow</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-6">
+                <FormLabel className="mb-2 block">Select Vendor</FormLabel>
+                <Select value={selectedVendor} onValueChange={setSelectedVendor}>
+                  <SelectTrigger className="w-full sm:w-72">
+                    <SelectValue placeholder="Choose a vendor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendors.map(vendor => (
+                      <SelectItem key={vendor.id} value={vendor.id}>{vendor.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {selectedVendor && (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Chassis ID</TableHead>
+                        <TableHead>Date Range</TableHead>
+                        <TableHead>Usage Days</TableHead>
+                        <TableHead>Document</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                        No pending validations for this vendor.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-          
-          {!selectedVendor && (
-            <div className="text-center py-12 text-muted-foreground">
-              Select a vendor to see pending validations.
-            </div>
-          )}
-          </CardContent>
-        </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {validationItems[selectedVendor as keyof typeof validationItems].length > 0 ? (
+                        validationItems[selectedVendor as keyof typeof validationItems].map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell className="font-medium">{item.chassisId}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Calendar size={14} className="text-muted-foreground" />
+                                {item.dateRange}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Clock size={14} className="text-muted-foreground" />
+                                {item.usageDays} days
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {item.hasDocument ? (
+                                <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200">
+                                  Uploaded
+                                </Badge>
+                              ) : (
+                                <Button variant="outline" size="sm" className="gap-1">
+                                  <Upload size={14} />
+                                  Upload
+                                </Button>
+                              )}
+                            </TableCell>
+                            <TableCell>{getDisputeStatusBadge(item.disputeStatus)}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                {item.disputeStatus === "pending" && (
+                                  <>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="text-green-600 hover:text-green-800 hover:bg-green-50"
+                                      onClick={() => handleToggleDispute(item, "accepted")}
+                                    >
+                                      <Check size={16} />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                                      onClick={() => handleToggleDispute(item, "disputed")}
+                                    >
+                                      <X size={16} />
+                                    </Button>
+                                  </>
+                                )}
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                  onClick={() => handleAddNote(item)}
+                                >
+                                  <MessageSquare size={16} />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                            No pending validations for this vendor.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              
+              {!selectedVendor && (
+                <div className="text-center py-12 text-muted-foreground">
+                  Select a vendor to see pending validations.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
       
