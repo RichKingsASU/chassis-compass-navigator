@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Card, 
   CardContent, 
@@ -29,17 +30,24 @@ import {
   X, 
   MessageSquare,
   Calendar,
-  Clock
+  Clock,
+  BarChart3,
+  TrendingUp
 } from 'lucide-react';
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { FormLabel } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import ValidationKPIs from "@/components/validation/ValidationKPIs";
+import VendorBreakdown from "@/components/validation/VendorBreakdown";
+import ValidationChart from "@/components/validation/ValidationChart";
+import ValidationAlerts from "@/components/validation/ValidationAlerts";
 
 const ChassisValidation = () => {
   const [selectedVendor, setSelectedVendor] = useState("");
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState("analytics");
   
   // Mock data for vendors
   const vendors = [
@@ -51,6 +59,152 @@ const ChassisValidation = () => {
     { id: "flexivan", name: "FLEXIVAN" },
   ];
   
+  // Mock analytics data
+  const kpiData = {
+    totalValidations: 47,
+    pendingValidations: 12,
+    acceptedValidations: 28,
+    disputedValidations: 7,
+    documentsUploaded: 35,
+    totalUsageDays: 1247,
+    avgResolutionTime: 3.2,
+    disputeRate: 14.9
+  };
+
+  const vendorData = [
+    {
+      name: "DCLI",
+      id: "dcli",
+      totalValidations: 15,
+      pendingValidations: 3,
+      acceptedValidations: 10,
+      disputedValidations: 2,
+      acceptanceRate: 66.7,
+      disputeRate: 13.3,
+      avgUsageDays: 18,
+      trend: 'up' as const
+    },
+    {
+      name: "TRAC",
+      id: "trac",
+      totalValidations: 12,
+      pendingValidations: 5,
+      acceptedValidations: 6,
+      disputedValidations: 1,
+      acceptanceRate: 50.0,
+      disputeRate: 8.3,
+      avgUsageDays: 25,
+      trend: 'stable' as const
+    },
+    {
+      name: "CCM",
+      id: "ccm",
+      totalValidations: 8,
+      pendingValidations: 2,
+      acceptedValidations: 5,
+      disputedValidations: 1,
+      acceptanceRate: 62.5,
+      disputeRate: 12.5,
+      avgUsageDays: 22,
+      trend: 'down' as const
+    },
+    {
+      name: "FLEXIVAN",
+      id: "flexivan",
+      totalValidations: 6,
+      pendingValidations: 1,
+      acceptedValidations: 4,
+      disputedValidations: 1,
+      acceptanceRate: 66.7,
+      disputeRate: 16.7,
+      avgUsageDays: 20,
+      trend: 'up' as const
+    },
+    {
+      name: "SCSPA",
+      id: "scspa",
+      totalValidations: 3,
+      pendingValidations: 1,
+      acceptedValidations: 2,
+      disputedValidations: 0,
+      acceptanceRate: 66.7,
+      disputeRate: 0,
+      avgUsageDays: 15,
+      trend: 'stable' as const
+    },
+    {
+      name: "WCCP",
+      id: "wccp",
+      totalValidations: 3,
+      pendingValidations: 0,
+      acceptedValidations: 1,
+      disputedValidations: 2,
+      acceptanceRate: 33.3,
+      disputeRate: 66.7,
+      avgUsageDays: 28,
+      trend: 'down' as const
+    }
+  ];
+
+  const chartData = {
+    vendorData: vendorData.map(v => ({
+      vendor: v.name,
+      accepted: v.acceptedValidations,
+      pending: v.pendingValidations,
+      disputed: v.disputedValidations,
+      total: v.totalValidations
+    })),
+    timeSeriesData: [
+      { month: 'Jan', validations: 35, disputes: 8, acceptanceRate: 77 },
+      { month: 'Feb', validations: 42, disputes: 6, acceptanceRate: 86 },
+      { month: 'Mar', validations: 38, disputes: 9, acceptanceRate: 76 },
+      { month: 'Apr', validations: 47, disputes: 7, acceptanceRate: 85 },
+    ],
+    statusDistribution: [
+      { name: 'Accepted', value: 28, color: 'hsl(142 76% 36%)' },
+      { name: 'Pending', value: 12, color: 'hsl(45 93% 47%)' },
+      { name: 'Disputed', value: 7, color: 'hsl(0 84% 60%)' }
+    ]
+  };
+
+  const alerts = [
+    {
+      id: '1',
+      type: 'warning' as const,
+      title: 'High Dispute Rate Alert',
+      description: 'WCCP has a dispute rate of 66.7%, significantly above the 15% threshold.',
+      vendor: 'WCCP',
+      count: 2,
+      action: {
+        label: 'Review Details',
+        onClick: () => handleViewVendor('wccp')
+      }
+    },
+    {
+      id: '2',
+      type: 'info' as const,
+      title: 'Pending Validations',
+      description: 'TRAC has 5 validations pending review for over 48 hours.',
+      vendor: 'TRAC',
+      count: 5,
+      action: {
+        label: 'Review Now',
+        onClick: () => handleViewVendor('trac')
+      }
+    },
+    {
+      id: '3',
+      type: 'warning' as const,
+      title: 'Missing Documentation',
+      description: '12 chassis validations are missing supporting documentation.',
+      count: 12,
+      action: {
+        label: 'View All',
+        onClick: () => setActiveTab('validation')
+      }
+    }
+  ];
+
   // Mock data for validation items
   const validationItems = {
     dcli: [
@@ -156,13 +310,45 @@ const ChassisValidation = () => {
     console.log("Toggling dispute for", item.chassisId, "to", newStatus);
   };
 
+  const handleViewVendor = (vendorId: string) => {
+    setSelectedVendor(vendorId);
+    setActiveTab('validation');
+  };
+
   return (
     <div className="dashboard-layout">
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <h1 className="dash-title">Chassis Validation</h1>
+        <h1 className="dash-title">Vendor Validation Analytics</h1>
       </div>
       
-      <Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full md:w-[400px] grid-cols-2">
+          <TabsTrigger value="analytics" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Analytics Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="validation" className="gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Individual Validation
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="analytics" className="space-y-6 pt-4">
+          {/* KPI Overview */}
+          <ValidationKPIs data={kpiData} />
+          
+          {/* Alerts Section */}
+          <ValidationAlerts alerts={alerts} />
+          
+          {/* Charts */}
+          <ValidationChart data={chartData} />
+          
+          {/* Vendor Breakdown */}
+          <VendorBreakdown vendors={vendorData} onViewVendor={handleViewVendor} />
+        </TabsContent>
+        
+        <TabsContent value="validation" className="pt-4">
+          <Card>
         <CardHeader>
           <CardTitle className="text-lg font-medium">Validation Workflow</CardTitle>
         </CardHeader>
@@ -275,8 +461,10 @@ const ChassisValidation = () => {
               Select a vendor to see pending validations.
             </div>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+        </TabsContent>
+      </Tabs>
       
       <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
         <DialogContent>
