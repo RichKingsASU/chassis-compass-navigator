@@ -34,7 +34,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { Textarea } from "@/components/ui/textarea";
-import { FormLabel } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const ChassisValidation = () => {
@@ -184,7 +184,7 @@ const ChassisValidation = () => {
             </CardHeader>
             <CardContent>
               <div className="mb-6">
-                <FormLabel className="mb-2 block">Select Vendor</FormLabel>
+                <Label className="mb-2 block">Select Vendor</Label>
                 <Select value={selectedVendor} onValueChange={setSelectedVendor}>
                   <SelectTrigger className="w-full sm:w-72">
                     <SelectValue placeholder="Choose a vendor" />
