@@ -30,6 +30,7 @@ import SCSPA from "./pages/vendors/SCSPA";
 import WCCP from "./pages/vendors/WCCP";
 import TRAC from "./pages/vendors/TRAC";
 import FLEXIVAN from "./pages/vendors/FLEXIVAN";
+import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
@@ -135,6 +136,13 @@ const App = () => (
           <Route path="/vendors/flexivan" element={
             <DashboardLayout>
               <FLEXIVAN />
+            </DashboardLayout>
+          } />
+          
+          {/* Settings Route */}
+          <Route path="/settings" element={
+            <DashboardLayout>
+              <Settings />
             </DashboardLayout>
           } />
           
