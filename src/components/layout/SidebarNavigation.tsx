@@ -42,7 +42,7 @@ const SidebarNavigation = () => {
       path: "/yards", 
       icon: FileText,
       subItems: [
-        { title: "POLA YARD", path: "/yards/pola" },
+        { title: "PIER S", path: "/yards/pola" },
         { title: "JED YARD", path: "/yards/jed" },
       ] 
     },
