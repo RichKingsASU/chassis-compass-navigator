@@ -36,7 +36,15 @@ const SidebarNavigation = () => {
     { title: "Dashboard", path: "/", icon: LayoutDashboard },
     { title: "Chassis Management", path: "/chassis", icon: Truck },
     
-    { title: "TMS Data", path: "/tms", icon: Database },
+    { 
+      title: "TMS Data", 
+      path: "/tms", 
+      icon: Database,
+      subItems: [
+        { title: "Mercury Gate", path: "/tms/mercury-gate" },
+        { title: "Port Pro", path: "/tms/port-pro" },
+      ]
+    },
     { 
       title: "Yard Report", 
       path: "/yards", 
