@@ -5,18 +5,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { Upload, FileText, AlertCircle, X, File, Image, FileType } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 const DocumentUpload = () => {
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [description, setDescription] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
+
+  const getFileIcon = (fileName: string) => {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '')) return Image;
+    if (['pdf'].includes(ext || '')) return FileType;
+    return File;
+  };
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -33,24 +40,28 @@ const DocumentUpload = () => {
     e.stopPropagation();
     setDragActive(false);
     
-    const files = e.dataTransfer.files;
-    if (files && files[0]) {
-      setSelectedFile(files[0]);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...files]);
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (files && files[0]) {
-      setSelectedFile(files[0]);
+    if (files && files.length > 0) {
+      setSelectedFiles(prev => [...prev, ...Array.from(files)]);
     }
   };
 
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleUpload = async () => {
-    if (!selectedFile || !documentType) {
+    if (selectedFiles.length === 0 || !documentType) {
       toast({
         title: "Missing Information",
-        description: "Please select a file and document type.",
+        description: "Please select at least one file and document type.",
         variant: "destructive",
       });
       return;
@@ -59,31 +70,37 @@ const DocumentUpload = () => {
     setIsUploading(true);
     
     try {
-      const fileExt = selectedFile.name.split('.').pop()?.toLowerCase() || '';
-      const fileName = invoiceNumber 
-        ? `${Date.now()}_${invoiceNumber}.${fileExt}`
-        : `${Date.now()}_${selectedFile.name}`;
-      const filePath = `ccm_documents/${fileName}`;
-      
-      // Upload file to Supabase storage
-      const { data: uploadedFile, error: uploadError } = await supabase.storage
-        .from('ccm_invoices')
-        .upload(filePath, selectedFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      const uploadPromises = selectedFiles.map(async (file) => {
+        const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
+        const fileName = invoiceNumber 
+          ? `${Date.now()}_${invoiceNumber}_${file.name}`
+          : `${Date.now()}_${file.name}`;
+        const filePath = `ccm_documents/${fileName}`;
         
-      if (uploadError) {
-        throw new Error(`Failed to upload file: ${uploadError.message}`);
-      }
+        // Upload file to Supabase storage
+        const { data: uploadedFile, error: uploadError } = await supabase.storage
+          .from('ccm_invoices')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+          
+        if (uploadError) {
+          throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
+        }
+        
+        return { file, uploadedFile };
+      });
+
+      await Promise.all(uploadPromises);
       
       toast({
-        title: "Document Uploaded",
-        description: `${selectedFile.name} has been successfully uploaded to CCM storage.`,
+        title: "Documents Uploaded",
+        description: `${selectedFiles.length} file(s) have been successfully uploaded to CCM storage.`,
       });
       
       // Reset form
-      setSelectedFile(null);
+      setSelectedFiles([]);
       setDocumentType('');
       setInvoiceNumber('');
       setDescription('');
@@ -91,7 +108,7 @@ const DocumentUpload = () => {
       console.error('Upload error:', error);
       toast({
         title: "Upload Failed",
-        description: error instanceof Error ? error.message : "There was an error uploading your document.",
+        description: error instanceof Error ? error.message : "There was an error uploading your documents.",
         variant: "destructive",
       });
     } finally {
@@ -128,37 +145,66 @@ const DocumentUpload = () => {
             onDragOver={handleDrag}
             onDrop={handleDrop}
           >
-            {selectedFile ? (
-              <div className="space-y-2">
-                <FileText className="mx-auto h-12 w-12 text-primary" />
-                <p className="font-medium">{selectedFile.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setSelectedFile(null)}
-                >
-                  Remove File
-                </Button>
+            {selectedFiles.length > 0 ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Selected Files ({selectedFiles.length})</h4>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setSelectedFiles([])}
+                  >
+                    Clear All
+                  </Button>
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-2">
+                  {selectedFiles.map((file, index) => {
+                    const FileIcon = getFileIcon(file.name);
+                    return (
+                      <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <FileIcon className="h-6 w-6 text-primary" />
+                          <div className="text-left">
+                            <p className="font-medium text-sm">{file.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(file.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
+                {dragActive && (
+                  <div className="text-primary font-medium">
+                    Drop files here to upload
+                  </div>
+                )}
                 <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
                 <div>
-                  <p className="text-lg font-medium">Drop your file here</p>
-                  <p className="text-muted-foreground">or click to browse</p>
+                  <p className="text-lg font-medium">Drop your files here</p>
+                  <p className="text-muted-foreground">or click to browse (multiple files supported)</p>
                 </div>
                 <Input
                   type="file"
                   className="hidden"
                   id="file-upload"
+                  multiple
                   onChange={handleFileSelect}
                 />
                 <Label htmlFor="file-upload">
                   <Button variant="outline" asChild>
-                    <span className="cursor-pointer">Select File</span>
+                    <span className="cursor-pointer">Select Files</span>
                   </Button>
                 </Label>
               </div>
@@ -214,9 +260,9 @@ const DocumentUpload = () => {
             </div>
             <Button 
               onClick={handleUpload}
-              disabled={!selectedFile || !documentType || isUploading}
+              disabled={selectedFiles.length === 0 || !documentType || isUploading}
             >
-              {isUploading ? 'Uploading...' : 'Upload Document'}
+              {isUploading ? `Uploading ${selectedFiles.length} file(s)...` : `Upload ${selectedFiles.length || ''} Document${selectedFiles.length !== 1 ? 's' : ''}`}
             </Button>
           </div>
         </CardContent>
