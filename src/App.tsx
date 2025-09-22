@@ -8,7 +8,7 @@ import DashboardLayout from "./components/layout/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import ChassisManagement from "./pages/ChassisManagement";
 import ChassisValidation from "./pages/ChassisValidation";
-
+import AdvancedFeatures from "./pages/AdvancedFeatures";
 import TMSData from "./pages/TMSData";
 import NotFound from "./pages/NotFound";
 
@@ -71,6 +71,11 @@ const App = () => (
           <Route path="/validation" element={
             <DashboardLayout>
               <ChassisValidation />
+            </DashboardLayout>
+          } />
+          <Route path="/advanced-features" element={
+            <DashboardLayout>
+              <AdvancedFeatures />
             </DashboardLayout>
           } />
           

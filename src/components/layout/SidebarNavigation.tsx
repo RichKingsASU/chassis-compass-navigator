@@ -18,7 +18,8 @@ import {
   Settings, 
   MapPin,
   Database,
-  FileText
+  FileText,
+  Sparkles
 } from 'lucide-react';
 
 interface NavigationItem {
@@ -70,6 +71,7 @@ const SidebarNavigation = () => {
         { title: "FLEXIVAN", path: "/vendors/flexivan" },
       ]
     },
+    { title: "Advanced Features", path: "/advanced-features", icon: Sparkles },
     { title: "Settings", path: "/settings", icon: Settings },
   ];
 
