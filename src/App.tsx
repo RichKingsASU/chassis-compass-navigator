@@ -10,6 +10,8 @@ import ChassisManagement from "./pages/ChassisManagement";
 import ChassisValidation from "./pages/ChassisValidation";
 import AdvancedFeatures from "./pages/AdvancedFeatures";
 import TMSData from "./pages/TMSData";
+import MercuryGate from "./pages/tms/MercuryGate";
+import PortPro from "./pages/tms/PortPro";
 import NotFound from "./pages/NotFound";
 
 // Yard Report Pages
@@ -54,6 +56,16 @@ const App = () => (
           <Route path="/tms" element={
             <DashboardLayout>
               <TMSData />
+            </DashboardLayout>
+          } />
+          <Route path="/tms/mercury-gate" element={
+            <DashboardLayout>
+              <MercuryGate />
+            </DashboardLayout>
+          } />
+          <Route path="/tms/port-pro" element={
+            <DashboardLayout>
+              <PortPro />
             </DashboardLayout>
           } />
           

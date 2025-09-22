@@ -134,7 +134,10 @@ const TMSData = () => {
                 selectedFilters={selectedFilters} 
                 setSelectedFilters={setSelectedFilters} 
               />
-              <TMSTable data={filteredData} />
+              <TMSTable 
+                onViewDetails={() => {}} 
+                selectedFilters={selectedFilters} 
+              />
             </CardContent>
           </Card>
         </TabsContent>
