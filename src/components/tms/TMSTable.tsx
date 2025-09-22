@@ -165,7 +165,7 @@ const TMSTable: React.FC<TMSTableProps> = ({ onViewDetails, selectedFilters }) =
     <Card>
       <CardHeader>
         <CardTitle className="text-lg font-medium">
-          TMS Data ({data.length} of {totalPages * recordsPerPage} records)
+          TMS Data ({(data || []).length} of {totalPages * recordsPerPage} records)
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -206,7 +206,7 @@ const TMSTable: React.FC<TMSTableProps> = ({ onViewDetails, selectedFilters }) =
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((record) => (
+              {(data || []).map((record) => (
                 <TableRow key={record.row_id}>
                   <TableCell className="font-medium">
                     {record.shipment_number || record.row_id}
