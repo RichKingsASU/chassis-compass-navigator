@@ -14,7 +14,8 @@ import {
   Building2,
   Plus,
   Edit,
-  Trash2
+  Trash2,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -54,6 +55,12 @@ const Settings = () => {
   const [users, setUsers] = useState<SettingsItem[]>([
     { id: '1', name: 'Admin User', email: 'admin@company.com', role: 'Administrator', status: 'Active' },
     { id: '2', name: 'Manager User', email: 'manager@company.com', role: 'Manager', status: 'Active' }
+  ]);
+
+  const [apiConfigs, setApiConfigs] = useState<SettingsItem[]>([
+    { id: '1', name: 'Mercury Gate API', endpoint: 'https://api.mercurygate.com/v1', status: 'Connected', environment: 'Production' },
+    { id: '2', name: 'Port Pro API', endpoint: 'https://api.portpro.com/v2', status: 'Disconnected', environment: 'Staging' },
+    { id: '3', name: 'GPS Provider API', endpoint: 'https://api.gpsprovider.com/v1', status: 'Connected', environment: 'Production' }
   ]);
 
   const renderSettingsTable = (
@@ -156,7 +163,7 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="customers" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="customers" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
               Customers
@@ -180,6 +187,10 @@ const Settings = () => {
             <TabsTrigger value="users" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               Users
+            </TabsTrigger>
+            <TabsTrigger value="apis" className="flex items-center gap-2">
+              <SettingsIcon className="h-4 w-4" />
+              APIs
             </TabsTrigger>
           </TabsList>
 
@@ -241,6 +252,126 @@ const Settings = () => {
               <Users className="h-5 w-5 text-primary" />,
               () => console.log('Add user')
             )}
+          </TabsContent>
+
+          <TabsContent value="apis">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                <div className="flex items-center gap-2">
+                  <SettingsIcon className="h-5 w-5 text-primary" />
+                  <div>
+                    <CardTitle>API Configurations</CardTitle>
+                    <CardDescription>Manage your API endpoints and credentials</CardDescription>
+                  </div>
+                </div>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add API Config
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Add New API Configuration</DialogTitle>
+                      <DialogDescription>
+                        Configure a new API endpoint with authentication details
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="api-name" className="text-right">
+                          API Name
+                        </Label>
+                        <Input id="api-name" placeholder="e.g., Mercury Gate API" className="col-span-3" />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="endpoint" className="text-right">
+                          Endpoint URL
+                        </Label>
+                        <Input id="endpoint" placeholder="https://api.example.com/v1" className="col-span-3" />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="api-key" className="text-right">
+                          API Key
+                        </Label>
+                        <Input id="api-key" type="password" placeholder="Enter API key" className="col-span-3" />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="environment" className="text-right">
+                          Environment
+                        </Label>
+                        <Select>
+                          <SelectTrigger className="col-span-3">
+                            <SelectValue placeholder="Select environment" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="production">Production</SelectItem>
+                            <SelectItem value="staging">Staging</SelectItem>
+                            <SelectItem value="development">Development</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="timeout" className="text-right">
+                          Timeout (ms)
+                        </Label>
+                        <Input id="timeout" type="number" placeholder="30000" className="col-span-3" />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="retry-attempts" className="text-right">
+                          Retry Attempts
+                        </Label>
+                        <Input id="retry-attempts" type="number" placeholder="3" className="col-span-3" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline">Test Connection</Button>
+                      <Button type="submit">Save Configuration</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {apiConfigs.map((config) => (
+                    <div key={config.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <p className="font-medium">{config.name}</p>
+                          <p className="text-sm text-muted-foreground">ID: {config.id}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Endpoint</p>
+                          <p className="font-medium text-xs">{config.endpoint}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Environment</p>
+                          <Badge variant="outline">{config.environment}</Badge>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Status</p>
+                          <Badge variant={config.status === 'Connected' ? 'default' : 'destructive'}>
+                            {config.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 ml-4">
+                        <Button size="sm" variant="outline">
+                          Test
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
