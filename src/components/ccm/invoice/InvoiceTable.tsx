@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, Download, Edit, Trash2, ChevronDown } from "lucide-react";
+import { MoreHorizontal, Download, Edit, Trash2, ChevronDown, Eye } from "lucide-react";
 import StatusBadge from './StatusBadge';
 import FileTypeIcon from './FileTypeIcon';
 import { 
@@ -23,33 +23,22 @@ import {
   PaginationPrevious 
 } from "@/components/ui/pagination";
 
-interface Invoice {
-  id: string;
-  invoice_number: string;
-  invoice_date: string;
-  provider: string;
-  total_amount_usd: number;
-  status?: string;
-  fileType?: string;
-  reason_for_dispute?: string;
-  created_at: string;
-  file_path?: string;
-  file_name?: string;
-  file_type?: string;
-}
+import { Invoice } from './types';
 
 interface InvoiceTableProps {
   invoices: Invoice[];
   loading: boolean;
   handleStatusChange: (invoiceId: string, newStatus: string) => void;
   handleFileDownload: (filePath: string, fileName: string) => void;
+  onViewDetail?: (invoice: Invoice) => void;
 }
 
 const InvoiceTable: React.FC<InvoiceTableProps> = ({
   invoices,
   loading,
   handleStatusChange,
-  handleFileDownload
+  handleFileDownload,
+  onViewDetail
 }) => {
   return (
     <div className="space-y-4">
@@ -142,6 +131,12 @@ const InvoiceTable: React.FC<InvoiceTableProps> = ({
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
+                        {onViewDetail && (
+                          <DropdownMenuItem onClick={() => onViewDetail(invoice)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            <span>View Details</span>
+                          </DropdownMenuItem>
+                        )}
                         {invoice.file_path && (
                           <DropdownMenuItem onClick={() => handleFileDownload(invoice.file_path || '', invoice.file_name || 'download')}>
                             <Download className="mr-2 h-4 w-4" />

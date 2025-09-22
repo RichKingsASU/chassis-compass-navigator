@@ -6,13 +6,16 @@ import InvoiceTable from './invoice/InvoiceTable';
 import InvoiceFilters from './invoice/InvoiceFilters';
 import StorageBucketWarning from './invoice/StorageBucketWarning';
 import ExcelDataTable from './invoice/ExcelDataTable';
+import InvoiceDetailView from './invoice/InvoiceDetailView';
 import { useInvoiceData } from '@/hooks/useInvoiceData';
 import { useInvoiceFilters } from './invoice/useInvoiceFilters';
 import { useInvoiceUpload } from '@/hooks/useInvoiceUpload';
 import InvoiceUploadDialog from './invoice/components/InvoiceUploadDialog';
+import { Invoice } from './invoice/types';
 
 const CCMInvoiceManager: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>("invoices");
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   
   // Custom hooks
   const { 
@@ -53,6 +56,26 @@ const CCMInvoiceManager: React.FC = () => {
   const handleTabChange = (value: string) => {
     setActiveTab(value);
   };
+
+  const handleViewInvoiceDetail = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+  };
+
+  const handleBackToList = () => {
+    setSelectedInvoice(null);
+    fetchInvoices(); // Refresh the list
+  };
+
+  // If an invoice is selected, show the detail view
+  if (selectedInvoice) {
+    return (
+      <InvoiceDetailView 
+        invoice={selectedInvoice}
+        onBack={handleBackToList}
+        onUpdate={fetchInvoices}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -102,6 +125,7 @@ const CCMInvoiceManager: React.FC = () => {
                   loading={loading}
                   handleStatusChange={handleStatusChange}
                   handleFileDownload={handleFileDownload}
+                  onViewDetail={handleViewInvoiceDetail}
                 />
               </div>
             </CardContent>
