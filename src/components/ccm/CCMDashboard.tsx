@@ -6,6 +6,7 @@ import DashboardKPIs from './dashboard/DashboardKPIs';
 import ImportantNotices from './dashboard/ImportantNotices';
 import ContactsAndResources from './dashboard/ContactsAndResources';
 import RecentActivity from './dashboard/RecentActivity';
+import DocumentUpload from './DocumentUpload';
 
 const CCMDashboard = () => {
   return (
@@ -14,7 +15,7 @@ const CCMDashboard = () => {
         <TabsList className="grid w-full md:w-[600px] grid-cols-3">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="invoices">Invoice Management</TabsTrigger>
-          <TabsTrigger value="reports">Reports & Analytics</TabsTrigger>
+          <TabsTrigger value="reports">Upload Document</TabsTrigger>
         </TabsList>
         
         <TabsContent value="dashboard" className="space-y-6 pt-4">
@@ -36,10 +37,7 @@ const CCMDashboard = () => {
         </TabsContent>
         
         <TabsContent value="reports" className="pt-4">
-          <div className="text-center py-12">
-            <h3 className="text-lg font-medium mb-2">Reports & Analytics</h3>
-            <p className="text-muted-foreground">Advanced reporting features coming soon</p>
-          </div>
+          <DocumentUpload />
         </TabsContent>
       </Tabs>
     </div>
