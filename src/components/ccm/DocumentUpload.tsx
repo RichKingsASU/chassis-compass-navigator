@@ -79,7 +79,7 @@ const DocumentUpload = () => {
         
         // Upload file to Supabase storage
         const { data: uploadedFile, error: uploadError } = await supabase.storage
-          .from('ccm_invoices')
+          .from('invoices')
           .upload(filePath, file, {
             cacheControl: '3600',
             upsert: false
