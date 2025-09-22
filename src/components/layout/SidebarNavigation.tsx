@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   SidebarMenu,
@@ -7,8 +7,16 @@ import {
   SidebarMenuButton,
   SidebarGroup,
   SidebarGroupLabel,
-  SidebarGroupContent
+  SidebarGroupContent,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton
 } from "@/components/ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { 
   LayoutDashboard, 
   Truck, 
@@ -19,7 +27,8 @@ import {
   MapPin,
   Database,
   FileText,
-  Sparkles
+  Sparkles,
+  ChevronRight
 } from 'lucide-react';
 
 interface NavigationItem {
@@ -31,6 +40,7 @@ interface NavigationItem {
 
 const SidebarNavigation = () => {
   const location = useLocation();
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   const navItems: NavigationItem[] = [
     { title: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -83,41 +93,82 @@ const SidebarNavigation = () => {
     { title: "Settings", path: "/settings", icon: Settings },
   ];
 
+  const toggleGroup = (itemTitle: string) => {
+    setOpenGroups(prev => ({
+      ...prev,
+      [itemTitle]: !prev[itemTitle]
+    }));
+  };
+
+  const isGroupOpen = (itemTitle: string) => {
+    // Auto-open if current route matches a sub-item
+    const item = navItems.find(nav => nav.title === itemTitle);
+    if (item?.subItems) {
+      const hasActiveSubItem = item.subItems.some(sub => location.pathname === sub.path);
+      if (hasActiveSubItem) return true;
+    }
+    return openGroups[itemTitle] || false;
+  };
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Main Navigation</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
-          {navItems.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild>
-                <Link 
-                  to={item.path} 
-                  className={`nav-link ${location.pathname === item.path ? 'active' : ''}`}
+          {navItems.map((item) => {
+            if (item.subItems) {
+              // Parent with children - collapsible
+              return (
+                <Collapsible
+                  key={item.title}
+                  open={isGroupOpen(item.title)}
+                  onOpenChange={() => toggleGroup(item.title)}
                 >
-                  <item.icon size={18} />
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-              
-              {item.subItems && (
-                <div className="pl-7 space-y-1 mt-1">
-                  {item.subItems.map(subItem => (
-                    <Link
-                      key={subItem.title}
-                      to={subItem.path}
-                      className={`text-sm py-1.5 px-3 rounded-md block transition-colors 
-                        ${location.pathname === subItem.path 
-                          ? 'bg-sidebar-accent/30 text-sidebar-foreground' 
-                          : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/20'}`}
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton className="group/collapsible">
+                        <item.icon size={18} />
+                        <span>{item.title}</span>
+                        <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    
+                    <CollapsibleContent className="animate-accordion-down data-[state=closed]:animate-accordion-up">
+                      <SidebarMenuSub>
+                        {item.subItems.map((subItem) => (
+                          <SidebarMenuSubItem key={subItem.title}>
+                            <SidebarMenuSubButton asChild>
+                              <Link
+                                to={subItem.path}
+                                className={location.pathname === subItem.path ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
+                              >
+                                {subItem.title}
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              );
+            } else {
+              // Regular item without children
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <Link 
+                      to={item.path} 
+                      className={location.pathname === item.path ? 'bg-sidebar-accent text-sidebar-accent-foreground' : ''}
                     >
-                      {subItem.title}
+                      <item.icon size={18} />
+                      <span>{item.title}</span>
                     </Link>
-                  ))}
-                </div>
-              )}
-            </SidebarMenuItem>
-          ))}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            }
+          })}
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>
