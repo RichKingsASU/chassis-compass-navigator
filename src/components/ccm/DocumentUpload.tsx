@@ -7,11 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, FileText, AlertCircle } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const DocumentUpload = () => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentType, setDocumentType] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [description, setDescription] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const { toast } = useToast();
@@ -57,22 +59,39 @@ const DocumentUpload = () => {
     setIsUploading(true);
     
     try {
-      // Simulate upload process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const fileExt = selectedFile.name.split('.').pop()?.toLowerCase() || '';
+      const fileName = invoiceNumber 
+        ? `${Date.now()}_${invoiceNumber}.${fileExt}`
+        : `${Date.now()}_${selectedFile.name}`;
+      const filePath = `ccm_documents/${fileName}`;
+      
+      // Upload file to Supabase storage
+      const { data: uploadedFile, error: uploadError } = await supabase.storage
+        .from('ccm_invoices')
+        .upload(filePath, selectedFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+        
+      if (uploadError) {
+        throw new Error(`Failed to upload file: ${uploadError.message}`);
+      }
       
       toast({
         title: "Document Uploaded",
-        description: `${selectedFile.name} has been successfully uploaded.`,
+        description: `${selectedFile.name} has been successfully uploaded to CCM storage.`,
       });
       
       // Reset form
       setSelectedFile(null);
       setDocumentType('');
+      setInvoiceNumber('');
       setDescription('');
     } catch (error) {
+      console.error('Upload error:', error);
       toast({
         title: "Upload Failed",
-        description: "There was an error uploading your document.",
+        description: error instanceof Error ? error.message : "There was an error uploading your document.",
         variant: "destructive",
       });
     } finally {
@@ -135,7 +154,6 @@ const DocumentUpload = () => {
                   type="file"
                   className="hidden"
                   id="file-upload"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.png,.jpg,.jpeg"
                   onChange={handleFileSelect}
                 />
                 <Label htmlFor="file-upload">
@@ -165,6 +183,16 @@ const DocumentUpload = () => {
                 </SelectContent>
               </Select>
             </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="invoice-number">Invoice Number (Optional)</Label>
+              <Input
+                id="invoice-number"
+                placeholder="Enter invoice number"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -182,7 +210,7 @@ const DocumentUpload = () => {
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="flex items-center text-sm text-muted-foreground">
               <AlertCircle className="h-4 w-4 mr-2" />
-              Supported formats: PDF, DOC, DOCX, XLS, XLSX, TXT, PNG, JPG
+              All file types supported
             </div>
             <Button 
               onClick={handleUpload}
