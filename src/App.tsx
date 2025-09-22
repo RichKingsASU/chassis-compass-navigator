@@ -36,134 +36,138 @@ import Settings from "./pages/Settings";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={
-            <DashboardLayout>
-              <Dashboard />
-            </DashboardLayout>
-          } />
-          <Route path="/chassis" element={
-            <DashboardLayout>
-              <ChassisManagement />
-            </DashboardLayout>
-          } />
-          <Route path="/tms" element={
-            <DashboardLayout>
-              <TMSData />
-            </DashboardLayout>
-          } />
-          <Route path="/tms/mercury-gate" element={
-            <DashboardLayout>
-              <MercuryGate />
-            </DashboardLayout>
-          } />
-          <Route path="/tms/port-pro" element={
-            <DashboardLayout>
-              <PortPro />
-            </DashboardLayout>
-          } />
-          
-          {/* Yard Report Routes */}
-          <Route path="/yards/pola" element={
-            <DashboardLayout>
-              <POLAYard />
-            </DashboardLayout>
-          } />
-          <Route path="/yards/jed" element={
-            <DashboardLayout>
-              <JEDYard />
-            </DashboardLayout>
-          } />
-          
-          <Route path="/validation" element={
-            <DashboardLayout>
-              <ChassisValidation />
-            </DashboardLayout>
-          } />
-          <Route path="/advanced-features" element={
-            <DashboardLayout>
-              <AdvancedFeatures />
-            </DashboardLayout>
-          } />
-          
-          {/* GPS Provider Routes */}
-          <Route path="/gps/samsara" element={
-            <DashboardLayout>
-              <Samsara />
-            </DashboardLayout>
-          } />
-          <Route path="/gps/blackberry" element={
-            <DashboardLayout>
-              <BlackBerry />
-            </DashboardLayout>
-          } />
-          <Route path="/gps/fleetview" element={
-            <DashboardLayout>
-              <Fleetview />
-            </DashboardLayout>
-          } />
-          <Route path="/gps/fleetlocate" element={
-            <DashboardLayout>
-              <Fleetlocate />
-            </DashboardLayout>
-          } />
-          <Route path="/gps/anytrek" element={
-            <DashboardLayout>
-              <Anytrek />
-            </DashboardLayout>
-          } />
-          
-          {/* Vendor Routes */}
-          <Route path="/vendors/dcli" element={
-            <DashboardLayout>
-              <DCLI />
-            </DashboardLayout>
-          } />
-          <Route path="/vendors/ccm" element={
-            <DashboardLayout>
-              <CCM />
-            </DashboardLayout>
-          } />
-          <Route path="/vendors/scspa" element={
-            <DashboardLayout>
-              <SCSPA />
-            </DashboardLayout>
-          } />
-          <Route path="/vendors/wccp" element={
-            <DashboardLayout>
-              <WCCP />
-            </DashboardLayout>
-          } />
-          <Route path="/vendors/trac" element={
-            <DashboardLayout>
-              <TRAC />
-            </DashboardLayout>
-          } />
-          <Route path="/vendors/flexivan" element={
-            <DashboardLayout>
-              <FLEXIVAN />
-            </DashboardLayout>
-          } />
-          
-          {/* Settings Route */}
-          <Route path="/settings" element={
-            <DashboardLayout>
-              <Settings />
-            </DashboardLayout>
-          } />
-          
-          {/* Catch-all route */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  return (
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <div className="min-h-screen">
+            <Toaster />
+            <Sonner />
+            <Routes>
+              <Route path="/" element={
+                <DashboardLayout>
+                  <Dashboard />
+                </DashboardLayout>
+              } />
+              <Route path="/chassis" element={
+                <DashboardLayout>
+                  <ChassisManagement />
+                </DashboardLayout>
+              } />
+              <Route path="/tms" element={
+                <DashboardLayout>
+                  <TMSData />
+                </DashboardLayout>
+              } />
+              <Route path="/tms/mercury-gate" element={
+                <DashboardLayout>
+                  <MercuryGate />
+                </DashboardLayout>
+              } />
+              <Route path="/tms/port-pro" element={
+                <DashboardLayout>
+                  <PortPro />
+                </DashboardLayout>
+              } />
+              
+              {/* Yard Report Routes */}
+              <Route path="/yards/pola" element={
+                <DashboardLayout>
+                  <POLAYard />
+                </DashboardLayout>
+              } />
+              <Route path="/yards/jed" element={
+                <DashboardLayout>
+                  <JEDYard />
+                </DashboardLayout>
+              } />
+              
+              <Route path="/validation" element={
+                <DashboardLayout>
+                  <ChassisValidation />
+                </DashboardLayout>
+              } />
+              <Route path="/advanced-features" element={
+                <DashboardLayout>
+                  <AdvancedFeatures />
+                </DashboardLayout>
+              } />
+              
+              {/* GPS Provider Routes */}
+              <Route path="/gps/samsara" element={
+                <DashboardLayout>
+                  <Samsara />
+                </DashboardLayout>
+              } />
+              <Route path="/gps/blackberry" element={
+                <DashboardLayout>
+                  <BlackBerry />
+                </DashboardLayout>
+              } />
+              <Route path="/gps/fleetview" element={
+                <DashboardLayout>
+                  <Fleetview />
+                </DashboardLayout>
+              } />
+              <Route path="/gps/fleetlocate" element={
+                <DashboardLayout>
+                  <Fleetlocate />
+                </DashboardLayout>
+              } />
+              <Route path="/gps/anytrek" element={
+                <DashboardLayout>
+                  <Anytrek />
+                </DashboardLayout>
+              } />
+              
+              {/* Vendor Routes */}
+              <Route path="/vendors/dcli" element={
+                <DashboardLayout>
+                  <DCLI />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/ccm" element={
+                <DashboardLayout>
+                  <CCM />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/scspa" element={
+                <DashboardLayout>
+                  <SCSPA />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/wccp" element={
+                <DashboardLayout>
+                  <WCCP />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac" element={
+                <DashboardLayout>
+                  <TRAC />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/flexivan" element={
+                <DashboardLayout>
+                  <FLEXIVAN />
+                </DashboardLayout>
+              } />
+              
+              {/* Settings Route */}
+              <Route path="/settings" element={
+                <DashboardLayout>
+                  <Settings />
+                </DashboardLayout>
+              } />
+              
+              {/* Catch-all route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
+  );
+};
 
 export default App;
