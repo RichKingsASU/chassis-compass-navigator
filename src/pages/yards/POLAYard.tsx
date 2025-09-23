@@ -85,47 +85,27 @@ const POLAYard = () => {
                 className="absolute inset-0 w-full h-full object-cover"
               />
               
-              {/* Overlay with chassis locations */}
-              <div className="absolute inset-0 bg-black/10">
-                {/* Sample chassis locations positioned on the actual layout */}
-                <div className="absolute top-[40%] left-[30%]" title="CMAU1234567 - Available">
-                  <div className="bg-green-500 w-4 h-4 rounded-full border-2 border-white shadow-lg"></div>
-                </div>
-                <div className="absolute top-[45%] left-[45%]" title="TCLU7654321 - Reserved">
-                  <div className="bg-yellow-500 w-4 h-4 rounded-full border-2 border-white shadow-lg"></div>
-                </div>
-                <div className="absolute top-[35%] left-[60%]" title="FSCU5555123 - Maintenance">
-                  <div className="bg-red-500 w-4 h-4 rounded-full border-2 border-white shadow-lg"></div>
-                </div>
-                <div className="absolute top-[50%] left-[35%]" title="NYKU9876543 - Available">
-                  <div className="bg-green-500 w-4 h-4 rounded-full border-2 border-white shadow-lg"></div>
-                </div>
-                <div className="absolute top-[42%] left-[55%]" title="APHU1122334 - In Transit">
-                  <div className="bg-blue-500 w-4 h-4 rounded-full border-2 border-white shadow-lg"></div>
-                </div>
-              </div>
               
-              {/* Legend */}
-              <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-lg">
-                <div className="text-xs font-medium mb-2">Chassis Status</div>
-                <div className="flex flex-col gap-1 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="bg-green-500 w-3 h-3 rounded-full"></div>
-                    <span>Available</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-yellow-500 w-3 h-3 rounded-full"></div>
-                    <span>Reserved</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-red-500 w-3 h-3 rounded-full"></div>
-                    <span>Maintenance</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="bg-blue-500 w-3 h-3 rounded-full"></div>
-                    <span>In Transit</span>
+              {/* Capacity Gauge */}
+              <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm p-4 rounded-lg shadow-lg">
+                <div className="text-xs font-medium mb-3 text-center">Capacity</div>
+                <div className="relative w-16 h-16">
+                  {/* Gauge background */}
+                  <div className="absolute inset-0 rounded-full border-4 border-gray-200"></div>
+                  {/* Gauge fill - 61% capacity (87 available out of 142 total) */}
+                  <div 
+                    className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary border-r-primary"
+                    style={{
+                      transform: 'rotate(-90deg)',
+                      background: `conic-gradient(from 0deg, hsl(var(--primary)) 0% 61%, transparent 61% 100%)`
+                    }}
+                  ></div>
+                  {/* Center text */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-xs font-bold">61%</span>
                   </div>
                 </div>
+                <div className="text-xs text-center mt-2 text-muted-foreground">87/142</div>
               </div>
             </div>
           </CardContent>
