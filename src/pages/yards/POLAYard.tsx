@@ -85,28 +85,6 @@ const POLAYard = () => {
                 className="absolute inset-0 w-full h-full object-cover"
               />
               
-              
-              {/* Capacity Gauge */}
-              <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm p-4 rounded-lg shadow-lg">
-                <div className="text-xs font-medium mb-3 text-center">Capacity</div>
-                <div className="relative w-16 h-16">
-                  {/* Gauge background */}
-                  <div className="absolute inset-0 rounded-full border-4 border-gray-200"></div>
-                  {/* Gauge fill - 61% capacity (87 available out of 142 total) */}
-                  <div 
-                    className="absolute inset-0 rounded-full border-4 border-transparent border-t-primary border-r-primary"
-                    style={{
-                      transform: 'rotate(-90deg)',
-                      background: `conic-gradient(from 0deg, hsl(var(--primary)) 0% 61%, transparent 61% 100%)`
-                    }}
-                  ></div>
-                  {/* Center text */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs font-bold">61%</span>
-                  </div>
-                </div>
-                <div className="text-xs text-center mt-2 text-muted-foreground">87/142</div>
-              </div>
             </div>
           </CardContent>
         </Card>
