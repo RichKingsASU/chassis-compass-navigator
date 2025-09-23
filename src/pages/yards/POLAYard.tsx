@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Map, MapPin, Truck, Clock, AlertTriangle, CheckCircle, Package } from 'lucide-react';
+import { Map, MapPin, Truck, Clock, AlertTriangle, CheckCircle, Package, Bell } from 'lucide-react';
 import pierSGeofence from '@/assets/pier-s-geofence.png';
 
 const POLAYard = () => {
@@ -89,43 +89,55 @@ const POLAYard = () => {
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
+        {/* News & Updates */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-medium flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Recent Activity
+              <Bell className="h-5 w-5" />
+              News & Updates
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                <div>
-                  <p className="font-medium">CMAU1234567</p>
-                  <p className="text-sm text-muted-foreground">Chassis moved to Section A</p>
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-blue-900">Holiday Closure Notice</p>
+                    <p className="text-sm text-blue-700 mt-1">Pier S Yard will be closed December 25-26 for Christmas holiday</p>
+                    <p className="text-xs text-blue-600 mt-1">Posted: Dec 18, 2024</p>
+                  </div>
+                  <Badge className="bg-blue-100 text-blue-800">Important</Badge>
                 </div>
-                <Badge className="bg-green-100 text-green-800">Active</Badge>
               </div>
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                <div>
-                  <p className="font-medium">TCLU7654321</p>
-                  <p className="text-sm text-muted-foreground">Maintenance completed</p>
+              
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-green-900">Extended Hours</p>
+                    <p className="text-sm text-green-700 mt-1">Weekend operations now available 6:00 AM - 10:00 PM</p>
+                    <p className="text-xs text-green-600 mt-1">Effective: Dec 15, 2024</p>
+                  </div>
+                  <Badge className="bg-green-100 text-green-800">Active</Badge>
                 </div>
-                <Badge className="bg-blue-100 text-blue-800">Completed</Badge>
               </div>
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                <div>
-                  <p className="font-medium">FSCU5555123</p>
-                  <p className="text-sm text-muted-foreground">Reserved for pickup</p>
+              
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-yellow-900">Maintenance Window</p>
+                    <p className="text-sm text-yellow-700 mt-1">Section C will have limited access Jan 5-7 for repairs</p>
+                    <p className="text-xs text-yellow-600 mt-1">Scheduled: Jan 5, 2025</p>
+                  </div>
+                  <Badge className="bg-yellow-100 text-yellow-800">Scheduled</Badge>
                 </div>
-                <Badge className="bg-yellow-100 text-yellow-800">Reserved</Badge>
               </div>
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                <div>
-                  <p className="font-medium">NYKU9876543</p>
-                  <p className="text-sm text-muted-foreground">Inspection required</p>
+              
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <div className="text-center">
+                  <p className="font-medium text-sm">Current Operating Hours</p>
+                  <p className="text-xs text-muted-foreground mt-1">Mon-Fri: 5:00 AM - 11:00 PM</p>
+                  <p className="text-xs text-muted-foreground">Sat-Sun: 6:00 AM - 10:00 PM</p>
                 </div>
-                <Badge className="bg-red-100 text-red-800">Alert</Badge>
               </div>
             </div>
           </CardContent>
