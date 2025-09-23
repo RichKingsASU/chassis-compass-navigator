@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Map, MapPin, Truck, Clock, AlertTriangle, CheckCircle, Package } from 'lucide-react';
+import pierSGeofence from '@/assets/pier-s-geofence.png';
 
 const POLAYard = () => {
   return (
@@ -77,35 +78,54 @@ const POLAYard = () => {
           </CardHeader>
           <CardContent className="h-80">
             <div className="relative w-full h-full bg-slate-100 overflow-hidden rounded-md">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-muted-foreground mb-2">Pier S Yard Layout</div>
-                  <div className="text-xs text-muted-foreground">
-                    Interactive yard map with chassis locations
-                  </div>
+              {/* Pier S Geofence Image */}
+              <img 
+                src={pierSGeofence} 
+                alt="Pier S Yard Layout with Geofence Boundary"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              
+              {/* Overlay with chassis locations */}
+              <div className="absolute inset-0 bg-black/10">
+                {/* Sample chassis locations positioned on the actual layout */}
+                <div className="absolute top-[40%] left-[30%]" title="CMAU1234567 - Available">
+                  <div className="bg-green-500 w-4 h-4 rounded-full border-2 border-white shadow-lg"></div>
+                </div>
+                <div className="absolute top-[45%] left-[45%]" title="TCLU7654321 - Reserved">
+                  <div className="bg-yellow-500 w-4 h-4 rounded-full border-2 border-white shadow-lg"></div>
+                </div>
+                <div className="absolute top-[35%] left-[60%]" title="FSCU5555123 - Maintenance">
+                  <div className="bg-red-500 w-4 h-4 rounded-full border-2 border-white shadow-lg"></div>
+                </div>
+                <div className="absolute top-[50%] left-[35%]" title="NYKU9876543 - Available">
+                  <div className="bg-green-500 w-4 h-4 rounded-full border-2 border-white shadow-lg"></div>
+                </div>
+                <div className="absolute top-[42%] left-[55%]" title="APHU1122334 - In Transit">
+                  <div className="bg-blue-500 w-4 h-4 rounded-full border-2 border-white shadow-lg"></div>
                 </div>
               </div>
               
-              {/* Sample yard layout */}
-              <svg className="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 400 300">
-                <rect x="50" y="50" width="300" height="200" stroke="#1A2942" strokeWidth="2" fill="transparent"/>
-                <rect x="80" y="80" width="60" height="40" fill="#e2e8f0"/>
-                <rect x="160" y="80" width="60" height="40" fill="#e2e8f0"/>
-                <rect x="240" y="80" width="60" height="40" fill="#e2e8f0"/>
-                <rect x="80" y="180" width="60" height="40" fill="#e2e8f0"/>
-                <rect x="160" y="180" width="60" height="40" fill="#e2e8f0"/>
-                <rect x="240" y="180" width="60" height="40" fill="#e2e8f0"/>
-              </svg>
-              
-              {/* Sample chassis locations */}
-              <div className="absolute top-[35%] left-[25%]">
-                <div className="bg-green-500 w-3 h-3 rounded-full"></div>
-              </div>
-              <div className="absolute top-[35%] left-[45%]">
-                <div className="bg-yellow-500 w-3 h-3 rounded-full"></div>
-              </div>
-              <div className="absolute top-[65%] left-[35%]">
-                <div className="bg-red-500 w-3 h-3 rounded-full"></div>
+              {/* Legend */}
+              <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm p-3 rounded-lg shadow-lg">
+                <div className="text-xs font-medium mb-2">Chassis Status</div>
+                <div className="flex flex-col gap-1 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-green-500 w-3 h-3 rounded-full"></div>
+                    <span>Available</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-yellow-500 w-3 h-3 rounded-full"></div>
+                    <span>Reserved</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-red-500 w-3 h-3 rounded-full"></div>
+                    <span>Maintenance</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="bg-blue-500 w-3 h-3 rounded-full"></div>
+                    <span>In Transit</span>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
