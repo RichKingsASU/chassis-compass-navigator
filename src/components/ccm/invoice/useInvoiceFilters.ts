@@ -34,6 +34,17 @@ export const useInvoiceFilters = (invoices: Invoice[]) => {
       invoice.invoice_number?.toLowerCase().includes(filters.searchQuery.toLowerCase()) || 
       invoice.reason_for_dispute?.toLowerCase().includes(filters.searchQuery.toLowerCase());
     
+    // Debug logging
+    console.log('Filtering invoice:', {
+      invoice: invoice.invoice_number,
+      fileType: invoice.fileType,
+      selectedFileType: filters.selectedFileType,
+      fileTypeMatch,
+      vendorMatch,
+      statusMatch,
+      searchMatch
+    });
+    
     return vendorMatch && statusMatch && fileTypeMatch && searchMatch;
   });
 
