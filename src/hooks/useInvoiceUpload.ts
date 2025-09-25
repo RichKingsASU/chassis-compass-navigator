@@ -44,16 +44,29 @@ export const useInvoiceUpload = (fetchInvoices: () => Promise<void>, fetchExcelD
         : [];
       
       // 1. Upload file to storage - USING THE CORRECT BUCKET NAME
+      console.log("Starting file upload:", { fileName, filePath, fileSize: file.size, fileType: file.type });
+      
       const { data: uploadedFile, error: uploadError } = await supabase.storage
-        .from('invoices')  // Changed from 'invoice_files' to 'invoices'
+        .from('invoices')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
         });
         
       if (uploadError) {
-        console.error("File upload error:", uploadError);
+        console.error("File upload error details:", {
+          error: uploadError,
+          message: uploadError.message,
+          filePath,
+          fileName,
+          fileSize: file.size
+        });
         throw new Error(`Failed to upload file: ${uploadError.message}`);
+      }
+      
+      if (!uploadedFile) {
+        console.error("No upload data returned but no error");
+        throw new Error("File upload failed - no data returned");
       }
       
       console.log("File uploaded successfully:", uploadedFile);
