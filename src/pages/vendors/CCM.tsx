@@ -10,8 +10,10 @@ const CCM = () => {
       </div>
       
       <Tabs defaultValue="dashboard" className="space-y-4">
-        
-        
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices</TabsTrigger>
+        </TabsList>
         <TabsContent value="dashboard" className="space-y-4">
           <CCMDashboard />
         </TabsContent>
