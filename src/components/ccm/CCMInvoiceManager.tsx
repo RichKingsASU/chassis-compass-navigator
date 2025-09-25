@@ -1,7 +1,5 @@
 
 import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InvoiceTable from './invoice/InvoiceTable';
@@ -11,8 +9,6 @@ import ExcelDataTable from './invoice/ExcelDataTable';
 import InvoiceDetailView from './invoice/InvoiceDetailView';
 import { useInvoiceData } from '@/hooks/useInvoiceData';
 import { useInvoiceFilters } from './invoice/useInvoiceFilters';
-import { useInvoiceUpload } from '@/hooks/useInvoiceUpload';
-import InvoiceUploadDialog from './invoice/components/InvoiceUploadDialog';
 import { Invoice } from './invoice/types';
 
 const CCMInvoiceManager: React.FC = () => {
@@ -39,13 +35,6 @@ const CCMInvoiceManager: React.FC = () => {
     setSearchQuery,
     filteredInvoices
   } = useInvoiceFilters(invoices);
-  
-  const {
-    isUploading,
-    openDialog,
-    setOpenDialog,
-    onSubmit
-  } = useInvoiceUpload(fetchInvoices, fetchExcelData, activeTab);
 
   // Fetch Excel data when active tab changes
   useEffect(() => {
@@ -81,14 +70,6 @@ const CCMInvoiceManager: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Upload Dialog */}
-      <InvoiceUploadDialog
-        onSubmit={onSubmit}
-        isUploading={isUploading}
-        openDialog={openDialog}
-        setOpenDialog={setOpenDialog}
-      />
-      
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="mb-4">
@@ -105,10 +86,6 @@ const CCMInvoiceManager: React.FC = () => {
                   <CardTitle className="text-lg font-medium">Invoice Management</CardTitle>
                   <CardDescription>Manage and track all your invoice documents</CardDescription>
                 </div>
-                <Button onClick={() => setOpenDialog(true)} className="flex items-center gap-2">
-                  <Upload className="h-4 w-4" />
-                  Upload Invoice
-                </Button>
               </div>
             </CardHeader>
             <CardContent>
