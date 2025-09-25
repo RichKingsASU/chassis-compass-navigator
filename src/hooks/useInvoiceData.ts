@@ -28,7 +28,7 @@ export const useInvoiceData = () => {
         let fileType = 'pdf';
         if (invoice.file_name) {
           const ext = invoice.file_name.split('.').pop()?.toLowerCase();
-          if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') fileType = 'excel';
+          if (['xlsx', 'xls', 'xlsb', 'csv'].includes(ext || '')) fileType = 'excel';
           else if (ext === 'eml' || ext === 'msg') fileType = 'email';
           else if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) fileType = 'image';
         }
