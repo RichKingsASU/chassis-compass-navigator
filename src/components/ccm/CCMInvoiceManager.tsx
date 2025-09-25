@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Upload } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InvoiceTable from './invoice/InvoiceTable';
@@ -103,6 +105,10 @@ const CCMInvoiceManager: React.FC = () => {
                   <CardTitle className="text-lg font-medium">Invoice Management</CardTitle>
                   <CardDescription>Manage and track all your invoice documents</CardDescription>
                 </div>
+                <Button onClick={() => setOpenDialog(true)} className="flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  Upload Invoice
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
