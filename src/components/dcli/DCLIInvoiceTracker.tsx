@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter, Eye, Download, Plus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Filter, Download, Plus, FileText, AlertCircle } from "lucide-react";
 import { useDCLIData } from '@/hooks/useDCLIData';
 
 interface DCLIInvoiceTrackerProps {
@@ -15,56 +16,115 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
   const { invoiceData, loading } = useDCLIData();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [carrierFilter, setCarrierFilter] = useState('all');
-
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      'Active': { variant: 'default', color: 'bg-green-100 text-green-800 border-green-200' },
-      'Pending': { variant: 'secondary', color: 'bg-amber-100 text-amber-800 border-amber-200' },
-      'On Hold': { variant: 'destructive', color: 'bg-red-100 text-red-800 border-red-200' },
-      'Completed': { variant: 'outline', color: 'bg-gray-100 text-gray-800 border-gray-200' }
-    };
-    
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig['Completed'];
-    
-    return (
-      <Badge className={config.color}>
-        {status || 'Unknown'}
-      </Badge>
-    );
-  };
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
     try {
-      return new Date(dateString).toLocaleDateString();
+      return new Date(dateString).toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric'
+      });
     } catch {
       return dateString;
     }
   };
 
   const formatCurrency = (amount: string | number) => {
-    if (!amount) return '$0';
+    if (!amount) return '$0.00';
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return isNaN(numAmount) ? '$0' : `$${numAmount.toLocaleString()}`;
+    return isNaN(numAmount) ? '$0.00' : `$${numAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
   };
 
+  // Generate mock invoice data based on DCLI activity data
+  const generateInvoiceData = (records: any[]) => {
+    return records.map((record, index) => {
+      const invoiceNumber = `INV${String(1000000 + index).slice(-6)}`;
+      const invoiceTotal = Math.random() * 5000 + 500;
+      const remainingBalance = Math.random() * invoiceTotal;
+      const isOverdue = Math.random() > 0.7;
+      const isDisputed = Math.random() > 0.8;
+      
+      return {
+        ...record,
+        invoiceNumber,
+        billingDate: record.date_out || record.created_date,
+        invoiceType: record.asset_type === 'Container' ? 'CMS DAILY USE INV' : 'M&R REBILL INV',
+        invoiceTotal,
+        remainingBalance,
+        dueDate: new Date(new Date(record.date_out || Date.now()).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        invoiceStatus: remainingBalance < 10 ? 'Closed' : 'Open',
+        disputeStatus: isDisputed ? 'Disputed' : null,
+        hasAttachment: Math.random() > 0.3
+      };
+    });
+  };
+
+  const invoiceRecords = generateInvoiceData(invoiceData);
+
   // Filter data based on search and filters
-  const filteredData = invoiceData.filter(record => {
+  const filteredData = invoiceRecords.filter(record => {
     const matchesSearch = !searchQuery || 
       Object.values(record).some(value => 
         value?.toString().toLowerCase().includes(searchQuery.toLowerCase())
       );
     
-    const matchesStatus = statusFilter === 'all' || record.reservation_status === statusFilter;
-    const matchesCarrier = carrierFilter === 'all' || record.motor_carrier_name === carrierFilter;
+    const matchesStatus = statusFilter === 'all' || record.invoiceStatus === statusFilter;
+    const matchesType = typeFilter === 'all' || record.invoiceType === typeFilter;
     
-    return matchesSearch && matchesStatus && matchesCarrier;
+    return matchesSearch && matchesStatus && matchesType;
   });
 
-  // Get unique values for filters
-  const uniqueStatuses = [...new Set(invoiceData.map(r => r.reservation_status).filter(Boolean))];
-  const uniqueCarriers = [...new Set(invoiceData.map(r => r.motor_carrier_name).filter(Boolean))];
+  // Pagination
+  const totalRecords = filteredData.length;
+  const totalPages = Math.ceil(totalRecords / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = Math.min(startIndex + rowsPerPage, totalRecords);
+  const paginatedData = filteredData.slice(startIndex, endIndex);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = paginatedData.map((_, index) => `${startIndex + index}`);
+      setSelectedItems(new Set(allIds));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleSelectItem = (index: string, checked: boolean) => {
+    const newSelected = new Set(selectedItems);
+    if (checked) {
+      newSelected.add(index);
+    } else {
+      newSelected.delete(index);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const getStatusBadge = (status: string) => {
+    return status === 'Open' ? (
+      <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">
+        Open
+      </Badge>
+    ) : (
+      <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
+        Closed
+      </Badge>
+    );
+  };
+
+  const getDisputeBadge = (disputeStatus: string | null) => {
+    if (!disputeStatus) return null;
+    return (
+      <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
+        {disputeStatus}
+      </Badge>
+    );
+  };
 
   if (loading) {
     return (
@@ -77,8 +137,8 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
         </CardHeader>
         <CardContent>
           <div className="animate-pulse space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-16 bg-muted rounded"></div>
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="h-12 bg-muted rounded"></div>
             ))}
           </div>
         </CardContent>
@@ -113,7 +173,7 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search chassis, container, booking..."
+                placeholder="Search invoice number, type..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -125,20 +185,19 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                {uniqueStatuses.map(status => (
-                  <SelectItem key={status} value={status}>{status}</SelectItem>
-                ))}
+                <SelectItem value="Open">Open</SelectItem>
+                <SelectItem value="Closed">Closed</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={carrierFilter} onValueChange={setCarrierFilter}>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
               <SelectTrigger>
-                <SelectValue placeholder="All Carriers" />
+                <SelectValue placeholder="All Types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Carriers</SelectItem>
-                {uniqueCarriers.map(carrier => (
-                  <SelectItem key={carrier} value={carrier}>{carrier}</SelectItem>
-                ))}
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="CMS DAILY USE INV">CMS Daily Use</SelectItem>
+                <SelectItem value="M&R REBILL INV">M&R Rebill</SelectItem>
+                <SelectItem value="TOLL & VIOLATION INV">Toll & Violation</SelectItem>
               </SelectContent>
             </Select>
             <Button variant="outline" className="w-full">
@@ -152,99 +211,103 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
       {/* Results Summary */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Showing {filteredData.length} of {invoiceData.length} records
+          Showing {startIndex + 1}–{endIndex} of {totalRecords} records
         </p>
-        <div className="text-sm text-muted-foreground">
-          Total Value: {formatCurrency(filteredData.reduce((sum, record) => {
-            const amount = parseFloat(record.amount || '0');
-            return sum + (isNaN(amount) ? 0 : amount);
-          }, 0))}
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-muted-foreground">Rows per page:</span>
+          <Select value={rowsPerPage.toString()} onValueChange={(value) => {
+            setRowsPerPage(parseInt(value));
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+              <SelectItem value="500">500</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {/* Records Table */}
+      {/* Invoice Table */}
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="border-b bg-muted/50">
+              <thead className="border-b bg-gray-50/50">
                 <tr>
-                  <th className="text-left p-4 font-medium">Asset Info</th>
-                  <th className="text-left p-4 font-medium">Carrier</th>
-                  <th className="text-left p-4 font-medium">Status</th>
-                  <th className="text-left p-4 font-medium">Dates</th>
-                  <th className="text-left p-4 font-medium">Location</th>
-                  <th className="text-left p-4 font-medium">Actions</th>
+                  <th className="text-left p-3 w-12">
+                    <Checkbox
+                      checked={selectedItems.size === paginatedData.length && paginatedData.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Actions</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Number</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Billing Date</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Type</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Total</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Remaining Balance</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Due Date</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Status</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Dispute Status</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Attachments</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredData.map((record, index) => (
-                  <tr key={index} className="border-b hover:bg-muted/25 transition-colors">
-                    <td className="p-4">
-                      <div className="space-y-1">
-                        <div className="font-medium text-sm">
-                          {record.chassis || 'No Chassis'}
+                {paginatedData.map((record, index) => {
+                  const globalIndex = `${startIndex + index}`;
+                  return (
+                    <tr key={globalIndex} className="border-b hover:bg-gray-50/50 transition-colors">
+                      <td className="p-3">
+                        <Checkbox
+                          checked={selectedItems.has(globalIndex)}
+                          onCheckedChange={(checked) => handleSelectItem(globalIndex, checked as boolean)}
+                        />
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center space-x-1 text-sm">
+                          <button 
+                            onClick={() => onViewDetail(record)}
+                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            View
+                          </button>
+                          <span className="text-gray-400">|</span>
+                          <button className="text-blue-600 hover:text-blue-800 hover:underline">
+                            Pay
+                          </button>
+                          <span className="text-gray-400">|</span>
+                          <button className="text-blue-600 hover:text-blue-800 hover:underline">
+                            Dispute
+                          </button>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          Container: {record.container || 'N/A'}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Serial: {record.serial_number || 'N/A'}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="space-y-1">
-                        <div className="font-medium text-sm">
-                          {record.motor_carrier_name || 'Unknown Carrier'}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          SCAC: {record.motor_carrier_scac || 'N/A'}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="space-y-2">
-                        {getStatusBadge(record.reservation_status)}
-                        {record.request_status && (
-                          <div className="text-xs text-muted-foreground">
-                            Request: {record.request_status}
+                      </td>
+                      <td className="p-3 font-medium text-sm">{record.invoiceNumber}</td>
+                      <td className="p-3 text-sm">{formatDate(record.billingDate)}</td>
+                      <td className="p-3 text-sm">{record.invoiceType}</td>
+                      <td className="p-3 text-sm font-medium">{formatCurrency(record.invoiceTotal)}</td>
+                      <td className="p-3 text-sm font-medium">{formatCurrency(record.remainingBalance)}</td>
+                      <td className="p-3 text-sm">{formatDate(record.dueDate)}</td>
+                      <td className="p-3">{getStatusBadge(record.invoiceStatus)}</td>
+                      <td className="p-3">{getDisputeBadge(record.disputeStatus)}</td>
+                      <td className="p-3">
+                        {record.hasAttachment && (
+                          <div className="flex items-center">
+                            {record.disputeStatus ? (
+                              <AlertCircle className="h-4 w-4 text-red-600" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-red-600" />
+                            )}
                           </div>
                         )}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="space-y-1 text-xs">
-                        <div>Out: {formatDate(record.date_out)}</div>
-                        <div>In: {formatDate(record.date_in)}</div>
-                        {record.days_out && (
-                          <div className="text-muted-foreground">
-                            {record.days_out} days out
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="space-y-1 text-xs">
-                        <div>{record.pick_up_location || 'N/A'}</div>
-                        <div className="text-muted-foreground">
-                          {record.region || 'Unknown Region'}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-4">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onViewDetail(record)}
-                        className="hover:bg-primary/10"
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        View
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -252,12 +315,12 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
           {filteredData.length === 0 && (
             <div className="text-center py-12">
               <div className="text-muted-foreground">
-                No records found matching your criteria
+                No invoices found matching your criteria
               </div>
               <Button variant="outline" className="mt-4" onClick={() => {
                 setSearchQuery('');
                 setStatusFilter('all');
-                setCarrierFilter('all');
+                setTypeFilter('all');
               }}>
                 Clear Filters
               </Button>
@@ -265,6 +328,36 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            {startIndex + 1}–{endIndex} of {totalRecords}
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
