@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -6,20 +6,49 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Filter, Download, Plus, FileText, AlertCircle } from "lucide-react";
-import { useDCLIData } from '@/hooks/useDCLIData';
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface DCLIInvoiceTrackerProps {
   onViewDetail: (record: any) => void;
 }
 
 const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail }) => {
-  const { invoiceData, loading } = useDCLIData();
+  const [invoiceData, setInvoiceData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
+
+  const fetchInvoices = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('dcli_invoices' as any)
+        .select('*')
+        .order('invoice_date', { ascending: false });
+
+      if (error) throw error;
+      setInvoiceData(data || []);
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load invoices",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
