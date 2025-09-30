@@ -2,6 +2,7 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DCLIFinancialPulse from './DCLIFinancialPulse';
 import DCLIInvoiceTracker from './DCLIInvoiceTracker';
+import DCLIInvoiceLineReview from './DCLIInvoiceLineReview';
 import DCLIDetailView from './DCLIDetailView';
 import { useDCLIData } from '@/hooks/useDCLIData';
 
@@ -21,16 +22,16 @@ const DCLIDashboard = () => {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">DCLI Finance Flow</h1>
-          <p className="text-muted-foreground">Empowering Partnership Through Transparency</p>
+          <h1 className="text-3xl font-bold tracking-tight">DCLI Control Center</h1>
+          <p className="text-muted-foreground">From Reporting to Resolution - Actionable Finance Management</p>
         </div>
       </div>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full md:w-[600px] grid-cols-3">
-          <TabsTrigger value="dashboard">Financial Pulse</TabsTrigger>
+        <TabsList className="grid w-full md:w-[700px] grid-cols-3">
+          <TabsTrigger value="dashboard">Vendor Health</TabsTrigger>
           <TabsTrigger value="tracker">Invoice Tracker</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="review">Line-Item Review</TabsTrigger>
         </TabsList>
         
         <TabsContent value="dashboard" className="space-y-6 pt-4">
@@ -41,10 +42,8 @@ const DCLIDashboard = () => {
           <DCLIInvoiceTracker onViewDetail={setSelectedRecord} />
         </TabsContent>
         
-        <TabsContent value="analytics" className="pt-4">
-          <div className="text-center text-muted-foreground py-12">
-            Analytics view coming soon - focusing on actionable insights and trends
-          </div>
+        <TabsContent value="review" className="pt-4">
+          <DCLIInvoiceLineReview onViewDetail={setSelectedRecord} />
         </TabsContent>
       </Tabs>
     </div>
