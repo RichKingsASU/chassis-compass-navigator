@@ -2,7 +2,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ExtractedData } from '@/pages/dcli/NewInvoice';
-import { DollarSign, FileText, AlertCircle } from 'lucide-react';
+import { DollarSign } from 'lucide-react';
 
 interface InvoiceSummaryCardProps {
   extractedData: ExtractedData | null;
@@ -21,18 +21,11 @@ const InvoiceSummaryCard: React.FC<InvoiceSummaryCardProps> = ({ extractedData, 
     );
   }
 
-  const totalAmount = extractedData.line_items.reduce(
-    (sum, item) => sum + Number(item.invoice_total || 0),
-    0
-  );
   const itemCount = extractedData.line_items.length;
   const openCount = extractedData.line_items.filter((item) => item.invoice_status === 'Open').length;
   const closedCount = extractedData.line_items.filter(
     (item) => item.invoice_status === 'Closed'
   ).length;
-
-  const delta = Math.abs(totalAmount - Number(extractedData.invoice.amount_due));
-  const hasDelta = delta > 0.01;
 
   return (
     <Card className="p-6 sticky top-6">
@@ -58,33 +51,6 @@ const InvoiceSummaryCard: React.FC<InvoiceSummaryCardProps> = ({ extractedData, 
             })}
           </div>
         </div>
-
-        {/* Line Items Total */}
-        <div>
-          <div className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
-            <FileText className="w-3 h-3" />
-            Line Items Total
-          </div>
-          <div className="text-xl font-semibold">
-            ${totalAmount.toLocaleString('en-US', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </div>
-        </div>
-
-        {/* Delta Alert */}
-        {hasDelta && (
-          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-            <div className="flex items-center gap-2 text-destructive font-semibold text-sm mb-1">
-              <AlertCircle className="w-4 h-4" />
-              Amount Mismatch
-            </div>
-            <div className="text-sm">
-              Delta: ${delta.toFixed(2)}
-            </div>
-          </div>
-        )}
 
         <div className="border-t pt-4">
           <div className="text-sm text-muted-foreground mb-2">Line Items</div>

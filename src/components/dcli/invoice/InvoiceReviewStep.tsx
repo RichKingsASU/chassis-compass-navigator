@@ -157,19 +157,19 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
       </Card>
 
       {/* Line Items Table - Full Excel Data */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-bold">Line Items - Full Data Review ({lineItems.length})</h2>
         </div>
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="text-sm text-muted-foreground mb-3">
           Review all extracted data from the Excel file. Scroll horizontally to see all columns.
         </p>
-        <div className="overflow-auto max-h-[70vh] border rounded-lg">
+        <div className="overflow-auto border rounded-lg" style={{ maxHeight: 'calc(100vh - 400px)', minHeight: '500px' }}>
           <table className="w-full border-collapse text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="border-b bg-muted">
                 {extractedData?.excel_headers?.map((header, idx) => (
-                  <th key={idx} className="text-left p-3 font-semibold whitespace-nowrap min-w-[150px] bg-muted">
+                  <th key={idx} className="text-left p-3 font-semibold whitespace-nowrap min-w-[180px] bg-muted">
                     {header}
                   </th>
                 ))}
@@ -177,7 +177,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
             </thead>
             <tbody>
               {lineItems.map((item, rowIndex) => (
-                <tr key={rowIndex} className="border-b hover:bg-muted/50">
+                <tr key={rowIndex} className="border-b hover:bg-muted/30">
                   {extractedData?.excel_headers?.map((header, colIndex) => {
                     const cellValue = item.row_data?.[header];
                     let displayValue = '—';
@@ -193,7 +193,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
                     }
                     
                     return (
-                      <td key={colIndex} className="p-3 whitespace-nowrap border-r last:border-r-0">
+                      <td key={colIndex} className="p-3 whitespace-nowrap border-r last:border-r-0 text-sm">
                         {displayValue}
                       </td>
                     );
