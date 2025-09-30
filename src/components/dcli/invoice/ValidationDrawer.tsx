@@ -33,8 +33,7 @@ interface ValidationDrawerProps {
       container: string;
       match_confidence: number;
       match_type: 'exact' | 'fuzzy' | 'mismatch';
-      tms_matches: TMSMatch[];
-      match_count: number;
+      tms_match: TMSMatch | null;
     }>;
     errors: string[];
   };
@@ -152,7 +151,7 @@ const MatchTable = ({
             <TableHead>Line Invoice #</TableHead>
             <TableHead>Equipment</TableHead>
             <TableHead>Confidence</TableHead>
-            <TableHead>TMS Matches (LD/SO Numbers)</TableHead>
+            <TableHead>TMS Match (LD/SO Numbers)</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -167,91 +166,69 @@ const MatchTable = ({
               </TableCell>
               <TableCell className="align-top">
                 <Badge variant={getBadgeVariant(type)}>{match.match_confidence}%</Badge>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {match.match_count} match{match.match_count !== 1 ? 'es' : ''}
-                </div>
               </TableCell>
               <TableCell>
-                {Array.isArray(match.tms_matches) && match.tms_matches.length > 0 ? (
-                  <div className="space-y-2">
-                    {match.tms_matches.map((tmsMatch: TMSMatch, matchIdx: number) => (
-                      <Card
-                        key={matchIdx}
-                        className="p-3 bg-muted/30 border-l-4"
-                        style={{
-                          borderLeftColor:
-                            tmsMatch.confidence >= 90
-                              ? 'hsl(var(--primary))'
-                              : tmsMatch.confidence >= 60
-                              ? 'hsl(var(--secondary))'
-                              : 'hsl(var(--destructive))',
-                        }}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-semibold">Match {matchIdx + 1}</span>
-                          <Badge
-                            variant={
-                              tmsMatch.confidence >= 90
-                                ? 'default'
-                                : tmsMatch.confidence >= 60
-                                ? 'secondary'
-                                : 'outline'
-                            }
-                          >
-                            {tmsMatch.confidence}%
-                          </Badge>
+                {match.tms_match ? (
+                  <Card
+                    className="p-3 bg-muted/30 border-l-4"
+                    style={{
+                      borderLeftColor:
+                        match.tms_match.confidence >= 90
+                          ? 'hsl(var(--primary))'
+                          : match.tms_match.confidence >= 60
+                          ? 'hsl(var(--secondary))'
+                          : 'hsl(var(--destructive))',
+                    }}
+                  >
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                      <div>
+                        <span className="font-medium">LD#:</span>{' '}
+                        <span className="font-mono">{match.tms_match.ld_num || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">SO#:</span>{' '}
+                        <span className="font-mono">{match.tms_match.so_num || 'N/A'}</span>
+                      </div>
+                      {match.tms_match.shipment_number && (
+                        <div className="col-span-2">
+                          <span className="font-medium">Shipment:</span>{' '}
+                          <span className="font-mono">{match.tms_match.shipment_number}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                          <div>
-                            <span className="font-medium">LD#:</span>{' '}
-                            <span className="font-mono">{tmsMatch.ld_num || 'N/A'}</span>
-                          </div>
-                          <div>
-                            <span className="font-medium">SO#:</span>{' '}
-                            <span className="font-mono">{tmsMatch.so_num || 'N/A'}</span>
-                          </div>
-                          {tmsMatch.shipment_number && (
-                            <div className="col-span-2">
-                              <span className="font-medium">Shipment:</span>{' '}
-                              <span className="font-mono">{tmsMatch.shipment_number}</span>
-                            </div>
-                          )}
-                          <div>
-                            <span className="font-medium">Chassis:</span>{' '}
-                            <span className="font-mono">{tmsMatch.chassis_number || 'N/A'}</span>
-                          </div>
-                          <div>
-                            <span className="font-medium">Container:</span>{' '}
-                            <span className="font-mono">{tmsMatch.container_number || 'N/A'}</span>
-                          </div>
-                          {tmsMatch.carrier_name && (
-                            <div className="col-span-2">
-                              <span className="font-medium">Carrier:</span> {tmsMatch.carrier_name}
-                            </div>
-                          )}
-                          {tmsMatch.customer_name && (
-                            <div className="col-span-2">
-                              <span className="font-medium">Customer:</span> {tmsMatch.customer_name}
-                            </div>
-                          )}
+                      )}
+                      <div>
+                        <span className="font-medium">Chassis:</span>{' '}
+                        <span className="font-mono">{match.tms_match.chassis_number || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Container:</span>{' '}
+                        <span className="font-mono">{match.tms_match.container_number || 'N/A'}</span>
+                      </div>
+                      {match.tms_match.carrier_name && (
+                        <div className="col-span-2">
+                          <span className="font-medium">Carrier:</span> {match.tms_match.carrier_name}
                         </div>
-                        {Array.isArray(tmsMatch.match_reasons) && tmsMatch.match_reasons.length > 0 && (
-                          <div className="mt-2 pt-2 border-t border-border/50">
-                            <div className="text-xs font-medium mb-1">Match Reasons:</div>
-                            <div className="flex flex-wrap gap-1">
-                              {tmsMatch.match_reasons?.filter(Boolean).map((reason, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  {reason}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </Card>
-                    ))}
-                  </div>
+                      )}
+                      {match.tms_match.customer_name && (
+                        <div className="col-span-2">
+                          <span className="font-medium">Customer:</span> {match.tms_match.customer_name}
+                        </div>
+                      )}
+                    </div>
+                    {Array.isArray(match.tms_match.match_reasons) && match.tms_match.match_reasons.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-border/50">
+                        <div className="text-xs font-medium mb-1">Match Reasons:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {match.tms_match.match_reasons.filter(Boolean).map((reason, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">
+                              {reason}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </Card>
                 ) : (
-                  <span className="text-xs text-muted-foreground">No TMS matches found</span>
+                  <span className="text-xs text-muted-foreground">No TMS match found</span>
                 )}
               </TableCell>
             </TableRow>
