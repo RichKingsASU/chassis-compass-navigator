@@ -25,45 +25,76 @@ interface DCLIInvoiceLineReviewProps {
 }
 
 const DCLIInvoiceLineReview: React.FC<DCLIInvoiceLineReviewProps> = ({ onViewDetail }) => {
-  const { invoiceData, loading } = useDCLIData();
+  const { invoiceData, activityData, loading } = useDCLIData();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [internalStatusFilter, setInternalStatusFilter] = useState('all');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [expandedInvoice, setExpandedInvoice] = useState<string | null>(null);
 
-  // Mock line item data - in real implementation, this would come from a line_items table
-  const generateLineItems = (invoiceId: string) => {
+  // Generate line items based on actual activity data and invoice context
+  const generateLineItems = (invoice: any) => {
+    // Find related activities for this invoice
+    const relatedActivities = activityData.filter(activity => 
+      activity.chassis === invoice.chassis_number ||
+      activity.container === invoice.container ||
+      activity.booking === invoice.booking
+    );
+    
+    // If we have related activities, use them; otherwise create realistic mock data
+    if (relatedActivities.length > 0) {
+      return relatedActivities.slice(0, 3).map((activity, i) => ({
+        id: `${invoice.invoice_id}-line-${i + 1}`,
+        lineNumber: i + 1,
+        description: `${activity.product || 'Chassis Usage'} - ${activity.asset_type || 'Standard'}`,
+        chassisNumber: activity.chassis || invoice.chassis_number,
+        container: activity.container,
+        useDays: activity.days_out || Math.floor(Math.random() * 30) + 1,
+        dailyRate: invoice.daily_rate || 35,
+        amount: (activity.days_out || Math.floor(Math.random() * 30) + 1) * (invoice.daily_rate || 35),
+        validated: Math.random() > 0.3,
+        hasAttachment: Math.random() > 0.4,
+        internalStatus: ['NEED TO DISPUTE', 'OK TO PAY', 'EMAILED AM', 'PENDING REVIEW'][Math.floor(Math.random() * 4)],
+        variance: Math.floor(Math.random() * 5) - 2,
+        pickupLocation: activity.pick_up_location,
+        dropLocation: activity.location_in,
+        carrierName: activity.motor_carrier_name,
+        steamshipLine: activity.steamship_line_name,
+        booking: activity.booking,
+        reservationStatus: activity.reservation_status,
+        region: activity.region,
+        market: activity.market
+      }));
+    }
+    
+    // Fallback to generated line items if no activity data
     const lineTypes = [
       'Chassis Daily Use',
-      'Maintenance & Repair',
-      'Toll Charges',
-      'Violation Fees',
+      'Maintenance & Repair', 
       'Storage Fees',
       'Inspection Charges'
     ];
     
-    const internalStatuses = [
-      'NEED TO DISPUTE',
-      'OK TO PAY',
-      'EMAILED AM',
-      'PENDING REVIEW',
-      'APPROVED',
-      'REJECTED'
-    ];
-
-    return Array.from({ length: Math.floor(Math.random() * 5) + 2 }, (_, i) => ({
-      id: `${invoiceId}-line-${i + 1}`,
+    return Array.from({ length: Math.floor(Math.random() * 3) + 2 }, (_, i) => ({
+      id: `${invoice.invoice_id}-line-${i + 1}`,
       lineNumber: i + 1,
       description: lineTypes[Math.floor(Math.random() * lineTypes.length)],
-      chassisNumber: `CH${Math.random().toString().substr(2, 6)}`,
+      chassisNumber: invoice.chassis_number,
+      container: invoice.container,
       useDays: Math.floor(Math.random() * 30) + 1,
       dailyRate: 35 + Math.floor(Math.random() * 15),
-      amount: (35 + Math.floor(Math.random() * 15)) * (Math.floor(Math.random() * 30) + 1),
+      amount: (Math.floor(Math.random() * 30) + 1) * (35 + Math.floor(Math.random() * 15)),
       validated: Math.random() > 0.3,
       hasAttachment: Math.random() > 0.4,
-      internalStatus: internalStatuses[Math.floor(Math.random() * internalStatuses.length)],
-      variance: Math.floor(Math.random() * 5) - 2, // -2 to +2 day variance
+      internalStatus: ['NEED TO DISPUTE', 'OK TO PAY', 'EMAILED AM', 'PENDING REVIEW'][Math.floor(Math.random() * 4)],
+      variance: Math.floor(Math.random() * 5) - 2,
+      pickupLocation: invoice.pick_up_location,
+      dropLocation: invoice.location_in,
+      carrierName: invoice.carrier_name,
+      steamshipLine: invoice.steamship_line,
+      booking: invoice.booking,
+      region: invoice.region,
+      market: invoice.market
     }));
   };
 
@@ -213,7 +244,7 @@ const DCLIInvoiceLineReview: React.FC<DCLIInvoiceLineReviewProps> = ({ onViewDet
       {/* Invoice List with Expandable Line Items */}
       <div className="space-y-4">
         {filteredInvoices.map((invoice) => {
-          const lineItems = generateLineItems(invoice.invoice_id);
+          const lineItems = generateLineItems(invoice);
           const isExpanded = expandedInvoice === invoice.invoice_id;
           
           return (
@@ -265,7 +296,10 @@ const DCLIInvoiceLineReview: React.FC<DCLIInvoiceLineReviewProps> = ({ onViewDet
                           <div className="grid grid-cols-4 gap-4 text-sm">
                             <div>
                               <div className="font-medium">{lineItem.description}</div>
-                              <div className="text-muted-foreground">Chassis: {lineItem.chassisNumber}</div>
+                              <div className="text-muted-foreground">
+                                Chassis: {lineItem.chassisNumber}
+                                {lineItem.container && ` • Container: ${lineItem.container}`}
+                              </div>
                             </div>
                             <div>
                               <div className="font-medium">{lineItem.useDays} days</div>
@@ -274,6 +308,9 @@ const DCLIInvoiceLineReview: React.FC<DCLIInvoiceLineReviewProps> = ({ onViewDet
                                   <span className={lineItem.variance > 0 ? 'text-red-600' : 'text-green-600'}>
                                     {lineItem.variance > 0 ? '+' : ''}{lineItem.variance} day variance
                                   </span>
+                                )}
+                                {lineItem.pickupLocation && (
+                                  <div className="text-xs">{lineItem.pickupLocation}</div>
                                 )}
                               </div>
                             </div>
