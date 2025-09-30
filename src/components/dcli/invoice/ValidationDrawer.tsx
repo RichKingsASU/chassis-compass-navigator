@@ -5,6 +5,20 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-react';
 
+interface TMSMatch {
+  ld_num: string;
+  so_num: string;
+  shipment_number: string;
+  chassis_number: string;
+  container_number: string;
+  pickup_actual_date: string;
+  delivery_actual_date: string;
+  carrier_name: string;
+  customer_name: string;
+  confidence: number;
+  match_reasons: string[];
+}
+
 interface ValidationDrawerProps {
   validationResult: {
     summary: {
@@ -15,11 +29,12 @@ interface ValidationDrawerProps {
     };
     rows: Array<{
       line_invoice_number: string;
+      chassis: string;
+      container: string;
       match_confidence: number;
-      matched_tms_id: string | null;
       match_type: 'exact' | 'fuzzy' | 'mismatch';
-      reasons: string[];
-      delta_fields: Record<string, any>;
+      tms_matches: TMSMatch[];
+      match_count: number;
     }>;
     errors: string[];
   };
@@ -135,42 +150,108 @@ const MatchTable = ({
         <TableHeader>
           <TableRow>
             <TableHead>Line Invoice #</TableHead>
+            <TableHead>Equipment</TableHead>
             <TableHead>Confidence</TableHead>
-            <TableHead>TMS Match</TableHead>
-            <TableHead>Reasons</TableHead>
-            <TableHead>Deltas</TableHead>
+            <TableHead>TMS Matches (LD/SO Numbers)</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {matches.map((match, idx) => (
             <TableRow key={idx}>
-              <TableCell className="font-mono text-xs">{match.line_invoice_number}</TableCell>
-              <TableCell>
+              <TableCell className="font-mono text-xs align-top">
+                {match.line_invoice_number}
+              </TableCell>
+              <TableCell className="text-xs align-top">
+                <div>Chassis: {match.chassis || 'N/A'}</div>
+                <div>Container: {match.container || 'N/A'}</div>
+              </TableCell>
+              <TableCell className="align-top">
                 <Badge variant={getBadgeVariant(type)}>{match.match_confidence}%</Badge>
-              </TableCell>
-              <TableCell className="text-xs">
-                {match.matched_tms_id || <span className="text-muted-foreground">None</span>}
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {match.reasons.map((reason: string, i: number) => (
-                    <Badge key={i} variant="outline" className="text-xs">
-                      {reason}
-                    </Badge>
-                  ))}
+                <div className="text-xs text-muted-foreground mt-1">
+                  {match.match_count} match{match.match_count !== 1 ? 'es' : ''}
                 </div>
               </TableCell>
-              <TableCell className="text-xs">
-                {Object.keys(match.delta_fields).length > 0 ? (
-                  <div className="space-y-1">
-                    {Object.entries(match.delta_fields).map(([key, val]) => (
-                      <div key={key}>
-                        <span className="font-semibold">{key}:</span> {JSON.stringify(val)}
-                      </div>
+              <TableCell>
+                {match.tms_matches && match.tms_matches.length > 0 ? (
+                  <div className="space-y-2">
+                    {match.tms_matches.map((tmsMatch: TMSMatch, matchIdx: number) => (
+                      <Card
+                        key={matchIdx}
+                        className="p-3 bg-muted/30 border-l-4"
+                        style={{
+                          borderLeftColor:
+                            tmsMatch.confidence >= 90
+                              ? 'hsl(var(--primary))'
+                              : tmsMatch.confidence >= 60
+                              ? 'hsl(var(--secondary))'
+                              : 'hsl(var(--destructive))',
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold">Match {matchIdx + 1}</span>
+                          <Badge
+                            variant={
+                              tmsMatch.confidence >= 90
+                                ? 'default'
+                                : tmsMatch.confidence >= 60
+                                ? 'secondary'
+                                : 'outline'
+                            }
+                          >
+                            {tmsMatch.confidence}%
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          <div>
+                            <span className="font-medium">LD#:</span>{' '}
+                            <span className="font-mono">{tmsMatch.ld_num || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium">SO#:</span>{' '}
+                            <span className="font-mono">{tmsMatch.so_num || 'N/A'}</span>
+                          </div>
+                          {tmsMatch.shipment_number && (
+                            <div className="col-span-2">
+                              <span className="font-medium">Shipment:</span>{' '}
+                              <span className="font-mono">{tmsMatch.shipment_number}</span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="font-medium">Chassis:</span>{' '}
+                            <span className="font-mono">{tmsMatch.chassis_number || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium">Container:</span>{' '}
+                            <span className="font-mono">{tmsMatch.container_number || 'N/A'}</span>
+                          </div>
+                          {tmsMatch.carrier_name && (
+                            <div className="col-span-2">
+                              <span className="font-medium">Carrier:</span> {tmsMatch.carrier_name}
+                            </div>
+                          )}
+                          {tmsMatch.customer_name && (
+                            <div className="col-span-2">
+                              <span className="font-medium">Customer:</span> {tmsMatch.customer_name}
+                            </div>
+                          )}
+                        </div>
+                        {tmsMatch.match_reasons && tmsMatch.match_reasons.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-border/50">
+                            <div className="text-xs font-medium mb-1">Match Reasons:</div>
+                            <div className="flex flex-wrap gap-1">
+                              {tmsMatch.match_reasons.filter(Boolean).map((reason, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {reason}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </Card>
                     ))}
                   </div>
                 ) : (
-                  <span className="text-muted-foreground">None</span>
+                  <span className="text-xs text-muted-foreground">No TMS matches found</span>
                 )}
               </TableCell>
             </TableRow>

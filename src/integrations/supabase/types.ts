@@ -278,58 +278,190 @@ export type Database = {
         Row: {
           attachment_count: number
           attachments: Json
+          bill_end_date: string | null
+          bill_start_date: string | null
           billing_date: string | null
-          chassis_out: string | null
-          container_in: string | null
-          container_out: string | null
+          billing_terms: string | null
+          charge_description: string | null
+          chassis: string | null
+          corporate_account: string | null
+          corporate_name: string | null
           created_at: string
-          date_in: string | null
-          date_out: string | null
+          customer_name: string | null
+          customer_number: string | null
           dispute_status: string | null
+          due_date: string | null
+          grand_total: number | null
+          haulage_type: string | null
+          in_gate_fees: number | null
           invoice_status: string
           invoice_total: number
           invoice_type: string
           line_invoice_number: string
+          ocean_carrier_scac: string | null
+          off_hire_bol: string | null
+          off_hire_booking_no: string | null
+          off_hire_container: string | null
+          off_hire_date: string | null
+          off_hire_location: string | null
+          off_hire_mc_scac: string | null
+          off_hire_partner_code: string | null
+          off_hire_status: string | null
+          on_hire_area: string | null
+          on_hire_bol: string | null
+          on_hire_booking_no: string | null
+          on_hire_container: string | null
+          on_hire_date: string | null
+          on_hire_location: string | null
+          on_hire_mc_scac: string | null
+          on_hire_partner_code: string | null
+          on_hire_status: string | null
+          out_gate_fees: number | null
+          pool_contract: string | null
           remaining_balance: number
+          subtotal: number | null
           summary_invoice_id: string
+          tax_amount: number | null
+          tax_rate_pct: number | null
+          tier_1_days: number | null
+          tier_1_free_days: number | null
+          tier_1_rate: number | null
+          tier_1_subtotal: number | null
+          tier_2_days: number | null
+          tier_2_free_days: number | null
+          tier_2_rate: number | null
+          tier_2_subtotal: number | null
+          tier_3_days: number | null
+          tier_3_free_days: number | null
+          tier_3_rate: number | null
+          tier_3_subtotal: number | null
+          total_fees: number | null
           updated_at: string
         }
         Insert: {
           attachment_count?: number
           attachments?: Json
+          bill_end_date?: string | null
+          bill_start_date?: string | null
           billing_date?: string | null
-          chassis_out?: string | null
-          container_in?: string | null
-          container_out?: string | null
+          billing_terms?: string | null
+          charge_description?: string | null
+          chassis?: string | null
+          corporate_account?: string | null
+          corporate_name?: string | null
           created_at?: string
-          date_in?: string | null
-          date_out?: string | null
+          customer_name?: string | null
+          customer_number?: string | null
           dispute_status?: string | null
+          due_date?: string | null
+          grand_total?: number | null
+          haulage_type?: string | null
+          in_gate_fees?: number | null
           invoice_status: string
           invoice_total: number
           invoice_type: string
           line_invoice_number: string
+          ocean_carrier_scac?: string | null
+          off_hire_bol?: string | null
+          off_hire_booking_no?: string | null
+          off_hire_container?: string | null
+          off_hire_date?: string | null
+          off_hire_location?: string | null
+          off_hire_mc_scac?: string | null
+          off_hire_partner_code?: string | null
+          off_hire_status?: string | null
+          on_hire_area?: string | null
+          on_hire_bol?: string | null
+          on_hire_booking_no?: string | null
+          on_hire_container?: string | null
+          on_hire_date?: string | null
+          on_hire_location?: string | null
+          on_hire_mc_scac?: string | null
+          on_hire_partner_code?: string | null
+          on_hire_status?: string | null
+          out_gate_fees?: number | null
+          pool_contract?: string | null
           remaining_balance?: number
+          subtotal?: number | null
           summary_invoice_id: string
+          tax_amount?: number | null
+          tax_rate_pct?: number | null
+          tier_1_days?: number | null
+          tier_1_free_days?: number | null
+          tier_1_rate?: number | null
+          tier_1_subtotal?: number | null
+          tier_2_days?: number | null
+          tier_2_free_days?: number | null
+          tier_2_rate?: number | null
+          tier_2_subtotal?: number | null
+          tier_3_days?: number | null
+          tier_3_free_days?: number | null
+          tier_3_rate?: number | null
+          tier_3_subtotal?: number | null
+          total_fees?: number | null
           updated_at?: string
         }
         Update: {
           attachment_count?: number
           attachments?: Json
+          bill_end_date?: string | null
+          bill_start_date?: string | null
           billing_date?: string | null
-          chassis_out?: string | null
-          container_in?: string | null
-          container_out?: string | null
+          billing_terms?: string | null
+          charge_description?: string | null
+          chassis?: string | null
+          corporate_account?: string | null
+          corporate_name?: string | null
           created_at?: string
-          date_in?: string | null
-          date_out?: string | null
+          customer_name?: string | null
+          customer_number?: string | null
           dispute_status?: string | null
+          due_date?: string | null
+          grand_total?: number | null
+          haulage_type?: string | null
+          in_gate_fees?: number | null
           invoice_status?: string
           invoice_total?: number
           invoice_type?: string
           line_invoice_number?: string
+          ocean_carrier_scac?: string | null
+          off_hire_bol?: string | null
+          off_hire_booking_no?: string | null
+          off_hire_container?: string | null
+          off_hire_date?: string | null
+          off_hire_location?: string | null
+          off_hire_mc_scac?: string | null
+          off_hire_partner_code?: string | null
+          off_hire_status?: string | null
+          on_hire_area?: string | null
+          on_hire_bol?: string | null
+          on_hire_booking_no?: string | null
+          on_hire_container?: string | null
+          on_hire_date?: string | null
+          on_hire_location?: string | null
+          on_hire_mc_scac?: string | null
+          on_hire_partner_code?: string | null
+          on_hire_status?: string | null
+          out_gate_fees?: number | null
+          pool_contract?: string | null
           remaining_balance?: number
+          subtotal?: number | null
           summary_invoice_id?: string
+          tax_amount?: number | null
+          tax_rate_pct?: number | null
+          tier_1_days?: number | null
+          tier_1_free_days?: number | null
+          tier_1_rate?: number | null
+          tier_1_subtotal?: number | null
+          tier_2_days?: number | null
+          tier_2_free_days?: number | null
+          tier_2_rate?: number | null
+          tier_2_subtotal?: number | null
+          tier_3_days?: number | null
+          tier_3_free_days?: number | null
+          tier_3_rate?: number | null
+          tier_3_subtotal?: number | null
+          total_fees?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -1301,7 +1433,289 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      dcli_invoice_line_item_enriched: {
+        Row: {
+          attachment_count: number | null
+          attachments: Json | null
+          bill_end_date: string | null
+          bill_start_date: string | null
+          billing_date: string | null
+          billing_terms: string | null
+          charge_description: string | null
+          chassis: string | null
+          container_in: string | null
+          container_out: string | null
+          corporate_account: string | null
+          corporate_name: string | null
+          created_at: string | null
+          customer_name: string | null
+          customer_number: string | null
+          date_in: string | null
+          date_out: string | null
+          days_used: number | null
+          dispute_status: string | null
+          due_date: string | null
+          grand_total: number | null
+          haulage_type: string | null
+          in_gate_fees: number | null
+          invoice_status: string | null
+          invoice_total: number | null
+          invoice_type: string | null
+          line_invoice_number: string | null
+          ocean_carrier_scac: string | null
+          off_hire_bol: string | null
+          off_hire_booking_no: string | null
+          off_hire_container: string | null
+          off_hire_date: string | null
+          off_hire_location: string | null
+          off_hire_mc_scac: string | null
+          off_hire_partner_code: string | null
+          off_hire_status: string | null
+          on_hire_area: string | null
+          on_hire_bol: string | null
+          on_hire_booking_no: string | null
+          on_hire_container: string | null
+          on_hire_date: string | null
+          on_hire_location: string | null
+          on_hire_mc_scac: string | null
+          on_hire_partner_code: string | null
+          on_hire_status: string | null
+          out_gate_fees: number | null
+          pool_contract: string | null
+          remaining_balance: number | null
+          subtotal: number | null
+          summary_invoice_id: string | null
+          tax_amount: number | null
+          tax_rate_pct: number | null
+          tier_1_days: number | null
+          tier_1_free_days: number | null
+          tier_1_rate: number | null
+          tier_1_subtotal: number | null
+          tier_2_days: number | null
+          tier_2_free_days: number | null
+          tier_2_rate: number | null
+          tier_2_subtotal: number | null
+          tier_3_days: number | null
+          tier_3_free_days: number | null
+          tier_3_rate: number | null
+          tier_3_subtotal: number | null
+          total_fees: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          attachment_count?: number | null
+          attachments?: Json | null
+          bill_end_date?: string | null
+          bill_start_date?: string | null
+          billing_date?: string | null
+          billing_terms?: string | null
+          charge_description?: string | null
+          chassis?: string | null
+          container_in?: string | null
+          container_out?: string | null
+          corporate_account?: string | null
+          corporate_name?: string | null
+          created_at?: string | null
+          customer_name?: string | null
+          customer_number?: string | null
+          date_in?: string | null
+          date_out?: string | null
+          days_used?: never
+          dispute_status?: string | null
+          due_date?: string | null
+          grand_total?: number | null
+          haulage_type?: string | null
+          in_gate_fees?: number | null
+          invoice_status?: string | null
+          invoice_total?: number | null
+          invoice_type?: string | null
+          line_invoice_number?: string | null
+          ocean_carrier_scac?: string | null
+          off_hire_bol?: string | null
+          off_hire_booking_no?: string | null
+          off_hire_container?: string | null
+          off_hire_date?: string | null
+          off_hire_location?: string | null
+          off_hire_mc_scac?: string | null
+          off_hire_partner_code?: string | null
+          off_hire_status?: string | null
+          on_hire_area?: string | null
+          on_hire_bol?: string | null
+          on_hire_booking_no?: string | null
+          on_hire_container?: string | null
+          on_hire_date?: string | null
+          on_hire_location?: string | null
+          on_hire_mc_scac?: string | null
+          on_hire_partner_code?: string | null
+          on_hire_status?: string | null
+          out_gate_fees?: number | null
+          pool_contract?: string | null
+          remaining_balance?: number | null
+          subtotal?: number | null
+          summary_invoice_id?: string | null
+          tax_amount?: number | null
+          tax_rate_pct?: number | null
+          tier_1_days?: number | null
+          tier_1_free_days?: number | null
+          tier_1_rate?: number | null
+          tier_1_subtotal?: number | null
+          tier_2_days?: number | null
+          tier_2_free_days?: number | null
+          tier_2_rate?: number | null
+          tier_2_subtotal?: number | null
+          tier_3_days?: number | null
+          tier_3_free_days?: number | null
+          tier_3_rate?: number | null
+          tier_3_subtotal?: number | null
+          total_fees?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          attachment_count?: number | null
+          attachments?: Json | null
+          bill_end_date?: string | null
+          bill_start_date?: string | null
+          billing_date?: string | null
+          billing_terms?: string | null
+          charge_description?: string | null
+          chassis?: string | null
+          container_in?: string | null
+          container_out?: string | null
+          corporate_account?: string | null
+          corporate_name?: string | null
+          created_at?: string | null
+          customer_name?: string | null
+          customer_number?: string | null
+          date_in?: string | null
+          date_out?: string | null
+          days_used?: never
+          dispute_status?: string | null
+          due_date?: string | null
+          grand_total?: number | null
+          haulage_type?: string | null
+          in_gate_fees?: number | null
+          invoice_status?: string | null
+          invoice_total?: number | null
+          invoice_type?: string | null
+          line_invoice_number?: string | null
+          ocean_carrier_scac?: string | null
+          off_hire_bol?: string | null
+          off_hire_booking_no?: string | null
+          off_hire_container?: string | null
+          off_hire_date?: string | null
+          off_hire_location?: string | null
+          off_hire_mc_scac?: string | null
+          off_hire_partner_code?: string | null
+          off_hire_status?: string | null
+          on_hire_area?: string | null
+          on_hire_bol?: string | null
+          on_hire_booking_no?: string | null
+          on_hire_container?: string | null
+          on_hire_date?: string | null
+          on_hire_location?: string | null
+          on_hire_mc_scac?: string | null
+          on_hire_partner_code?: string | null
+          on_hire_status?: string | null
+          out_gate_fees?: number | null
+          pool_contract?: string | null
+          remaining_balance?: number | null
+          subtotal?: number | null
+          summary_invoice_id?: string | null
+          tax_amount?: number | null
+          tax_rate_pct?: number | null
+          tier_1_days?: number | null
+          tier_1_free_days?: number | null
+          tier_1_rate?: number | null
+          tier_1_subtotal?: number | null
+          tier_2_days?: number | null
+          tier_2_free_days?: number | null
+          tier_2_rate?: number | null
+          tier_2_subtotal?: number | null
+          tier_3_days?: number | null
+          tier_3_free_days?: number | null
+          tier_3_rate?: number | null
+          tier_3_subtotal?: number | null
+          total_fees?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dcli_invoice_line_item_summary_invoice_id_fkey"
+            columns: ["summary_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "dcli_invoice"
+            referencedColumns: ["invoice_id"]
+          },
+        ]
+      }
+      dcli_invoice_line_item_legacy: {
+        Row: {
+          attachment_count: number | null
+          attachments: Json | null
+          billing_date: string | null
+          chassis_out: string | null
+          container_in: string | null
+          container_out: string | null
+          created_at: string | null
+          date_in: string | null
+          date_out: string | null
+          dispute_status: string | null
+          invoice_status: string | null
+          invoice_total: number | null
+          invoice_type: string | null
+          line_invoice_number: string | null
+          remaining_balance: number | null
+          summary_invoice_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          attachment_count?: number | null
+          attachments?: Json | null
+          billing_date?: string | null
+          chassis_out?: string | null
+          container_in?: string | null
+          container_out?: string | null
+          created_at?: string | null
+          date_in?: string | null
+          date_out?: string | null
+          dispute_status?: string | null
+          invoice_status?: string | null
+          invoice_total?: number | null
+          invoice_type?: string | null
+          line_invoice_number?: string | null
+          remaining_balance?: number | null
+          summary_invoice_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          attachment_count?: number | null
+          attachments?: Json | null
+          billing_date?: string | null
+          chassis_out?: string | null
+          container_in?: string | null
+          container_out?: string | null
+          created_at?: string | null
+          date_in?: string | null
+          date_out?: string | null
+          dispute_status?: string | null
+          invoice_status?: string | null
+          invoice_total?: number | null
+          invoice_type?: string | null
+          line_invoice_number?: string | null
+          remaining_balance?: number | null
+          summary_invoice_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dcli_invoice_line_item_summary_invoice_id_fkey"
+            columns: ["summary_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "dcli_invoice"
+            referencedColumns: ["invoice_id"]
+          },
+        ]
+      }
     }
     Functions: {
       validate_dcli_invoice: {
