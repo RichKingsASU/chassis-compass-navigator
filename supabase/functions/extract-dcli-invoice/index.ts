@@ -70,8 +70,9 @@ serve(async (req) => {
     const lineItems: any[] = [];
     let totalAmount = 0;
     
-    // Start from row 5 and look for data rows with amounts
-    for (let i = 5; i < jsonData.length; i++) {
+    // Start from row 4 and look for data rows with amounts
+    // Based on logs, amounts are typically in columns 19-31, not at the end
+    for (let i = 4; i < jsonData.length; i++) {
       const row = jsonData[i] as any[];
       
       // Skip completely empty rows
@@ -81,19 +82,32 @@ serve(async (req) => {
       
       console.log(`Checking row ${i}:`, JSON.stringify(row));
       
-      // Look for a dollar amount in the row (could be in various columns)
+      // Look for the line invoice number in first column (starts with DU)
+      const firstCol = String(row[0] || '').trim();
+      if (!firstCol.startsWith('DU')) {
+        console.log(`Skipping row ${i} - no DU invoice number`);
+        continue;
+      }
+      
+      // Look for amount in reasonable range (columns 15-35, amount between $1 and $10000)
       let foundAmount = 0;
       let amountColIndex = -1;
       
-      for (let colIdx = row.length - 1; colIdx >= 0; colIdx--) {
+      for (let colIdx = 15; colIdx <= 35 && colIdx < row.length; colIdx++) {
         const cell = row[colIdx];
         const cellStr = String(cell).trim();
         
-        // Try to parse as currency (remove $ and , then parse)
+        // Skip obvious date columns (Excel dates are > 40000)
+        if (typeof cell === 'number' && cell > 40000) {
+          continue;
+        }
+        
+        // Try to parse as currency
         const cleanedAmount = cellStr.replace(/[$,]/g, '');
         const parsedAmount = parseFloat(cleanedAmount);
         
-        if (!isNaN(parsedAmount) && parsedAmount > 0 && parsedAmount < 100000) {
+        // Amount should be reasonable for an invoice line (between $1 and $10,000)
+        if (!isNaN(parsedAmount) && parsedAmount >= 1 && parsedAmount <= 10000) {
           foundAmount = parsedAmount;
           amountColIndex = colIdx;
           console.log(`Found amount ${foundAmount} at column ${colIdx}`);
@@ -101,33 +115,36 @@ serve(async (req) => {
         }
       }
       
-      // If we found a valid amount, this is likely a data row
+      // If we found a valid amount, this is a data row
       if (foundAmount > 0) {
         totalAmount += foundAmount;
         
         // Extract other fields from the row
         const lineInvoiceNumber = String(row[0] || `DU${invoiceId}${lineItems.length + 1}`).trim();
         const invoiceType = String(row[1] || "CMS DAILY USE INV").trim();
-        const chassis = String(row[2] || "").trim();
-        const container = String(row[3] || "").trim();
+        const chassis = String(row[3] || "").trim();
+        const containerOut = String(row[4] || "").trim();
+        const containerIn = String(row[5] || containerOut).trim();
         
         const lineItem = {
-          invoice_type: invoiceType || "CMS DAILY USE INV",
-          line_invoice_number: lineInvoiceNumber || `LI${lineItems.length + 1}`,
+          invoice_type: invoiceType && invoiceType !== lineInvoiceNumber ? invoiceType : "CMS DAILY USE INV",
+          line_invoice_number: lineInvoiceNumber,
           invoice_status: "Open",
           invoice_total: foundAmount,
           remaining_balance: foundAmount,
           dispute_status: null,
           attachment_count: 0,
           chassis_out: chassis,
-          container_out: container,
+          container_out: containerOut,
           date_out: new Date(Date.now() - (lineItems.length + 1) * 24 * 60 * 60 * 1000).toISOString(),
-          container_in: container,
+          container_in: containerIn,
           date_in: new Date().toISOString()
         };
         
         lineItems.push(lineItem);
         console.log(`Added line item ${lineItems.length}:`, lineItem);
+      } else {
+        console.log(`Skipping row ${i} - no valid amount found`);
       }
     }
     
