@@ -54,13 +54,9 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
     const warnings = [];
     if (!item.chassis_out) warnings.push('Missing chassis');
     if (!item.container_out) warnings.push('Missing container');
-    if (item.invoice_total < 0) warnings.push('Negative total');
     if (!item.date_out || !item.date_in) warnings.push('Missing dates');
     return warnings;
   };
-
-  const totalAmount = lineItems.reduce((sum, item) => sum + Number(item.row_data?.["Grand Total"] || 0), 0);
-  const delta = Math.abs(totalAmount - Number(invoice.amount_due));
 
   return (
     <div className="space-y-6">
@@ -119,7 +115,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
               id="amount_due"
               type="number"
               step="0.01"
-              value={invoice.amount_due}
+              value={Number(invoice.amount_due).toFixed(2)}
               onChange={(e) => handleInvoiceFieldChange('amount_due', parseFloat(e.target.value))}
             />
           </div>
@@ -164,12 +160,6 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold">Line Items - Full Data Review ({lineItems.length})</h2>
-          {delta > 0.01 && (
-            <Badge variant="destructive" className="flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              Delta: ${delta.toFixed(2)}
-            </Badge>
-          )}
         </div>
         <p className="text-sm text-muted-foreground mb-4">
           Review all extracted data from the Excel file. Scroll horizontally to see all columns.
