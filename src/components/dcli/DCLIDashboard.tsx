@@ -4,6 +4,7 @@ import DCLIFinancialPulse from './DCLIFinancialPulse';
 import DCLIInvoiceTracker from './DCLIInvoiceTracker';
 import DCLIInvoiceLineReview from './DCLIInvoiceLineReview';
 import DCLIDetailView from './DCLIDetailView';
+import DCLIDocumentUpload from './DCLIDocumentUpload';
 import { useDCLIData } from '@/hooks/useDCLIData';
 
 const DCLIDashboard = () => {
@@ -28,10 +29,11 @@ const DCLIDashboard = () => {
       </div>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full md:w-[700px] grid-cols-3">
+        <TabsList className="grid w-full md:w-[900px] grid-cols-4">
           <TabsTrigger value="dashboard">Vendor Health</TabsTrigger>
           <TabsTrigger value="tracker">Invoice Tracker</TabsTrigger>
           <TabsTrigger value="review">Line-Item Review</TabsTrigger>
+          <TabsTrigger value="upload">Document Upload</TabsTrigger>
         </TabsList>
         
         <TabsContent value="dashboard" className="space-y-6 pt-4">
@@ -44,6 +46,10 @@ const DCLIDashboard = () => {
         
         <TabsContent value="review" className="pt-4">
           <DCLIInvoiceLineReview onViewDetail={setSelectedRecord} />
+        </TabsContent>
+        
+        <TabsContent value="upload" className="pt-4">
+          <DCLIDocumentUpload />
         </TabsContent>
       </Tabs>
     </div>
