@@ -28,6 +28,7 @@ import Anytrek from "./pages/gps/Anytrek";
 
 // Vendor Pages
 import DCLI from "./pages/vendors/DCLI";
+import DCLINewInvoice from "./pages/dcli/NewInvoice";
 import CCM from "./pages/vendors/CCM";
 import SCSPA from "./pages/vendors/SCSPA";
 import WCCP from "./pages/vendors/WCCP";
@@ -126,6 +127,11 @@ function App() {
               <Route path="/vendors/dcli" element={
                 <DashboardLayout>
                   <DCLI />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/dcli/invoices/new" element={
+                <DashboardLayout>
+                  <DCLINewInvoice />
                 </DashboardLayout>
               } />
               <Route path="/vendors/ccm" element={
