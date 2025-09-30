@@ -241,6 +241,107 @@ export type Database = {
         }
         Relationships: []
       }
+      dcli_invoice: {
+        Row: {
+          amount: number
+          description: string
+          disputed: boolean | null
+          disputed_amount: number | null
+          due_date: string
+          invoice_date: string
+          invoice_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          description: string
+          disputed?: boolean | null
+          disputed_amount?: number | null
+          due_date: string
+          invoice_date: string
+          invoice_id: string
+          status: string
+        }
+        Update: {
+          amount?: number
+          description?: string
+          disputed?: boolean | null
+          disputed_amount?: number | null
+          due_date?: string
+          invoice_date?: string
+          invoice_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      dcli_invoice_line_item: {
+        Row: {
+          attachment_count: number
+          attachments: Json
+          billing_date: string | null
+          chassis_out: string | null
+          container_in: string | null
+          container_out: string | null
+          created_at: string
+          date_in: string | null
+          date_out: string | null
+          dispute_status: string | null
+          invoice_status: string
+          invoice_total: number
+          invoice_type: string
+          line_invoice_number: string
+          remaining_balance: number
+          summary_invoice_id: string
+          updated_at: string
+        }
+        Insert: {
+          attachment_count?: number
+          attachments?: Json
+          billing_date?: string | null
+          chassis_out?: string | null
+          container_in?: string | null
+          container_out?: string | null
+          created_at?: string
+          date_in?: string | null
+          date_out?: string | null
+          dispute_status?: string | null
+          invoice_status: string
+          invoice_total: number
+          invoice_type: string
+          line_invoice_number: string
+          remaining_balance?: number
+          summary_invoice_id: string
+          updated_at?: string
+        }
+        Update: {
+          attachment_count?: number
+          attachments?: Json
+          billing_date?: string | null
+          chassis_out?: string | null
+          container_in?: string | null
+          container_out?: string | null
+          created_at?: string
+          date_in?: string | null
+          date_out?: string | null
+          dispute_status?: string | null
+          invoice_status?: string
+          invoice_total?: number
+          invoice_type?: string
+          line_invoice_number?: string
+          remaining_balance?: number
+          summary_invoice_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dcli_invoice_line_item_summary_invoice_id_fkey"
+            columns: ["summary_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "dcli_invoice"
+            referencedColumns: ["invoice_id"]
+          },
+        ]
+      }
       flexivan_activity: {
         Row: {
           age: number | null
@@ -424,6 +525,39 @@ export type Database = {
           payment_method?: string | null
           tranid?: string | null
           transaction_date?: string | null
+        }
+        Relationships: []
+      }
+      invoices: {
+        Row: {
+          amount: number
+          description: string
+          disputed: boolean | null
+          disputed_amount: number | null
+          due_date: string
+          invoice_date: string
+          invoice_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          description: string
+          disputed?: boolean | null
+          disputed_amount?: number | null
+          due_date: string
+          invoice_date: string
+          invoice_id: string
+          status: string
+        }
+        Update: {
+          amount?: number
+          description?: string
+          disputed?: boolean | null
+          disputed_amount?: number | null
+          due_date?: string
+          invoice_date?: string
+          invoice_id?: string
+          status?: string
         }
         Relationships: []
       }
@@ -1170,7 +1304,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      validate_dcli_invoice: {
+        Args: {
+          p_account_code: string
+          p_billing_date: string
+          p_due_date: string
+          p_line_items: Json
+          p_summary_invoice_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

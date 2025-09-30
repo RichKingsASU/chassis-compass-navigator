@@ -27,22 +27,25 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({ extractedData
   const runValidation = async () => {
     setIsValidating(true);
     try {
-      const { data, error } = await supabase.rpc('validate_dcli_invoice', {
+      const { data, error } = await supabase.rpc('validate_dcli_invoice' as any, {
         p_summary_invoice_id: extractedData.invoice.summary_invoice_id,
         p_account_code: extractedData.invoice.account_code || '',
         p_billing_date: extractedData.invoice.billing_date,
         p_due_date: extractedData.invoice.due_date,
-        p_line_items: extractedData.line_items,
+        p_line_items: extractedData.line_items as any,
       });
 
       if (error) throw error;
 
-      setValidationResult(data);
+      const validationData = data as any;
+      setValidationResult(validationData);
 
-      toast({
-        title: 'Validation Complete',
-        description: `Found ${data.summary.exact_matches} exact matches, ${data.summary.fuzzy_matches} fuzzy matches, ${data.summary.mismatches} mismatches.`,
-      });
+      if (validationData) {
+        toast({
+          title: 'Validation Complete',
+          description: `Found ${validationData.summary.exact_matches} exact matches, ${validationData.summary.fuzzy_matches} fuzzy matches, ${validationData.summary.mismatches} mismatches.`,
+        });
+      }
     } catch (error: any) {
       console.error('Validation error:', error);
       toast({
@@ -60,7 +63,7 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({ extractedData
     try {
       // Check for duplicates
       const { data: existing, error: checkError } = await supabase
-        .from('dcli_invoice')
+        .from('dcli_invoice' as any)
         .select('invoice_id')
         .eq('invoice_id', extractedData.invoice.summary_invoice_id)
         .maybeSingle();
@@ -78,7 +81,7 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({ extractedData
       }
 
       // Insert header
-      const { error: headerError } = await supabase.from('dcli_invoice').insert({
+      const { error: headerError } = await supabase.from('dcli_invoice' as any).insert({
         invoice_id: extractedData.invoice.summary_invoice_id,
         invoice_date: extractedData.invoice.billing_date,
         billing_date: extractedData.invoice.billing_date,
@@ -109,7 +112,7 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({ extractedData
       }));
 
       const { error: lineItemsError } = await supabase
-        .from('dcli_invoice_line_item')
+        .from('dcli_invoice_line_item' as any)
         .insert(lineItemsToInsert);
 
       if (lineItemsError) throw lineItemsError;

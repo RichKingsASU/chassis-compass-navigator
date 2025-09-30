@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ interface DCLIInvoiceTrackerProps {
 }
 
 const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail }) => {
+  const navigate = useNavigate();
   const [invoiceData, setInvoiceData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -182,7 +184,7 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
           <p className="text-muted-foreground">Search smarter, find faster</p>
         </div>
         <div className="flex gap-2">
-          <Button>
+          <Button onClick={() => navigate('/vendors/dcli/invoices/new')}>
             <Plus className="h-4 w-4 mr-2" />
             New Invoice
           </Button>
