@@ -130,9 +130,7 @@ const ChassisManagement = () => {
   const metrics = useMemo(() => {
     const total = chassisData.length;
     const active = chassisData.filter(c => c.chassis_status?.toLowerCase() === 'active').length;
-    const avgRate = total > 0 
-      ? chassisData.reduce((sum, c) => sum + (Number(c.daily_rate) || 0), 0) / total
-      : 0;
+    const withContracts = chassisData.filter(c => c.contract && c.contract !== 'N/A').length;
     const byLessor = chassisData.reduce((acc, c) => {
       const lessor = c.lessor || 'Unknown';
       acc[lessor] = (acc[lessor] || 0) + 1;
@@ -144,7 +142,7 @@ const ChassisManagement = () => {
     return {
       total,
       active,
-      avgRate,
+      withContracts,
       topLessor: topLessor ? `${topLessor[0]} (${topLessor[1]})` : 'N/A',
       activePercent
     };
@@ -256,16 +254,16 @@ const ChassisManagement = () => {
           icon="users" 
         />
         <KPICard 
-          title="Avg Daily Rate" 
-          value={`$${metrics.avgRate.toFixed(2)}`} 
-          description="Per chassis per day" 
-          icon="dollar" 
+          title="Under Contract" 
+          value={metrics.withContracts.toString()} 
+          description="Active contract assignments" 
+          icon="file" 
         />
         <KPICard 
           title="Top Lessor" 
           value={metrics.topLessor} 
           description="Most chassis units" 
-          icon="file" 
+          icon="users" 
         />
       </div>
       
