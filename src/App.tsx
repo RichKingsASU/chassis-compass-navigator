@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Dashboard from "./pages/Dashboard";
 import ChassisManagement from "./pages/ChassisManagement";
@@ -42,10 +43,11 @@ function App() {
   return (
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <div className="min-h-screen">
-            <Toaster />
-            <Sonner />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <TooltipProvider>
+            <div className="min-h-screen">
+              <Toaster />
+              <Sonner />
             <Routes>
               <Route path="/" element={
                 <DashboardLayout>
@@ -172,6 +174,7 @@ function App() {
             </Routes>
           </div>
         </TooltipProvider>
+        </ThemeProvider>
       </QueryClientProvider>
     </BrowserRouter>
   );
