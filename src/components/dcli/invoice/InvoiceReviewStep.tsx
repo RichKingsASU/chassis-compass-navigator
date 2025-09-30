@@ -164,12 +164,12 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
         <p className="text-sm text-muted-foreground mb-4">
           Review all extracted data from the Excel file. Scroll horizontally to see all columns.
         </p>
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[70vh] border rounded-lg">
           <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b bg-muted">
                 {extractedData?.excel_headers?.map((header, idx) => (
-                  <th key={idx} className="text-left p-2 font-medium whitespace-nowrap min-w-[120px] sticky top-0 bg-muted/50">
+                  <th key={idx} className="text-left p-3 font-semibold whitespace-nowrap min-w-[150px] bg-muted">
                     {header}
                   </th>
                 ))}
@@ -193,7 +193,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
                     }
                     
                     return (
-                      <td key={colIndex} className="p-2 whitespace-nowrap border-r last:border-r-0">
+                      <td key={colIndex} className="p-3 whitespace-nowrap border-r last:border-r-0">
                         {displayValue}
                       </td>
                     );
