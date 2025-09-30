@@ -130,10 +130,10 @@ const NewInvoice = () => {
       </div>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Form */}
-          <div className="lg:col-span-2">
+      <div className="container mx-auto px-4 py-8 max-w-[1800px]">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Left: Form - Takes 3/4 of space */}
+          <div className="lg:col-span-3">
             {currentStep === 1 && (
               <InvoiceUploadStep
                 uploadedFiles={uploadedFiles}
@@ -159,7 +159,7 @@ const NewInvoice = () => {
             )}
           </div>
 
-          {/* Right: Summary */}
+          {/* Right: Summary - Takes 1/4 of space */}
           <div className="lg:col-span-1">
             <InvoiceSummaryCard
               extractedData={extractedData}

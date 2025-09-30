@@ -157,14 +157,14 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
       </Card>
 
       {/* Line Items Table - Full Excel Data */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-3">
+      <Card className="p-3">
+        <div className="flex items-center justify-between mb-2">
           <h2 className="text-xl font-bold">Line Items - Full Data Review ({lineItems.length})</h2>
         </div>
-        <p className="text-sm text-muted-foreground mb-3">
+        <p className="text-sm text-muted-foreground mb-2">
           Review all extracted data from the Excel file. Scroll horizontally to see all columns.
         </p>
-        <div className="overflow-auto border rounded-lg" style={{ maxHeight: 'calc(100vh - 400px)', minHeight: '500px' }}>
+        <div className="overflow-auto border rounded-lg w-full" style={{ maxHeight: 'calc(100vh - 400px)', minHeight: '500px' }}>
           <table className="w-full border-collapse text-sm">
             <thead className="sticky top-0 z-10">
               <tr className="border-b bg-muted">
