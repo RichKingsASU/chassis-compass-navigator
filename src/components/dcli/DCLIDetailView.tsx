@@ -1,13 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Edit, Save, X, FileText, Clock, DollarSign, Truck } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ArrowLeft, FileText, AlertCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface DCLIDetailViewProps {
   record: any;
@@ -15,11 +13,50 @@ interface DCLIDetailViewProps {
 }
 
 const DCLIDetailView: React.FC<DCLIDetailViewProps> = ({ record, onBack }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [internalNotes, setInternalNotes] = useState('');
-  const [internalStatus, setInternalStatus] = useState('');
-  const [disputeAmount, setDisputeAmount] = useState('');
-  const [chargeCategory, setChargeCategory] = useState('');
+  const [invoice, setInvoice] = useState<any>(null);
+  const [lineItems, setLineItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchInvoiceData();
+  }, [record]);
+
+  const fetchInvoiceData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch invoice from dcli_invoices table
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from('dcli_invoices' as any)
+        .select('*')
+        .eq('invoice_id', record.invoice_id || record.invoiceId)
+        .maybeSingle();
+
+      if (invoiceError) throw invoiceError;
+      setInvoice(invoiceData);
+
+      // Fetch related line items from dcli_activity
+      // Match based on available fields (you may need to adjust this based on your data structure)
+      const { data: activityData, error: activityError } = await supabase
+        .from('dcli_activity' as any)
+        .select('*')
+        .or(`chassis.eq.${record.chassis || ''},container.eq.${record.container || ''}`);
+
+      if (activityError) throw activityError;
+      setLineItems(activityData || []);
+
+    } catch (error) {
+      console.error('Error fetching invoice data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load invoice details",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
@@ -41,350 +78,142 @@ const DCLIDetailView: React.FC<DCLIDetailViewProps> = ({ record, onBack }) => {
   };
 
   const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      'Active': 'bg-green-100 text-green-800 border-green-200',
-      'Pending': 'bg-amber-100 text-amber-800 border-amber-200',
-      'On Hold': 'bg-red-100 text-red-800 border-red-200',
-      'Completed': 'bg-gray-100 text-gray-800 border-gray-200'
-    };
-    
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig['Completed'];
-    
-    return (
-      <Badge className={config}>
-        {status || 'Unknown'}
-      </Badge>
-    );
+    const statusLower = status?.toLowerCase();
+    if (statusLower === 'open' || statusLower === 'active') {
+      return <Badge variant="default">{status}</Badge>;
+    } else if (statusLower === 'closed' || statusLower === 'completed') {
+      return <Badge variant="secondary">{status}</Badge>;
+    }
+    return <Badge variant="outline">{status}</Badge>;
   };
 
-  const handleSave = () => {
-    // Here you would typically save to your backend
-    console.log('Saving internal data:', {
-      internalNotes,
-      internalStatus,
-      disputeAmount,
-      chargeCategory
-    });
-    setIsEditing(false);
-  };
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-1/4"></div>
+          <div className="h-64 bg-muted rounded"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={onBack}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Tracker
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Asset Detail View</h1>
-            <p className="text-muted-foreground">
-              {record.chassis || 'No Chassis'} • {record.container || 'No Container'}
-            </p>
+      <div className="flex items-center space-x-4">
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Tracker
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">Invoice Details</h1>
+          <p className="text-muted-foreground">
+            {invoice?.invoice_id || 'N/A'}
+          </p>
+        </div>
+      </div>
+
+      {/* Invoice Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Invoice Summary
+            </span>
+            {getStatusBadge(invoice?.status || 'Unknown')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div>
+              <div className="text-sm text-muted-foreground">Invoice Number</div>
+              <div className="text-lg font-semibold">{invoice?.invoice_id || 'N/A'}</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">Invoice Date</div>
+              <div className="text-lg font-semibold">{formatDate(invoice?.invoice_date)}</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">Due Date</div>
+              <div className="text-lg font-semibold">{formatDate(invoice?.due_date)}</div>
+            </div>
+            <div>
+              <div className="text-sm text-muted-foreground">Total Amount</div>
+              <div className="text-lg font-semibold">{formatCurrency(invoice?.amount)}</div>
+            </div>
           </div>
-        </div>
-        <div className="flex gap-2">
-          {!isEditing ? (
-            <Button onClick={() => setIsEditing(true)}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Internal Data
-            </Button>
-          ) : (
-            <>
-              <Button variant="outline" onClick={() => setIsEditing(false)}>
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-              <Button onClick={handleSave}>
-                <Save className="h-4 w-4 mr-2" />
-                Save Changes
-              </Button>
-            </>
+          {invoice?.description && (
+            <div className="mt-4">
+              <div className="text-sm text-muted-foreground">Description</div>
+              <div className="text-sm mt-1">{invoice.description}</div>
+            </div>
           )}
-        </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Information - 2/3 width */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Asset Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Truck className="h-5 w-5" />
-                <span>Asset Information</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label className="text-sm text-muted-foreground">Chassis Number</Label>
-                  <div className="font-medium">{record.chassis || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Container Number</Label>
-                  <div className="font-medium">{record.container || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Serial Number</Label>
-                  <div className="font-medium">{record.serial_number || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">VIN</Label>
-                  <div className="font-medium">{record.vin || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">License Plate</Label>
-                  <div className="font-medium">{record.license_plate || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Asset Type</Label>
-                  <div className="font-medium">{record.asset_type || 'N/A'}</div>
-                </div>
+          {invoice?.disputed && (
+            <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-destructive mt-0.5" />
+              <div>
+                <div className="font-semibold text-destructive">Disputed Invoice</div>
+                {invoice?.disputed_amount && (
+                  <div className="text-sm text-muted-foreground">
+                    Disputed Amount: {formatCurrency(invoice.disputed_amount)}
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Carrier & Business Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Carrier & Business Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label className="text-sm text-muted-foreground">Motor Carrier</Label>
-                  <div className="font-medium">{record.motor_carrier_name || 'N/A'}</div>
-                  <div className="text-sm text-muted-foreground">SCAC: {record.motor_carrier_scac || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Steamship Line</Label>
-                  <div className="font-medium">{record.steamship_line_name || 'N/A'}</div>
-                  <div className="text-sm text-muted-foreground">SCAC: {record.steamship_line_scac || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">BCO/NVOCC</Label>
-                  <div className="font-medium">{record.bco_nvocc_name || 'N/A'}</div>
-                  <div className="text-sm text-muted-foreground">SCAC: {record.bco_nvocc_scac || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Allotment Company</Label>
-                  <div className="font-medium">{record.allotment_company_name || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Booking/BOL</Label>
-                  <div className="font-medium">{record.booking || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Pool Contract</Label>
-                  <div className="font-medium">{record.pool_contract || 'N/A'}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Timeline & Dates */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Clock className="h-5 w-5" />
-                <span>Timeline & Status History</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Date In</Label>
-                    <div className="font-medium">{formatDate(record.date_in)}</div>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Date Out</Label>
-                    <div className="font-medium">{formatDate(record.date_out)}</div>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Days Out</Label>
-                    <div className="font-medium">{record.days_out || 'N/A'} days</div>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Current Status</Label>
-                    <div className="mt-1">{getStatusBadge(record.reservation_status)}</div>
-                  </div>
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Request Status</Label>
-                    <div className="font-medium">{record.request_status || 'N/A'}</div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Location & Logistics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Location & Logistics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label className="text-sm text-muted-foreground">Pick-up Location</Label>
-                  <div className="font-medium">{record.pick_up_location || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Location In</Label>
-                  <div className="font-medium">{record.location_in || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Region</Label>
-                  <div className="font-medium">{record.region || 'N/A'}</div>
-                </div>
-                <div>
-                  <Label className="text-sm text-muted-foreground">Market</Label>
-                  <div className="font-medium">{record.market || 'N/A'}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Internal Management Panel - 1/3 width */}
-        <div className="space-y-6">
-          {/* Internal Status Control */}
-          <Card className="border-l-4 border-l-primary">
-            <CardHeader>
-              <CardTitle className="text-lg">Internal Management</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                DCLI-only controls and workflow status
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {isEditing ? (
-                <>
-                  <div>
-                    <Label htmlFor="internal-status">Internal Status</Label>
-                    <Select value={internalStatus} onValueChange={setInternalStatus}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Set internal status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ok-to-pay">OK TO PAY</SelectItem>
-                        <SelectItem value="emailed-am">EMAILED AM</SelectItem>
-                        <SelectItem value="pending-review">PENDING REVIEW</SelectItem>
-                        <SelectItem value="escalated">ESCALATED</SelectItem>
-                        <SelectItem value="resolved">RESOLVED</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="charge-category">Charge Absorption Category</Label>
-                    <Select value={chargeCategory} onValueChange={setChargeCategory}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="normal-operations">Normal Operations</SelectItem>
-                        <SelectItem value="customer-caused">Customer Caused</SelectItem>
-                        <SelectItem value="force-majeure">Force Majeure</SelectItem>
-                        <SelectItem value="dcli-responsibility">DCLI Responsibility</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="dispute-amount">Dispute Amount</Label>
-                    <Input
-                      id="dispute-amount"
-                      type="number"
-                      placeholder="0.00"
-                      value={disputeAmount}
-                      onChange={(e) => setDisputeAmount(e.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="internal-notes">Internal Notes</Label>
-                    <Textarea
-                      id="internal-notes"
-                      placeholder="Add internal notes, workflow updates, or reminders..."
-                      value={internalNotes}
-                      onChange={(e) => setInternalNotes(e.target.value)}
-                      rows={4}
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Internal Status</Label>
-                    <div className="font-medium">{internalStatus || 'Not Set'}</div>
-                  </div>
-                  
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Charge Category</Label>
-                    <div className="font-medium">{chargeCategory || 'Not Categorized'}</div>
-                  </div>
-                  
-                  {disputeAmount && (
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Dispute Amount</Label>
-                      <div className="font-medium text-red-600">{formatCurrency(disputeAmount)}</div>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Internal Notes</Label>
-                    <div className="text-sm mt-1 p-2 bg-muted/50 rounded">
-                      {internalNotes || 'No internal notes added'}
-                    </div>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start">
-                <FileText className="h-4 w-4 mr-2" />
-                Generate Report
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Create Invoice
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <Clock className="h-4 w-4 mr-2" />
-                View Audit Trail
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Additional Metadata */}
-          {record.remarks && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Remarks</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm p-2 bg-muted/50 rounded">
-                  {record.remarks}
-                </div>
-              </CardContent>
-            </Card>
+            </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
+
+      {/* Line Items Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Line Items</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Chassis</TableHead>
+                  <TableHead>Container</TableHead>
+                  <TableHead>Asset Type</TableHead>
+                  <TableHead>Date Out</TableHead>
+                  <TableHead>Date In</TableHead>
+                  <TableHead>Days Out</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Location In</TableHead>
+                  <TableHead>Location Out</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lineItems.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      No line items found for this invoice
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  lineItems.map((item, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{item.chassis || 'N/A'}</TableCell>
+                      <TableCell>{item.container || 'N/A'}</TableCell>
+                      <TableCell>{item.asset_type || 'N/A'}</TableCell>
+                      <TableCell>{formatDate(item.date_out)}</TableCell>
+                      <TableCell>{formatDate(item.date_in)}</TableCell>
+                      <TableCell>{item.days_out || 0} days</TableCell>
+                      <TableCell>{getStatusBadge(item.reservation_status || 'Unknown')}</TableCell>
+                      <TableCell className="text-sm">{item.location_in || 'N/A'}</TableCell>
+                      <TableCell className="text-sm">{item.pick_up_location || 'N/A'}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
