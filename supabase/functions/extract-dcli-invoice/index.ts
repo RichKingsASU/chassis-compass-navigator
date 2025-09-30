@@ -2,6 +2,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import * as XLSX from 'https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs';
+import { getDocument } from 'https://esm.sh/pdfjs-dist@4.0.379/legacy/build/pdf.mjs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +36,39 @@ serve(async (req) => {
       .download(xlsx_path);
 
     if (xlsxError) throw new Error(`Excel download failed: ${xlsxError.message}`);
+
+    // Parse PDF for Amount Due
+    let pdfAmountDue = 0;
+    try {
+      const pdfArrayBuffer = await pdfData.arrayBuffer();
+      const pdfDoc = await getDocument({ data: pdfArrayBuffer }).promise;
+      
+      // Extract text from all pages
+      let pdfText = '';
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        pdfText += pageText + ' ';
+      }
+      
+      console.log('PDF text sample:', pdfText.slice(0, 500));
+      
+      // Look for "Amount Due" pattern in PDF text
+      const amountDueMatch = pdfText.match(/Amount\s+Due[:\s]*\$?\s*([\d,]+\.?\d*)/i) ||
+                             pdfText.match(/Total\s+Due[:\s]*\$?\s*([\d,]+\.?\d*)/i) ||
+                             pdfText.match(/Balance\s+Due[:\s]*\$?\s*([\d,]+\.?\d*)/i);
+      
+      if (amountDueMatch) {
+        pdfAmountDue = parseFloat(amountDueMatch[1].replace(/,/g, ''));
+        console.log(`Extracted Amount Due from PDF: $${pdfAmountDue}`);
+      } else {
+        console.log('Could not find Amount Due in PDF, will use Excel total');
+      }
+    } catch (pdfError) {
+      console.error('Error parsing PDF:', pdfError);
+      console.log('Will fall back to Excel total for amount due');
+    }
 
     // Parse Excel file
     const arrayBuffer = await xlsxData.arrayBuffer();
@@ -169,7 +203,7 @@ serve(async (req) => {
         billing_terms: "BFB 21 Days",
         vendor: "DCLI",
         currency_code: "USD",
-        amount_due: totalAmount > 0 ? totalAmount : 2491.22,
+        amount_due: pdfAmountDue > 0 ? pdfAmountDue : (totalAmount > 0 ? totalAmount : 2491.22),
         status: "Open",
         account_code: "DCLI-001",
         pool: "West Coast"
