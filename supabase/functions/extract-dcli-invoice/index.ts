@@ -70,41 +70,39 @@ serve(async (req) => {
     const lineItems: any[] = [];
     let totalAmount = 0;
     
-    // Start from row 4 and look for data rows with amounts
-    // Based on logs, amounts are typically in columns 19-31, not at the end
-    for (let i = 4; i < jsonData.length; i++) {
+    // Start from row 1 (row 0 is headers) and look for data rows with amounts
+    // Based on logs: column 19 ("Tier 1 Subtotal") has the actual invoice totals
+    for (let i = 1; i < jsonData.length; i++) {
       const row = jsonData[i] as any[];
       
       // Skip completely empty rows
       if (!row || row.length === 0 || row.every(cell => !cell || String(cell).trim() === '')) {
+        console.log(`Skipping row ${i} - empty`);
         continue;
       }
       
-      console.log(`Checking row ${i}:`, JSON.stringify(row));
+      console.log(`Checking row ${i}:`, JSON.stringify(row.slice(0, 25)));
       
       // Look for the line invoice number in first column (starts with DU)
       const firstCol = String(row[0] || '').trim();
       if (!firstCol.startsWith('DU')) {
-        console.log(`Skipping row ${i} - no DU invoice number`);
+        console.log(`Skipping row ${i} - no DU invoice number (found: ${firstCol})`);
         continue;
       }
       
-      // Look for amount in reasonable range (columns 15-35, amount between $1 and $10000)
+      // Look for amount in column 19 specifically (or nearby columns 18-21)
       let foundAmount = 0;
       let amountColIndex = -1;
       
-      for (let colIdx = 15; colIdx <= 35 && colIdx < row.length; colIdx++) {
+      for (let colIdx = 18; colIdx <= 21 && colIdx < row.length; colIdx++) {
         const cell = row[colIdx];
-        const cellStr = String(cell).trim();
         
         // Skip obvious date columns (Excel dates are > 40000)
         if (typeof cell === 'number' && cell > 40000) {
           continue;
         }
         
-        // Try to parse as currency
-        const cleanedAmount = cellStr.replace(/[$,]/g, '');
-        const parsedAmount = parseFloat(cleanedAmount);
+        const parsedAmount = typeof cell === 'number' ? cell : parseFloat(String(cell).replace(/[$,]/g, ''));
         
         // Amount should be reasonable for an invoice line (between $1 and $10,000)
         if (!isNaN(parsedAmount) && parsedAmount >= 1 && parsedAmount <= 10000) {
