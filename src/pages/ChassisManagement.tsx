@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -16,6 +16,7 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
+import KPICard from "@/components/ccm/KPICard";
 import {
   Form,
   FormControl,
@@ -126,9 +127,32 @@ const ChassisManagement = () => {
     setSearchTerm('');
   };
 
+  const metrics = useMemo(() => {
+    const total = chassisData.length;
+    const active = chassisData.filter(c => c.chassis_status?.toLowerCase() === 'active').length;
+    const avgRate = total > 0 
+      ? chassisData.reduce((sum, c) => sum + (Number(c.daily_rate) || 0), 0) / total
+      : 0;
+    const byLessor = chassisData.reduce((acc, c) => {
+      const lessor = c.lessor || 'Unknown';
+      acc[lessor] = (acc[lessor] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    const topLessor = Object.entries(byLessor).sort(([,a], [,b]) => (b as number) - (a as number))[0];
+    const activePercent = total > 0 ? ((active / total) * 100).toFixed(1) : '0.0';
+
+    return {
+      total,
+      active,
+      avgRate,
+      topLessor: topLessor ? `${topLessor[0]} (${topLessor[1]})` : 'N/A',
+      activePercent
+    };
+  }, [chassisData]);
+
   return (
     <div className="dashboard-layout">
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
         <h1 className="dash-title">Chassis Management</h1>
         
         <div className="flex gap-3">
@@ -216,6 +240,33 @@ const ChassisManagement = () => {
             </DialogContent>
           </Dialog>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <KPICard 
+          title="Total Chassis" 
+          value={metrics.total.toString()} 
+          description="In fleet" 
+          icon="chart" 
+        />
+        <KPICard 
+          title="Active Chassis" 
+          value={metrics.active.toString()} 
+          description={`${metrics.activePercent}% of fleet`}
+          icon="users" 
+        />
+        <KPICard 
+          title="Avg Daily Rate" 
+          value={`$${metrics.avgRate.toFixed(2)}`} 
+          description="Per chassis per day" 
+          icon="dollar" 
+        />
+        <KPICard 
+          title="Top Lessor" 
+          value={metrics.topLessor} 
+          description="Most chassis units" 
+          icon="file" 
+        />
       </div>
       
       <Card>
