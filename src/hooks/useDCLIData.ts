@@ -40,9 +40,9 @@ export const useDCLIData = () => {
       setLoading(true);
       
       const { data, error } = await supabase
-        .from('dcli_activity')
+        .from('dcli_invoices')
         .select('*')
-        .order('created_date', { ascending: false });
+        .order('invoice_date', { ascending: false });
 
       if (error) {
         throw error;
@@ -56,7 +56,7 @@ export const useDCLIData = () => {
       console.error('Error fetching DCLI data:', error);
       toast({
         title: "Error loading data",
-        description: "Failed to fetch DCLI activity data",
+        description: "Failed to fetch DCLI invoice data",
         variant: "destructive",
       });
     } finally {
@@ -68,7 +68,7 @@ export const useDCLIData = () => {
     const now = new Date();
     const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     
-    // Calculate metrics from the data
+    // Calculate metrics from the invoice data
     let totalOutstanding = 0;
     let overdueAmount = 0;
     let overdueCount = 0;
@@ -79,33 +79,33 @@ export const useDCLIData = () => {
     
     const statusCounts: { [key: string]: number } = {};
 
-    data.forEach(record => {
+    data.forEach(invoice => {
       // Count statuses
-      const status = record.reservation_status || 'Unknown';
+      const status = invoice.status || 'Unknown';
       statusCounts[status] = (statusCounts[status] || 0) + 1;
 
-      // Calculate financial metrics (using mock logic since we don't have specific financial fields)
-      const daysSinceOut = record.days_out || 0;
-      const estimatedValue = Math.random() * 5000 + 1000; // Mock calculation
+      // Calculate financial metrics using actual invoice data
+      const invoiceAmount = parseFloat(invoice.amount) || 0;
+      const dueDate = new Date(invoice.due_date);
+      const invoiceDate = new Date(invoice.invoice_date);
       
-      if (status === 'Active' || status === 'Pending') {
-        totalOutstanding += estimatedValue;
+      if (status === 'Open' || status === 'Pending') {
+        totalOutstanding += invoiceAmount;
       }
       
-      if (daysSinceOut > 30) {
-        overdueAmount += estimatedValue;
+      if (dueDate < now && status !== 'Paid') {
+        overdueAmount += invoiceAmount;
         overdueCount++;
       }
       
       if (status === 'Pending') {
-        pendingAmount += estimatedValue;
+        pendingAmount += invoiceAmount;
         pendingCount++;
       }
       
-      // Mock monthly paid calculation
-      const recordDate = new Date(record.created_date || Date.now());
-      if (recordDate >= currentMonth && status === 'Completed') {
-        monthlyPaid += estimatedValue;
+      // Monthly paid calculation
+      if (invoiceDate >= currentMonth && status === 'Paid') {
+        monthlyPaid += invoiceAmount;
         monthlyPaidCount++;
       }
     });

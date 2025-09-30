@@ -40,31 +40,29 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
     return isNaN(numAmount) ? '$0.00' : `$${numAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
   };
 
-  // Generate mock invoice data based on DCLI activity data
-  const generateInvoiceData = (records: any[]) => {
-    return records.map((record, index) => {
-      const invoiceNumber = `INV${String(1000000 + index).slice(-6)}`;
-      const invoiceTotal = Math.random() * 5000 + 500;
-      const remainingBalance = Math.random() * invoiceTotal;
-      const isOverdue = Math.random() > 0.7;
-      const isDisputed = Math.random() > 0.8;
+  // Map real invoice data to display format
+  const mapInvoiceData = (records: any[]) => {
+    return records.map((invoice) => {
+      const remainingBalance = invoice.disputed ? 
+        (parseFloat(invoice.amount) - (parseFloat(invoice.disputed_amount) || 0)) : 
+        parseFloat(invoice.amount);
       
       return {
-        ...record,
-        invoiceNumber,
-        billingDate: record.date_out || record.created_date,
-        invoiceType: record.asset_type === 'Container' ? 'CMS DAILY USE INV' : 'M&R REBILL INV',
-        invoiceTotal,
+        ...invoice,
+        invoiceNumber: invoice.invoice_id,
+        billingDate: invoice.invoice_date,
+        invoiceType: invoice.description,
+        invoiceTotal: parseFloat(invoice.amount),
         remainingBalance,
-        dueDate: new Date(new Date(record.date_out || Date.now()).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        invoiceStatus: remainingBalance < 10 ? 'Closed' : 'Open',
-        disputeStatus: isDisputed ? 'Disputed' : null,
-        hasAttachment: Math.random() > 0.3
+        dueDate: invoice.due_date,
+        invoiceStatus: invoice.status,
+        disputeStatus: invoice.disputed ? 'Disputed' : null,
+        hasAttachment: Math.random() > 0.3 // Mock attachment data
       };
     });
   };
 
-  const invoiceRecords = generateInvoiceData(invoiceData);
+  const invoiceRecords = mapInvoiceData(invoiceData);
 
   // Filter data based on search and filters
   const filteredData = invoiceRecords.filter(record => {
