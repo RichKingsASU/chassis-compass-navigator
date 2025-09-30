@@ -43,68 +43,95 @@ serve(async (req) => {
     // Get the first sheet
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
     
-    // Extract invoice header info from first rows
-    const invoiceId = String(jsonData[1]?.[1] || "1030381");
-    const billingDate = new Date().toISOString().split('T')[0];
-    const dueDate = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    console.log(`Excel has ${jsonData.length} total rows`);
+    console.log('First 15 rows:', JSON.stringify(jsonData.slice(0, 15), null, 2));
     
-    // Find data rows (skip header rows, typically starts around row 5-10)
-    let dataStartRow = -1;
-    for (let i = 0; i < jsonData.length; i++) {
+    // Extract invoice header info - look for invoice number in first few rows
+    let invoiceId = "1030381";
+    for (let i = 0; i < Math.min(10, jsonData.length); i++) {
       const row = jsonData[i] as any[];
-      // Look for a row that might contain "Invoice Type" or similar header
-      if (row.some(cell => String(cell).toLowerCase().includes('invoice') || 
-                           String(cell).toLowerCase().includes('chassis') ||
-                           String(cell).toLowerCase().includes('container'))) {
-        dataStartRow = i + 1; // Data starts on next row
-        break;
+      for (const cell of row) {
+        const cellStr = String(cell);
+        // Look for invoice number pattern (digits)
+        if (cellStr.match(/^\d{6,}$/)) {
+          invoiceId = cellStr;
+          console.log(`Found invoice ID: ${invoiceId} at row ${i}`);
+          break;
+        }
       }
     }
     
-    // If we didn't find headers, assume data starts at row 10
-    if (dataStartRow === -1) dataStartRow = 10;
+    const billingDate = new Date().toISOString().split('T')[0];
+    const dueDate = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
-    // Parse line items
+    // Find data rows - look for rows with numeric values that could be amounts
     const lineItems: any[] = [];
     let totalAmount = 0;
     
-    for (let i = dataStartRow; i < jsonData.length; i++) {
+    // Start from row 5 and look for data rows with amounts
+    for (let i = 5; i < jsonData.length; i++) {
       const row = jsonData[i] as any[];
       
-      // Skip empty rows
-      if (!row || row.length === 0 || !row.some(cell => cell)) continue;
+      // Skip completely empty rows
+      if (!row || row.length === 0 || row.every(cell => !cell || String(cell).trim() === '')) {
+        continue;
+      }
       
-      // Try to extract line item data (adjust column indices based on actual Excel structure)
-      // This is a generic parser - adjust indices based on your specific Excel format
-      const lineInvoiceNumber = String(row[0] || `DU${invoiceId}${i}`);
-      const invoiceTotal = parseFloat(String(row[row.length - 1] || 0).replace(/[^0-9.-]/g, '')) || 0;
+      console.log(`Checking row ${i}:`, JSON.stringify(row));
       
-      // Skip if no valid amount
-      if (invoiceTotal === 0) continue;
+      // Look for a dollar amount in the row (could be in various columns)
+      let foundAmount = 0;
+      let amountColIndex = -1;
       
-      totalAmount += invoiceTotal;
+      for (let colIdx = row.length - 1; colIdx >= 0; colIdx--) {
+        const cell = row[colIdx];
+        const cellStr = String(cell).trim();
+        
+        // Try to parse as currency (remove $ and , then parse)
+        const cleanedAmount = cellStr.replace(/[$,]/g, '');
+        const parsedAmount = parseFloat(cleanedAmount);
+        
+        if (!isNaN(parsedAmount) && parsedAmount > 0 && parsedAmount < 100000) {
+          foundAmount = parsedAmount;
+          amountColIndex = colIdx;
+          console.log(`Found amount ${foundAmount} at column ${colIdx}`);
+          break;
+        }
+      }
       
-      const lineItem = {
-        invoice_type: String(row[1] || "CMS DAILY USE INV"),
-        line_invoice_number: lineInvoiceNumber,
-        invoice_status: "Open",
-        invoice_total: invoiceTotal,
-        remaining_balance: invoiceTotal,
-        dispute_status: null,
-        attachment_count: 0,
-        chassis_out: String(row[2] || ""),
-        container_out: String(row[3] || ""),
-        date_out: new Date(Date.now() - (i - dataStartRow + 1) * 24 * 60 * 60 * 1000).toISOString(),
-        container_in: String(row[4] || row[3] || ""),
-        date_in: new Date().toISOString()
-      };
-      
-      lineItems.push(lineItem);
+      // If we found a valid amount, this is likely a data row
+      if (foundAmount > 0) {
+        totalAmount += foundAmount;
+        
+        // Extract other fields from the row
+        const lineInvoiceNumber = String(row[0] || `DU${invoiceId}${lineItems.length + 1}`).trim();
+        const invoiceType = String(row[1] || "CMS DAILY USE INV").trim();
+        const chassis = String(row[2] || "").trim();
+        const container = String(row[3] || "").trim();
+        
+        const lineItem = {
+          invoice_type: invoiceType || "CMS DAILY USE INV",
+          line_invoice_number: lineInvoiceNumber || `LI${lineItems.length + 1}`,
+          invoice_status: "Open",
+          invoice_total: foundAmount,
+          remaining_balance: foundAmount,
+          dispute_status: null,
+          attachment_count: 0,
+          chassis_out: chassis,
+          container_out: container,
+          date_out: new Date(Date.now() - (lineItems.length + 1) * 24 * 60 * 60 * 1000).toISOString(),
+          container_in: container,
+          date_in: new Date().toISOString()
+        };
+        
+        lineItems.push(lineItem);
+        console.log(`Added line item ${lineItems.length}:`, lineItem);
+      }
     }
     
-    console.log(`Extracted ${lineItems.length} line items from Excel`);
+    console.log(`Extracted ${lineItems.length} line items from Excel, total amount: ${totalAmount}`);
     
     const extractedData = {
       invoice: {
