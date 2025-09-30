@@ -40,7 +40,7 @@ export const useDCLIData = () => {
       setLoading(true);
       
       const { data, error } = await supabase
-        .from('dcli_invoices')
+        .from('dcli_invoices' as any)
         .select('*')
         .order('invoice_date', { ascending: false });
 
