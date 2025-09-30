@@ -693,6 +693,276 @@ export type Database = {
         }
         Relationships: []
       }
+      mcl_forrest_ltl_owned: {
+        Row: {
+          anytrek_unit: number | null
+          auto_renew_1_end_date: string | null
+          auto_renew_1_start_date: string | null
+          auto_renew_2_end_date: string | null
+          auto_renew_2_start_date: string | null
+          charge_code_in_mg: string | null
+          chassis_category: string | null
+          chassis_reporting_category: string | null
+          chassis_status: string | null
+          contract: string | null
+          contract_status: string | null
+          current_lease_term: string | null
+          current_rate_per_day: number | null
+          date_last_contract_rcvd_signed: string | null
+          day_notice_of_lease_expiration: string | null
+          description: string | null
+          extended_gps_rate_per_day: number | null
+          extended_lease_end: string | null
+          extended_lease_rate_per_day: number | null
+          extended_lease_start: string | null
+          extended_total_per_day_2: number | null
+          forrest_chassis_type: string | null
+          forrest_chz: string | null
+          forrest_off_hire_date: string | null
+          forrest_on_hire_date: string | null
+          gps_provider: string | null
+          hard_gps: string | null
+          id: number
+          initial_gps_rate_per_day: number | null
+          initial_lease_end_date: string | null
+          initial_lease_rate_per_day: number | null
+          initial_lease_start_date: string | null
+          initial_lease_term: string | null
+          initial_total_per_day_1: number | null
+          lessor: string | null
+          mfr: string | null
+          model_year: string | null
+          month_chassis_acquired: string | null
+          month_chassis_off_hired: string | null
+          notes: string | null
+          old_chz: string | null
+          original_stated_value: number | null
+          pick_up_handling_fee: number | null
+          pick_up_location: string | null
+          plate_nbr: string | null
+          plate_state: string | null
+          region: string | null
+          return_handling_fee: number | null
+          serial: string | null
+          tare_weight: string | null
+          under_frqt_in_gier: boolean | null
+          week_chassis_acquired: string | null
+          week_chassis_off_hired: string | null
+        }
+        Insert: {
+          anytrek_unit?: number | null
+          auto_renew_1_end_date?: string | null
+          auto_renew_1_start_date?: string | null
+          auto_renew_2_end_date?: string | null
+          auto_renew_2_start_date?: string | null
+          charge_code_in_mg?: string | null
+          chassis_category?: string | null
+          chassis_reporting_category?: string | null
+          chassis_status?: string | null
+          contract?: string | null
+          contract_status?: string | null
+          current_lease_term?: string | null
+          current_rate_per_day?: number | null
+          date_last_contract_rcvd_signed?: string | null
+          day_notice_of_lease_expiration?: string | null
+          description?: string | null
+          extended_gps_rate_per_day?: number | null
+          extended_lease_end?: string | null
+          extended_lease_rate_per_day?: number | null
+          extended_lease_start?: string | null
+          extended_total_per_day_2?: number | null
+          forrest_chassis_type?: string | null
+          forrest_chz?: string | null
+          forrest_off_hire_date?: string | null
+          forrest_on_hire_date?: string | null
+          gps_provider?: string | null
+          hard_gps?: string | null
+          id?: number
+          initial_gps_rate_per_day?: number | null
+          initial_lease_end_date?: string | null
+          initial_lease_rate_per_day?: number | null
+          initial_lease_start_date?: string | null
+          initial_lease_term?: string | null
+          initial_total_per_day_1?: number | null
+          lessor?: string | null
+          mfr?: string | null
+          model_year?: string | null
+          month_chassis_acquired?: string | null
+          month_chassis_off_hired?: string | null
+          notes?: string | null
+          old_chz?: string | null
+          original_stated_value?: number | null
+          pick_up_handling_fee?: number | null
+          pick_up_location?: string | null
+          plate_nbr?: string | null
+          plate_state?: string | null
+          region?: string | null
+          return_handling_fee?: number | null
+          serial?: string | null
+          tare_weight?: string | null
+          under_frqt_in_gier?: boolean | null
+          week_chassis_acquired?: string | null
+          week_chassis_off_hired?: string | null
+        }
+        Update: {
+          anytrek_unit?: number | null
+          auto_renew_1_end_date?: string | null
+          auto_renew_1_start_date?: string | null
+          auto_renew_2_end_date?: string | null
+          auto_renew_2_start_date?: string | null
+          charge_code_in_mg?: string | null
+          chassis_category?: string | null
+          chassis_reporting_category?: string | null
+          chassis_status?: string | null
+          contract?: string | null
+          contract_status?: string | null
+          current_lease_term?: string | null
+          current_rate_per_day?: number | null
+          date_last_contract_rcvd_signed?: string | null
+          day_notice_of_lease_expiration?: string | null
+          description?: string | null
+          extended_gps_rate_per_day?: number | null
+          extended_lease_end?: string | null
+          extended_lease_rate_per_day?: number | null
+          extended_lease_start?: string | null
+          extended_total_per_day_2?: number | null
+          forrest_chassis_type?: string | null
+          forrest_chz?: string | null
+          forrest_off_hire_date?: string | null
+          forrest_on_hire_date?: string | null
+          gps_provider?: string | null
+          hard_gps?: string | null
+          id?: number
+          initial_gps_rate_per_day?: number | null
+          initial_lease_end_date?: string | null
+          initial_lease_rate_per_day?: number | null
+          initial_lease_start_date?: string | null
+          initial_lease_term?: string | null
+          initial_total_per_day_1?: number | null
+          lessor?: string | null
+          mfr?: string | null
+          model_year?: string | null
+          month_chassis_acquired?: string | null
+          month_chassis_off_hired?: string | null
+          notes?: string | null
+          old_chz?: string | null
+          original_stated_value?: number | null
+          pick_up_handling_fee?: number | null
+          pick_up_location?: string | null
+          plate_nbr?: string | null
+          plate_state?: string | null
+          region?: string | null
+          return_handling_fee?: number | null
+          serial?: string | null
+          tare_weight?: string | null
+          under_frqt_in_gier?: boolean | null
+          week_chassis_acquired?: string | null
+          week_chassis_off_hired?: string | null
+        }
+        Relationships: []
+      }
+      mcl_forrest_stl: {
+        Row: {
+          all_units_on_hired_june_2024_present: string | null
+          booking: string | null
+          days_out: number | null
+          id: number
+          location: string | null
+          notes: string | null
+          off_hire_date: string | null
+          on_hire_date: string | null
+          paid_amount_w_tax: number | null
+          rate_per_day: number | null
+          repair_costs_billed_by_milestone: number | null
+          size_type: string | null
+          total_repair_costs_forrest: boolean | null
+          year_wk_offhire: string | null
+          year_wk_onhire: string | null
+        }
+        Insert: {
+          all_units_on_hired_june_2024_present?: string | null
+          booking?: string | null
+          days_out?: number | null
+          id?: number
+          location?: string | null
+          notes?: string | null
+          off_hire_date?: string | null
+          on_hire_date?: string | null
+          paid_amount_w_tax?: number | null
+          rate_per_day?: number | null
+          repair_costs_billed_by_milestone?: number | null
+          size_type?: string | null
+          total_repair_costs_forrest?: boolean | null
+          year_wk_offhire?: string | null
+          year_wk_onhire?: string | null
+        }
+        Update: {
+          all_units_on_hired_june_2024_present?: string | null
+          booking?: string | null
+          days_out?: number | null
+          id?: number
+          location?: string | null
+          notes?: string | null
+          off_hire_date?: string | null
+          on_hire_date?: string | null
+          paid_amount_w_tax?: number | null
+          rate_per_day?: number | null
+          repair_costs_billed_by_milestone?: number | null
+          size_type?: string | null
+          total_repair_costs_forrest?: boolean | null
+          year_wk_offhire?: string | null
+          year_wk_onhire?: string | null
+        }
+        Relationships: []
+      }
+      mcl_master_chassis_list: {
+        Row: {
+          charge_code_in_mg: string | null
+          chassis_category: string | null
+          chassis_status: string | null
+          contract: string | null
+          daily_rate: number | null
+          forrest_chassis_type: string | null
+          forrest_chz: string | null
+          id: number
+          lessor: string | null
+          plate_nbr: string | null
+          plate_state: string | null
+          region: string | null
+          serial: string | null
+        }
+        Insert: {
+          charge_code_in_mg?: string | null
+          chassis_category?: string | null
+          chassis_status?: string | null
+          contract?: string | null
+          daily_rate?: number | null
+          forrest_chassis_type?: string | null
+          forrest_chz?: string | null
+          id?: number
+          lessor?: string | null
+          plate_nbr?: string | null
+          plate_state?: string | null
+          region?: string | null
+          serial?: string | null
+        }
+        Update: {
+          charge_code_in_mg?: string | null
+          chassis_category?: string | null
+          chassis_status?: string | null
+          contract?: string | null
+          daily_rate?: number | null
+          forrest_chassis_type?: string | null
+          forrest_chz?: string | null
+          id?: number
+          lessor?: string | null
+          plate_nbr?: string | null
+          plate_state?: string | null
+          region?: string | null
+          serial?: string | null
+        }
+        Relationships: []
+      }
       mg_tms: {
         Row: {
           acct_mg_name: string | null
