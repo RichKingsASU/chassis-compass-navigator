@@ -243,7 +243,7 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
                       onCheckedChange={handleSelectAll}
                     />
                   </th>
-                  <th className="text-left p-3 text-sm font-medium text-gray-600">Actions</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">View | Dispute</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Number</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Billing Date</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Type</th>
@@ -273,10 +273,6 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
                             className="text-blue-600 hover:text-blue-800 hover:underline"
                           >
                             View
-                          </button>
-                          <span className="text-gray-400">|</span>
-                          <button className="text-blue-600 hover:text-blue-800 hover:underline">
-                            Pay
                           </button>
                           <span className="text-gray-400">|</span>
                           <button className="text-blue-600 hover:text-blue-800 hover:underline">
