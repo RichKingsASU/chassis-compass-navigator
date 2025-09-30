@@ -1,5 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Table, 
   TableBody, 
@@ -37,90 +39,44 @@ import { Check, Search, Upload, FileX, Filter, MapPin, UploadCloud, FileCheck } 
 import { useForm } from "react-hook-form";
 
 const ChassisManagement = () => {
+  const { toast } = useToast();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [chassisData, setChassisData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedFilters, setSelectedFilters] = useState({
-    size: '',
-    gpsProvider: '',
-    vendor: '',
+    chassisType: '',
+    lessor: '',
+    region: '',
     status: '',
   });
-  
-  // Mock data for chassis
-  const chassisData = [
-    {
-      id: 'CMAU1234567',
-      size: "40'",
-      vendor: 'DCLI',
-      gpsProvider: 'Samsara',
-      location: 'Savannah, GA',
-      lastUpdated: '2025-04-09 08:23 AM',
-      status: 'active'
-    },
-    {
-      id: 'TCLU7654321',
-      size: "20'",
-      vendor: 'TRAC',
-      gpsProvider: 'BlackBerry',
-      location: 'Charleston, SC',
-      lastUpdated: '2025-04-09 07:45 AM',
-      status: 'active'
-    },
-    {
-      id: 'FSCU5555123',
-      size: "45'",
-      vendor: 'FLEXIVAN',
-      gpsProvider: 'Fleetview',
-      location: 'Atlanta, GA',
-      lastUpdated: '2025-04-08 04:15 PM',
-      status: 'idle'
-    },
-    {
-      id: 'NYKU9876543',
-      size: "40'",
-      vendor: 'CCM',
-      gpsProvider: 'Fleetlocate',
-      location: 'Miami, FL',
-      lastUpdated: '2025-04-08 01:30 PM',
-      status: 'repair'
-    },
-    {
-      id: 'APHU1122334',
-      size: "20'",
-      vendor: 'DCLI',
-      gpsProvider: 'Anytrek',
-      location: 'Jacksonville, FL',
-      lastUpdated: '2025-04-08 10:05 AM',
-      status: 'active'
-    },
-    {
-      id: 'MSCU5544332',
-      size: "40'",
-      vendor: 'SCSPA',
-      gpsProvider: 'Samsara',
-      location: 'Norfolk, VA',
-      lastUpdated: '2025-04-07 03:22 PM',
-      status: 'active'
-    },
-    {
-      id: 'OOLU8899776',
-      size: "20'",
-      vendor: 'WCCP',
-      gpsProvider: 'BlackBerry',
-      location: 'Houston, TX',
-      lastUpdated: '2025-04-07 11:14 AM',
-      status: 'idle'
-    },
-    {
-      id: 'ZCSU1234987',
-      size: "45'",
-      vendor: 'TRAC',
-      gpsProvider: 'Anytrek',
-      location: 'New York, NY',
-      lastUpdated: '2025-04-06 08:45 PM',
-      status: 'repair'
-    },
-  ];
+
+  useEffect(() => {
+    fetchChassisData();
+  }, []);
+
+  const fetchChassisData = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('mcl_master_chassis_list')
+        .select('*')
+        .order('forrest_chz', { ascending: true });
+
+      if (error) throw error;
+
+      setChassisData(data || []);
+    } catch (error) {
+      console.error('Error fetching chassis data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load chassis data.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const form = useForm({
     defaultValues: {
@@ -129,36 +85,25 @@ const ChassisManagement = () => {
     },
   });
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Active</Badge>;
-      case 'idle':
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Idle</Badge>;
-      case 'repair':
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-200">In Repair</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
-  };
-
   const filteredChassis = chassisData.filter(chassis => {
     // Search term filter
-    if (searchTerm && !chassis.id.toLowerCase().includes(searchTerm.toLowerCase())) {
+    if (searchTerm && 
+        !chassis.forrest_chz?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !chassis.serial?.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
     
     // Dropdown filters
-    if (selectedFilters.size && chassis.size !== selectedFilters.size) {
+    if (selectedFilters.chassisType && chassis.forrest_chassis_type !== selectedFilters.chassisType) {
       return false;
     }
-    if (selectedFilters.gpsProvider && chassis.gpsProvider !== selectedFilters.gpsProvider) {
+    if (selectedFilters.lessor && chassis.lessor !== selectedFilters.lessor) {
       return false;
     }
-    if (selectedFilters.vendor && chassis.vendor !== selectedFilters.vendor) {
+    if (selectedFilters.region && chassis.region !== selectedFilters.region) {
       return false;
     }
-    if (selectedFilters.status && chassis.status !== selectedFilters.status) {
+    if (selectedFilters.status && chassis.chassis_status !== selectedFilters.status) {
       return false;
     }
     
@@ -173,9 +118,9 @@ const ChassisManagement = () => {
 
   const resetFilters = () => {
     setSelectedFilters({
-      size: '',
-      gpsProvider: '',
-      vendor: '',
+      chassisType: '',
+      lessor: '',
+      region: '',
       status: '',
     });
     setSearchTerm('');
@@ -297,60 +242,55 @@ const ChassisManagement = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div>
-              <FormLabel>Size</FormLabel>
+              <FormLabel>Chassis Type</FormLabel>
               <Select 
-                value={selectedFilters.size} 
-                onValueChange={(value) => setSelectedFilters({...selectedFilters, size: value})}
+                value={selectedFilters.chassisType} 
+                onValueChange={(value) => setSelectedFilters({...selectedFilters, chassisType: value})}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="All Sizes" />
+                  <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Sizes</SelectItem>
-                  <SelectItem value="20'">20'</SelectItem>
-                  <SelectItem value="40'">40'</SelectItem>
-                  <SelectItem value="45'">45'</SelectItem>
+                  <SelectItem value="">All Types</SelectItem>
+                  {Array.from(new Set(chassisData.map(c => c.forrest_chassis_type).filter(Boolean))).map(type => (
+                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             
             <div>
-              <FormLabel>GPS Provider</FormLabel>
+              <FormLabel>Lessor</FormLabel>
               <Select 
-                value={selectedFilters.gpsProvider} 
-                onValueChange={(value) => setSelectedFilters({...selectedFilters, gpsProvider: value})}
+                value={selectedFilters.lessor} 
+                onValueChange={(value) => setSelectedFilters({...selectedFilters, lessor: value})}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="All Providers" />
+                  <SelectValue placeholder="All Lessors" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Providers</SelectItem>
-                  <SelectItem value="Samsara">Samsara</SelectItem>
-                  <SelectItem value="BlackBerry">BlackBerry</SelectItem>
-                  <SelectItem value="Fleetview">Fleetview</SelectItem>
-                  <SelectItem value="Fleetlocate">Fleetlocate</SelectItem>
-                  <SelectItem value="Anytrek">Anytrek</SelectItem>
+                  <SelectItem value="">All Lessors</SelectItem>
+                  {Array.from(new Set(chassisData.map(c => c.lessor).filter(Boolean))).map(lessor => (
+                    <SelectItem key={lessor} value={lessor}>{lessor}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             
             <div>
-              <FormLabel>Vendor</FormLabel>
+              <FormLabel>Region</FormLabel>
               <Select 
-                value={selectedFilters.vendor} 
-                onValueChange={(value) => setSelectedFilters({...selectedFilters, vendor: value})}
+                value={selectedFilters.region} 
+                onValueChange={(value) => setSelectedFilters({...selectedFilters, region: value})}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="All Vendors" />
+                  <SelectValue placeholder="All Regions" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Vendors</SelectItem>
-                  <SelectItem value="DCLI">DCLI</SelectItem>
-                  <SelectItem value="CCM">CCM</SelectItem>
-                  <SelectItem value="SCSPA">SCSPA</SelectItem>
-                  <SelectItem value="WCCP">WCCP</SelectItem>
-                  <SelectItem value="TRAC">TRAC</SelectItem>
-                  <SelectItem value="FLEXIVAN">FLEXIVAN</SelectItem>
+                  <SelectItem value="">All Regions</SelectItem>
+                  {Array.from(new Set(chassisData.map(c => c.region).filter(Boolean))).map(region => (
+                    <SelectItem key={region} value={region}>{region}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -365,10 +305,10 @@ const ChassisManagement = () => {
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="idle">Idle</SelectItem>
-                  <SelectItem value="repair">In Repair</SelectItem>
+                  <SelectItem value="">All Status</SelectItem>
+                  {Array.from(new Set(chassisData.map(c => c.chassis_status).filter(Boolean))).map(status => (
+                    <SelectItem key={status} value={status}>{status}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -379,46 +319,48 @@ const ChassisManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Chassis ID</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Vendor</TableHead>
-                  <TableHead>GPS Provider</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Last Updated</TableHead>
+                  <TableHead>Serial</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Lessor</TableHead>
+                  <TableHead>Region</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Daily Rate</TableHead>
+                  <TableHead>Plate</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredChassis.length > 0 ? (
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-4 text-muted-foreground">
+                      Loading chassis data...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredChassis.length > 0 ? (
                   filteredChassis.map((chassis) => (
                     <TableRow key={chassis.id}>
-                      <TableCell className="font-medium">{chassis.id}</TableCell>
-                      <TableCell>{chassis.size}</TableCell>
-                      <TableCell>{chassis.vendor}</TableCell>
-                      <TableCell>{chassis.gpsProvider}</TableCell>
+                      <TableCell className="font-medium">{chassis.forrest_chz || 'N/A'}</TableCell>
+                      <TableCell>{chassis.serial || 'N/A'}</TableCell>
+                      <TableCell>{chassis.forrest_chassis_type || 'N/A'}</TableCell>
+                      <TableCell>{chassis.lessor || 'N/A'}</TableCell>
+                      <TableCell>{chassis.region || 'N/A'}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <MapPin size={14} className="text-secondary" />
-                          {chassis.location}
-                        </div>
+                        <Badge variant="outline">{chassis.chassis_status || 'Unknown'}</Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{chassis.lastUpdated}</TableCell>
-                      <TableCell>{getStatusBadge(chassis.status)}</TableCell>
+                      <TableCell>{chassis.chassis_category || 'N/A'}</TableCell>
                       <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm">
-                            <FileCheck size={16} />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <UploadCloud size={16} />
-                          </Button>
-                        </div>
+                        {chassis.daily_rate ? `$${Number(chassis.daily_rate).toFixed(2)}` : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        {chassis.plate_state && chassis.plate_nbr 
+                          ? `${chassis.plate_state} ${chassis.plate_nbr}` 
+                          : 'N/A'}
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-4 text-muted-foreground">
                       No chassis found matching your filters.
                     </TableCell>
                   </TableRow>
