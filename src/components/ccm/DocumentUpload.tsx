@@ -318,21 +318,6 @@ const DocumentUpload = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="provider">Provider</Label>
-              <Select value={provider} onValueChange={setProvider}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CCM">CCM</SelectItem>
-                  <SelectItem value="DCLI">DCLI</SelectItem>
-                  <SelectItem value="TRAC">TRAC</SelectItem>
-                  <SelectItem value="FLEXIVAN">FLEXIVAN</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
