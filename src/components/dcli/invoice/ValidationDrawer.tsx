@@ -172,7 +172,7 @@ const MatchTable = ({
                 </div>
               </TableCell>
               <TableCell>
-                {match.tms_matches && match.tms_matches.length > 0 ? (
+                {Array.isArray(match.tms_matches) && match.tms_matches.length > 0 ? (
                   <div className="space-y-2">
                     {match.tms_matches.map((tmsMatch: TMSMatch, matchIdx: number) => (
                       <Card
@@ -235,11 +235,11 @@ const MatchTable = ({
                             </div>
                           )}
                         </div>
-                        {tmsMatch.match_reasons && tmsMatch.match_reasons.length > 0 && (
+                        {Array.isArray(tmsMatch.match_reasons) && tmsMatch.match_reasons.length > 0 && (
                           <div className="mt-2 pt-2 border-t border-border/50">
                             <div className="text-xs font-medium mb-1">Match Reasons:</div>
                             <div className="flex flex-wrap gap-1">
-                              {tmsMatch.match_reasons.filter(Boolean).map((reason, i) => (
+                              {tmsMatch.match_reasons?.filter(Boolean).map((reason, i) => (
                                 <Badge key={i} variant="outline" className="text-xs">
                                   {reason}
                                 </Badge>
