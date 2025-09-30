@@ -8,6 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import { ExtractedData } from '@/pages/dcli/NewInvoice';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface InvoiceReviewStepProps {
   extractedData: ExtractedData;
@@ -24,6 +26,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
   onBack,
   setHasUnsavedChanges,
 }) => {
+  const { toast } = useToast();
   const [invoice, setInvoice] = useState(extractedData.invoice);
   const [lineItems, setLineItems] = useState(extractedData.line_items);
 
@@ -56,6 +59,44 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
     if (!item.container_out) warnings.push('Missing container');
     if (!item.date_out || !item.date_in) warnings.push('Missing dates');
     return warnings;
+  };
+
+  const handleContinue = async () => {
+    try {
+      const stagingData = {
+        summary_invoice_id: invoice.summary_invoice_id,
+        billing_date: invoice.billing_date || null,
+        due_date: invoice.due_date || null,
+        account_code: invoice.account_code || null,
+        vendor: invoice.vendor || null,
+        total_amount: invoice.amount_due || null,
+        status: invoice.status || null,
+        currency: invoice.currency_code || null,
+        attachments: extractedData.attachments as any,
+        line_items: lineItems as any,
+        excel_headers: extractedData.excel_headers as any,
+      };
+
+      const { error } = await supabase
+        .from('dcli_invoice_staging')
+        .insert(stagingData);
+
+      if (error) throw error;
+
+      toast({
+        title: "Data Staged",
+        description: "Invoice data saved to staging table successfully.",
+      });
+
+      onComplete();
+    } catch (error) {
+      console.error('Error saving to staging table:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save data to staging table.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -213,7 +254,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
         <Button variant="outline" onClick={onBack}>
           Back to Upload
         </Button>
-        <Button onClick={onComplete}>Continue to Validate</Button>
+        <Button onClick={handleContinue}>Continue to Validate</Button>
       </div>
     </div>
   );

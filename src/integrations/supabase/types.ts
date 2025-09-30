@@ -474,6 +474,60 @@ export type Database = {
           },
         ]
       }
+      dcli_invoice_staging: {
+        Row: {
+          account_code: string | null
+          attachments: Json | null
+          billing_date: string | null
+          created_at: string
+          currency: string | null
+          due_date: string | null
+          excel_headers: Json | null
+          id: string
+          invoice_date: string | null
+          line_items: Json
+          status: string | null
+          summary_invoice_id: string
+          total_amount: number | null
+          updated_at: string
+          vendor: string | null
+        }
+        Insert: {
+          account_code?: string | null
+          attachments?: Json | null
+          billing_date?: string | null
+          created_at?: string
+          currency?: string | null
+          due_date?: string | null
+          excel_headers?: Json | null
+          id?: string
+          invoice_date?: string | null
+          line_items?: Json
+          status?: string | null
+          summary_invoice_id: string
+          total_amount?: number | null
+          updated_at?: string
+          vendor?: string | null
+        }
+        Update: {
+          account_code?: string | null
+          attachments?: Json | null
+          billing_date?: string | null
+          created_at?: string
+          currency?: string | null
+          due_date?: string | null
+          excel_headers?: Json | null
+          id?: string
+          invoice_date?: string | null
+          line_items?: Json
+          status?: string | null
+          summary_invoice_id?: string
+          total_amount?: number | null
+          updated_at?: string
+          vendor?: string | null
+        }
+        Relationships: []
+      }
       flexivan_activity: {
         Row: {
           age: number | null
