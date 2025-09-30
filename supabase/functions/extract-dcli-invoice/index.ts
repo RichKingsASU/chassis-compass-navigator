@@ -48,6 +48,10 @@ serve(async (req) => {
     console.log(`Excel has ${jsonData.length} total rows`);
     console.log('First 15 rows:', JSON.stringify(jsonData.slice(0, 15), null, 2));
     
+    // Extract column headers from first row
+    const headers = jsonData[0] as string[];
+    console.log('Column headers:', headers);
+    
     // Extract invoice header info - look for invoice number in first few rows
     let invoiceId = "1030381";
     for (let i = 0; i < Math.min(10, jsonData.length); i++) {
@@ -117,7 +121,15 @@ serve(async (req) => {
       if (foundAmount > 0) {
         totalAmount += foundAmount;
         
-        // Extract other fields from the row
+        // Create a row_data object with all columns mapped to their headers
+        const rowData: any = {};
+        headers.forEach((header, index) => {
+          if (index < row.length) {
+            rowData[header] = row[index];
+          }
+        });
+        
+        // Extract specific fields for backward compatibility
         const lineInvoiceNumber = String(row[0] || `DU${invoiceId}${lineItems.length + 1}`).trim();
         const invoiceType = String(row[1] || "CMS DAILY USE INV").trim();
         const chassis = String(row[3] || "").trim();
@@ -136,7 +148,8 @@ serve(async (req) => {
           container_out: containerOut,
           date_out: new Date(Date.now() - (lineItems.length + 1) * 24 * 60 * 60 * 1000).toISOString(),
           container_in: containerIn,
-          date_in: new Date().toISOString()
+          date_in: new Date().toISOString(),
+          row_data: rowData  // Include all Excel columns for review
         };
         
         lineItems.push(lineItem);
@@ -161,6 +174,7 @@ serve(async (req) => {
         account_code: "DCLI-001",
         pool: "West Coast"
       },
+      excel_headers: headers,  // Include column headers for review table
       line_items: lineItems.length > 0 ? lineItems : [
         {
           invoice_type: "CMS DAILY USE INV",

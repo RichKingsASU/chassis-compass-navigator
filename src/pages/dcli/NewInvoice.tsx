@@ -34,6 +34,7 @@ export interface LineItem {
   date_out: string;
   container_in: string;
   date_in: string;
+  row_data?: Record<string, any>;
 }
 
 export interface ExtractedData {
@@ -42,6 +43,7 @@ export interface ExtractedData {
   attachments: Array<{ name: string; path: string }>;
   warnings: string[];
   source_hash: string;
+  excel_headers?: string[];
 }
 
 const steps = [

@@ -160,10 +160,10 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
         </div>
       </Card>
 
-      {/* Line Items Table */}
+      {/* Line Items Table - Full Excel Data */}
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">Line Items ({lineItems.length})</h2>
+          <h2 className="text-xl font-bold">Line Items - Full Data Review ({lineItems.length})</h2>
           {delta > 0.01 && (
             <Badge variant="destructive" className="flex items-center gap-1">
               <AlertCircle className="w-3 h-3" />
@@ -171,88 +171,47 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
             </Badge>
           )}
         </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Review all extracted data from the Excel file. Scroll horizontally to see all columns.
+        </p>
         <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>Line Invoice #</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Chassis Out</TableHead>
-                <TableHead>Container Out</TableHead>
-                <TableHead>Date Out</TableHead>
-                <TableHead>Date In</TableHead>
-                <TableHead>Warnings</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {lineItems.map((item, idx) => {
-                const warnings = validateLineItem(item);
-                return (
-                  <TableRow key={idx}>
-                    <TableCell className="text-xs">{item.invoice_type}</TableCell>
-                    <TableCell className="text-xs">{item.line_invoice_number}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{item.invoice_status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={item.invoice_total}
-                        onChange={(e) =>
-                          handleLineItemChange(idx, 'invoice_total', parseFloat(e.target.value))
-                        }
-                        className="w-24 h-8 text-sm"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={item.chassis_out}
-                        onChange={(e) => handleLineItemChange(idx, 'chassis_out', e.target.value)}
-                        className="w-32 h-8 text-sm"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={item.container_out}
-                        onChange={(e) => handleLineItemChange(idx, 'container_out', e.target.value)}
-                        className="w-32 h-8 text-sm"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="datetime-local"
-                        value={item.date_out?.slice(0, 16)}
-                        onChange={(e) => handleLineItemChange(idx, 'date_out', e.target.value)}
-                        className="w-44 h-8 text-sm"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="datetime-local"
-                        value={item.date_in?.slice(0, 16)}
-                        onChange={(e) => handleLineItemChange(idx, 'date_in', e.target.value)}
-                        className="w-44 h-8 text-sm"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {warnings.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {warnings.map((w, i) => (
-                            <Badge key={i} variant="destructive" className="text-xs">
-                              {w}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b bg-muted/50">
+                {extractedData?.excel_headers?.map((header, idx) => (
+                  <th key={idx} className="text-left p-2 font-medium whitespace-nowrap min-w-[120px] sticky top-0 bg-muted/50">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {lineItems.map((item, rowIndex) => (
+                <tr key={rowIndex} className="border-b hover:bg-muted/50">
+                  {extractedData?.excel_headers?.map((header, colIndex) => {
+                    const cellValue = item.row_data?.[header];
+                    let displayValue = '—';
+                    
+                    if (cellValue !== undefined && cellValue !== null) {
+                      // Format dates if they look like Excel serial numbers
+                      if (typeof cellValue === 'number' && cellValue > 40000 && cellValue < 50000) {
+                        const date = new Date((cellValue - 25569) * 86400 * 1000);
+                        displayValue = date.toLocaleDateString();
+                      } else {
+                        displayValue = String(cellValue);
+                      }
+                    }
+                    
+                    return (
+                      <td key={colIndex} className="p-2 whitespace-nowrap border-r last:border-r-0">
+                        {displayValue}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
 
