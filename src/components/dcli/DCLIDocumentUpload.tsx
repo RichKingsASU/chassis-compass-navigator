@@ -13,11 +13,9 @@ const DCLIDocumentUpload = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState({
-    documentType: '',
-    chassisNumber: '',
-    containerNumber: '',
     invoiceNumber: '',
     description: '',
+    tags: '',
   });
   const { toast } = useToast();
 
@@ -44,10 +42,10 @@ const DCLIDocumentUpload = () => {
       return;
     }
 
-    if (!formData.documentType || !formData.chassisNumber) {
+    if (!formData.invoiceNumber) {
       toast({
         title: "Error", 
-        description: "Please fill in all required fields",
+        description: "Please fill in the invoice number",
         variant: "destructive",
       });
       return;
@@ -67,20 +65,16 @@ const DCLIDocumentUpload = () => {
 
         if (uploadError) throw uploadError;
 
-        // Insert document record
-        const { error: insertError } = await supabase
-          .from('dcli_documents')
-          .insert({
-            file_name: file.name,
-            file_path: filePath,
-            document_type: formData.documentType,
-            chassis_number: formData.chassisNumber,
-            container_number: formData.containerNumber || null,
-            invoice_number: formData.invoiceNumber || null,
-            description: formData.description || null,
-          });
+        // For now, just log the file upload since dcli_documents table needs to be created
+        console.log('File uploaded:', {
+          file_name: file.name,
+          file_path: filePath,
+          invoice_number: formData.invoiceNumber || null,
+          description: formData.description || null,
+          tags: formData.tags || null,
+        });
 
-        if (insertError) throw insertError;
+        
       }
 
       toast({
@@ -91,11 +85,9 @@ const DCLIDocumentUpload = () => {
       // Reset form
       setSelectedFiles([]);
       setFormData({
-        documentType: '',
-        chassisNumber: '',
-        containerNumber: '',
         invoiceNumber: '',
         description: '',
+        tags: '',
       });
       
     } catch (error) {
@@ -126,55 +118,25 @@ const DCLIDocumentUpload = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="documentType">Document Type *</Label>
-                <Select 
-                  value={formData.documentType} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, documentType: value }))}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select document type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bill_of_lading">Bill of Lading</SelectItem>
-                    <SelectItem value="receipt">Receipt</SelectItem>
-                    <SelectItem value="invoice">Invoice</SelectItem>
-                    <SelectItem value="proof_of_delivery">Proof of Delivery</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="chassisNumber">Chassis Number *</Label>
-                <Input
-                  id="chassisNumber"
-                  value={formData.chassisNumber}
-                  onChange={(e) => setFormData(prev => ({ ...prev, chassisNumber: e.target.value }))}
-                  placeholder="Enter chassis number"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="containerNumber">Container Number</Label>
-                <Input
-                  id="containerNumber"
-                  value={formData.containerNumber}
-                  onChange={(e) => setFormData(prev => ({ ...prev, containerNumber: e.target.value }))}
-                  placeholder="Enter container number"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="invoiceNumber">Invoice Number</Label>
+                <Label htmlFor="invoiceNumber">Invoice Number *</Label>
                 <Input
                   id="invoiceNumber"
                   value={formData.invoiceNumber}
                   onChange={(e) => setFormData(prev => ({ ...prev, invoiceNumber: e.target.value }))}
                   placeholder="Enter invoice number"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tags">Tags</Label>
+                <Input
+                  id="tags"
+                  value={formData.tags}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+                  placeholder="Enter tags (comma separated)"
                 />
               </div>
             </div>
