@@ -45,10 +45,10 @@ const ChassisManagement = () => {
   const [chassisData, setChassisData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFilters, setSelectedFilters] = useState({
-    chassisType: '',
-    lessor: '',
-    region: '',
-    status: '',
+    chassisType: 'all',
+    lessor: 'all',
+    region: 'all',
+    status: 'all',
   });
 
   useEffect(() => {
@@ -94,16 +94,16 @@ const ChassisManagement = () => {
     }
     
     // Dropdown filters
-    if (selectedFilters.chassisType && chassis.forrest_chassis_type !== selectedFilters.chassisType) {
+    if (selectedFilters.chassisType !== 'all' && chassis.forrest_chassis_type !== selectedFilters.chassisType) {
       return false;
     }
-    if (selectedFilters.lessor && chassis.lessor !== selectedFilters.lessor) {
+    if (selectedFilters.lessor !== 'all' && chassis.lessor !== selectedFilters.lessor) {
       return false;
     }
-    if (selectedFilters.region && chassis.region !== selectedFilters.region) {
+    if (selectedFilters.region !== 'all' && chassis.region !== selectedFilters.region) {
       return false;
     }
-    if (selectedFilters.status && chassis.chassis_status !== selectedFilters.status) {
+    if (selectedFilters.status !== 'all' && chassis.chassis_status !== selectedFilters.status) {
       return false;
     }
     
@@ -118,10 +118,10 @@ const ChassisManagement = () => {
 
   const resetFilters = () => {
     setSelectedFilters({
-      chassisType: '',
-      lessor: '',
-      region: '',
-      status: '',
+      chassisType: 'all',
+      lessor: 'all',
+      region: 'all',
+      status: 'all',
     });
     setSearchTerm('');
   };
@@ -251,7 +251,7 @@ const ChassisManagement = () => {
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
                   {Array.from(new Set(chassisData.map(c => c.forrest_chassis_type).filter(Boolean))).map(type => (
                     <SelectItem key={type} value={type}>{type}</SelectItem>
                   ))}
@@ -269,7 +269,7 @@ const ChassisManagement = () => {
                   <SelectValue placeholder="All Lessors" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Lessors</SelectItem>
+                  <SelectItem value="all">All Lessors</SelectItem>
                   {Array.from(new Set(chassisData.map(c => c.lessor).filter(Boolean))).map(lessor => (
                     <SelectItem key={lessor} value={lessor}>{lessor}</SelectItem>
                   ))}
@@ -287,7 +287,7 @@ const ChassisManagement = () => {
                   <SelectValue placeholder="All Regions" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Regions</SelectItem>
+                  <SelectItem value="all">All Regions</SelectItem>
                   {Array.from(new Set(chassisData.map(c => c.region).filter(Boolean))).map(region => (
                     <SelectItem key={region} value={region}>{region}</SelectItem>
                   ))}
@@ -305,7 +305,7 @@ const ChassisManagement = () => {
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   {Array.from(new Set(chassisData.map(c => c.chassis_status).filter(Boolean))).map(status => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}
