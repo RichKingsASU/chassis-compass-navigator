@@ -32,7 +32,7 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('dcli_invoices' as any)
+        .from('dcli_invoice' as any)
         .select('*')
         .order('invoice_date', { ascending: false });
 
