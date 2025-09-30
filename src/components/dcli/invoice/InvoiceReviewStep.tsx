@@ -141,7 +141,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
           </div>
           <div>
             <Label htmlFor="vendor">Vendor</Label>
-            <Select value={invoice.vendor} onValueChange={(v) => handleInvoiceFieldChange('vendor', v)}>
+            <Select value={invoice.vendor || "DCLI"} onValueChange={(v) => handleInvoiceFieldChange('vendor', v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -162,7 +162,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
           </div>
           <div>
             <Label htmlFor="status">Status</Label>
-            <Select value={invoice.status} onValueChange={(v) => handleInvoiceFieldChange('status', v)}>
+            <Select value={invoice.status || "Open"} onValueChange={(v) => handleInvoiceFieldChange('status', v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
