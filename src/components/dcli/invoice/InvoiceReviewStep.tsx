@@ -182,11 +182,14 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
                     const cellValue = item.row_data?.[header];
                     let displayValue = '—';
                     
-                    if (cellValue !== undefined && cellValue !== null) {
+                    // Check if value exists and is not empty
+                    if (cellValue !== undefined && cellValue !== null && cellValue !== '') {
                       // Format dates if they look like Excel serial numbers
                       if (typeof cellValue === 'number' && cellValue > 40000 && cellValue < 50000) {
                         const date = new Date((cellValue - 25569) * 86400 * 1000);
                         displayValue = date.toLocaleDateString();
+                      } else if (typeof cellValue === 'number' && cellValue === 0) {
+                        displayValue = '0';
                       } else {
                         displayValue = String(cellValue);
                       }
