@@ -59,7 +59,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
     return warnings;
   };
 
-  const totalAmount = lineItems.reduce((sum, item) => sum + Number(item.invoice_total || 0), 0);
+  const totalAmount = lineItems.reduce((sum, item) => sum + Number(item.row_data?.["Grand Total"] || 0), 0);
   const delta = Math.abs(totalAmount - Number(invoice.amount_due));
 
   return (
