@@ -3,6 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import DCLIFinancialPulse from './DCLIFinancialPulse';
 import DCLIInvoiceTracker from './DCLIInvoiceTracker';
 import DCLIDetailView from './DCLIDetailView';
+import ImportantNotices from './dashboard/ImportantNotices';
+import ContactsAndResources from './dashboard/ContactsAndResources';
 import { useDCLIData } from '@/hooks/useDCLIData';
 
 const DCLIDashboard = () => {
@@ -34,6 +36,12 @@ const DCLIDashboard = () => {
         
         <TabsContent value="dashboard" className="space-y-6 pt-4">
           <DCLIFinancialPulse />
+          
+          {/* Important Notices */}
+          <ImportantNotices />
+          
+          {/* Contact Information and Resources */}
+          <ContactsAndResources />
         </TabsContent>
         
         <TabsContent value="tracker" className="pt-4">
