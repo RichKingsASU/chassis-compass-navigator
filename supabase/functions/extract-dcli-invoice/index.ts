@@ -97,7 +97,7 @@ serve(async (req) => {
 
       // Look for amount in column 19 specifically (or nearby columns 18-21)
       let foundAmount = 0;
-      const _amountColIndex = -1;
+      let amountColIndex = -1;
 
       for (let colIdx = 18; colIdx <= 21 && colIdx < row.length; colIdx++) {
         const cell = row[colIdx];
@@ -170,7 +170,7 @@ serve(async (req) => {
 
     // Calculate Grand Total sum from Excel (this is what should be used)
     const grandTotalSum = lineItems.reduce((sum, item) => {
-      const grandTotal = Number(item.row_data?.["Grand Total"] || 0);
+      const grandTotal = Number((item.row_data as any)?.["Grand Total"] || 0);
       console.log(`Line item ${item.line_invoice_number}: Grand Total = ${grandTotal}`);
       return sum + grandTotal;
     }, 0);

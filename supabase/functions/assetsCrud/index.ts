@@ -221,7 +221,7 @@ Deno.serve(async (req) => {
         return json({ error: "Method not allowed" }, { status: 405 });
     }
   } catch (e: unknown) {
-    const msg = typeof e === "string" ? e : e?.message ?? "Unknown error";
+    const msg = e instanceof Error ? e.message : String(e);
     // If we threw a Response above, return it as-is
     if (e instanceof Response) return e;
     return json({ error: msg }, { status: 500 });

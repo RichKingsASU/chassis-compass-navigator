@@ -1,7 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@^2";
-import { assertEnv, env } from "./env.ts";
-
-assertEnv();
+import { env } from "./env.ts";
 
 export const sbAdmin = () =>
   createClient(env.SUPABASE_URL, env.SERVICE_ROLE_KEY, {
@@ -65,4 +63,44 @@ export function haversineMeters(
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+export async function ensureOrg(id: string, name: string): Promise<void> {
+  const sb = sbAdmin();
+  const { error } = await sb.from("orgs").upsert({ id, name });
+  if (error) console.error(`ensureOrg failed: ${error.message}`);
+}
+
+export async function ensureAsset(
+  p: { org_id: string; radar_asset_uuid: string | null; identifier: string | null },
+): Promise<string> {
+  const sb = sbAdmin();
+  const { data, error } = await sb.from("assets").select("id").eq("org_id", p.org_id).or(
+    `radar_asset_uuid.eq.${p.radar_asset_uuid},identifier.eq.${p.identifier}`,
+  ).maybeSingle();
+  if (error) throw error;
+  if (data?.id) return data.id;
+
+  const { data: newAsset, error: newAssetError } = await sb.from("assets").insert({
+    org_id: p.org_id,
+    radar_asset_uuid: p.radar_asset_uuid,
+    identifier: p.identifier,
+  }).select("id").single();
+  if (newAssetError) throw newAssetError;
+  return newAsset.id;
+}
+
+export async function insertAssetLocation(p: {
+  org_id: string;
+  asset_id: string;
+  recorded_at: string;
+  lon: number;
+  lat: number;
+  normalized_address: string | null;
+  place_id: string | null;
+  raw: unknown;
+}): Promise<void> {
+  const sb = sbAdmin();
+  const { error } = await sb.from("asset_locations").insert(p);
+  if (error) console.error(`insertAssetLocation failed: ${error.message}`);
 }

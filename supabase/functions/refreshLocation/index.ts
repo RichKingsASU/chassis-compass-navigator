@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
         headers: { "content-type": "application/json", ...cors },
       });
     }
-    const data = await r.json() as Record<string, unknown>;
+    const data = await r.json() as { items: any[]; token: any[] };
     if (!data.items?.length) {
       return new Response(JSON.stringify({ updated: 0 }), {
         headers: { "content-type": "application/json", ...cors },
@@ -67,8 +67,9 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ updated: inserted }), {
       headers: { "content-type": "application/json", ...cors },
     });
-  } catch (e) {
-    return new Response(JSON.stringify({ error: String(e.message ?? e) }), {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { "content-type": "application/json", ...cors },
     });

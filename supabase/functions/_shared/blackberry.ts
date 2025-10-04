@@ -70,7 +70,7 @@ function importPkcs8Key(pem: string): Promise<CryptoKey> {
   const pkcs8 = pemToPkcs8(pem);
   return crypto.subtle.importKey(
     "pkcs8",
-    pkcs8.buffer,
+    pkcs8.buffer as ArrayBuffer,
     { name: "ECDSA", namedCurve: "P-256" },
     false,
     ["sign"],

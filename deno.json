@@ -3,7 +3,7 @@
   "tasks": {
     "fmt": "deno fmt supabase/functions",
     "lint": "deno lint supabase/functions",
-    "check": "deno check supabase/functions/**/index.ts",
+    "check": "deno check --allow-import supabase/functions/**/index.ts",
     "serve": "supabase functions serve --no-verify-jwt",
     "deploy:getDistance": "supabase functions deploy getDistance --no-verify-jwt",
     "deploy:assetsCrud": "supabase functions deploy assetsCrud --no-verify-jwt",

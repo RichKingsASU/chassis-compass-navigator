@@ -57,6 +57,10 @@ Deno.serve(async (req) => {
       asset_id = data.id as string;
     }
 
+    if (!asset_id) {
+      return json({ error: "asset_id is required" }, { status: 400 });
+    }
+
     const latest = await fetchLatestLatLon(asset_id);
     if (!latest) {
       return json({ error: "no last location" }, { status: 404 });
@@ -74,8 +78,9 @@ Deno.serve(async (req) => {
       straight_line_meters: Math.round(straight),
       driving: driving ?? null,
     });
-  } catch (e) {
-    return json({ error: String(e?.message ?? e) }, { status: 500 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return json({ error: msg }, { status: 500 });
   }
 });
 
