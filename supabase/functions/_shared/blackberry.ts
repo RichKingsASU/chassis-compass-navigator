@@ -40,23 +40,33 @@ function derToJose(sig: Uint8Array): Uint8Array {
 
   if (sig[offset++] !== 0x02) throw new Error("Invalid DER (no INTEGER r)");
   let rLen = sig[offset++];
-  while (rLen > 0 && sig[offset] === 0x00) { offset++; rLen--; } // strip leading zero
-  const r = sig.slice(offset, offset + rLen); offset += rLen;
+  while (rLen > 0 && sig[offset] === 0x00) {
+    offset++;
+    rLen--;
+  } // strip leading zero
+  const r = sig.slice(offset, offset + rLen);
+  offset += rLen;
 
   if (sig[offset++] !== 0x02) throw new Error("Invalid DER (no INTEGER s)");
   let sLen = sig[offset++];
-  while (sLen > 0 && sig[offset] === 0x00) { offset++; sLen--; }
+  while (sLen > 0 && sig[offset] === 0x00) {
+    offset++;
+    sLen--;
+  }
   const s = sig.slice(offset, offset + sLen);
 
   // Left-pad to 32 bytes each
-  const r32 = new Uint8Array(32); r32.set(r, 32 - r.length);
-  const s32 = new Uint8Array(32); s32.set(s, 32 - s.length);
+  const r32 = new Uint8Array(32);
+  r32.set(r, 32 - r.length);
+  const s32 = new Uint8Array(32);
+  s32.set(s, 32 - s.length);
   const raw = new Uint8Array(64);
-  raw.set(r32, 0); raw.set(s32, 32);
+  raw.set(r32, 0);
+  raw.set(s32, 32);
   return raw;
 }
 
-async function importPkcs8Key(pem: string): Promise<CryptoKey> {
+function importPkcs8Key(pem: string): Promise<CryptoKey> {
   const pkcs8 = pemToPkcs8(pem);
   return crypto.subtle.importKey(
     "pkcs8",
@@ -68,11 +78,13 @@ async function importPkcs8Key(pem: string): Promise<CryptoKey> {
 }
 
 async function es256Sign(compact: string, key: CryptoKey): Promise<string> {
-  const sig = toBytes(await crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" },
-    key,
-    enc.encode(compact),
-  ));
+  const sig = toBytes(
+    await crypto.subtle.sign(
+      { name: "ECDSA", hash: "SHA-256" },
+      key,
+      enc.encode(compact),
+    ),
+  );
   const jose = derToJose(sig);
   return b64u(jose);
 }
@@ -110,8 +122,9 @@ async function getAccessToken(): Promise<string> {
   // If user insisted on API key (legacy), allow non-empty value
   if (env.BB_API_KEY && env.BB_API_KEY.length > 0) return env.BB_API_KEY;
 
-  if (!env.BB_APP_ID || !env.BB_JWT_PRIVATE_KEY)
+  if (!env.BB_APP_ID || !env.BB_JWT_PRIVATE_KEY) {
     throw new Error("Missing BB_APP_ID or BB_JWT_PRIVATE_KEY");
+  }
 
   const now = Date.now();
   if (accessToken && now < tokenExp - 5_000) return accessToken;
@@ -141,5 +154,4 @@ async function getAccessToken(): Promise<string> {
   return accessToken;
 }
 
-export const toIso = (ms?: number | null) =>
-  ms == null ? null : new Date(ms).toISOString();
+export const toIso = (ms?: number | null) => ms == null ? null : new Date(ms).toISOString();

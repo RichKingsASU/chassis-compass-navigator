@@ -6,12 +6,13 @@
 // Response:
 //   { origin:{lat,lon}, destination:{lat,lon}, straight_line_meters, driving?:{distance_meters,duration_seconds} }
 
-import { sbAdmin, fetchLatestLatLon, haversineMeters } from "../_shared/db.ts";
+import { fetchLatestLatLon, haversineMeters, sbAdmin } from "../_shared/db.ts";
+import { env } from "../_shared/env.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS"
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function json(data: unknown, init: ResponseInit = {}) {
@@ -28,7 +29,7 @@ Deno.serve(async (req) => {
     const sb = sbAdmin();
 
     // ✱ FIX: accept identifier OR asset_id; validate properly
-    const body = await req.json().catch(() => ({} as any));
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const aId = body.asset_id as string | undefined;
     const identifier = body.identifier as string | undefined;
     const toLat = body.toLat as number;
@@ -48,7 +49,11 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (error) return json({ error: error.message }, { status: 500 });
-      if (!data?.id) return json({ error: `asset with identifier "${identifier}" not found` }, { status: 404 });
+      if (!data?.id) {
+        return json({ error: `asset with identifier \"${identifier}\" not found` }, {
+          status: 404,
+        });
+      }
       asset_id = data.id as string;
     }
 
@@ -69,7 +74,6 @@ Deno.serve(async (req) => {
       straight_line_meters: Math.round(straight),
       driving: driving ?? null,
     });
-
   } catch (e) {
     return json({ error: String(e?.message ?? e) }, { status: 500 });
   }
@@ -77,7 +81,7 @@ Deno.serve(async (req) => {
 
 async function googleDriving(
   origin: { lat: number; lon: number },
-  dest: { lat: number; lon: number }
+  dest: { lat: number; lon: number },
 ): Promise<{ distance_meters: number; duration_seconds: number } | null> {
   if (!env.GOOGLE_MAPS_API_KEY) return null;
 

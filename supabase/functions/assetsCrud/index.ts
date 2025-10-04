@@ -4,8 +4,8 @@ import { bbFetch } from "../_shared/blackberry.ts";
 import { sbAdmin } from "../_shared/db.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 type AssetPayload = {
@@ -44,10 +44,13 @@ async function radarCreateAsset(p: Required<Pick<AssetPayload, "identifier">> & 
     return { duplicate: true as const };
   }
 
-  throw new Response(JSON.stringify({ error: `Radar create failed: ${r.status}`, detail: await r.text() }), {
-    status: 502,
-    headers: { "content-type": "application/json", ...corsHeaders },
-  });
+  throw new Response(
+    JSON.stringify({ error: `Radar create failed: ${r.status}`, detail: await r.text() }),
+    {
+      status: 502,
+      headers: { "content-type": "application/json", ...corsHeaders },
+    },
+  );
 }
 
 async function radarFindByIdentifier(identifier: string): Promise<string | null> {
@@ -80,7 +83,9 @@ async function radarUpdateAsset(id: string, p: AssetPayload) {
 
 async function radarDeleteAsset(id: string) {
   const r = await bbFetch(`/assets/${id}`, { method: "DELETE" });
-  if (!(r.ok || r.status === 204)) throw new Error(`Radar delete failed: ${r.status} ${await r.text()}`);
+  if (!(r.ok || r.status === 204)) {
+    throw new Error(`Radar delete failed: ${r.status} ${await r.text()}`);
+  }
 }
 
 function json(data: unknown, init: ResponseInit = {}) {
@@ -103,13 +108,19 @@ Deno.serve(async (req) => {
         if (!body.identifier) return json({ error: "identifier is required" }, { status: 400 });
 
         // 1) Try create
-        const res = await radarCreateAsset(body as Required<Pick<AssetPayload, "identifier">> & AssetPayload);
+        const res = await radarCreateAsset(
+          body as Required<Pick<AssetPayload, "identifier">> & AssetPayload,
+        );
 
         // 2) If duplicate, resolve its id
         let radar_id: string | null = "id" in res ? (res.id as string) : null;
         if (!radar_id && "duplicate" in res) {
           radar_id = await radarFindByIdentifier(body.identifier!);
-          if (!radar_id) return json({ error: `Radar asset not found for identifier "${body.identifier}"` }, { status: 404 });
+          if (!radar_id) {
+            return json({ error: `Radar asset not found for identifier "${body.identifier}"` }, {
+              status: 404,
+            });
+          }
         }
 
         // 3) Upsert locally
@@ -141,9 +152,15 @@ Deno.serve(async (req) => {
         // resolve radar id
         let radar_id = body.radar_asset_id ?? null;
         if (!radar_id) {
-          if (!body.identifier) return json({ error: "Provide radar_asset_id or identifier" }, { status: 400 });
+          if (!body.identifier) {
+            return json({ error: "Provide radar_asset_id or identifier" }, { status: 400 });
+          }
           radar_id = await radarFindByIdentifier(body.identifier);
-          if (!radar_id) return json({ error: `Radar asset not found for identifier "${body.identifier}"` }, { status: 404 });
+          if (!radar_id) {
+            return json({ error: `Radar asset not found for identifier "${body.identifier}"` }, {
+              status: 404,
+            });
+          }
         }
 
         await radarUpdateAsset(radar_id, body);
@@ -175,9 +192,15 @@ Deno.serve(async (req) => {
         // resolve radar id
         let radar_id = body.radar_asset_id ?? null;
         if (!radar_id) {
-          if (!body.identifier) return json({ error: "Provide radar_asset_id or identifier" }, { status: 400 });
+          if (!body.identifier) {
+            return json({ error: "Provide radar_asset_id or identifier" }, { status: 400 });
+          }
           radar_id = await radarFindByIdentifier(body.identifier!);
-          if (!radar_id) return json({ error: `Radar asset not found for identifier "${body.identifier}"` }, { status: 404 });
+          if (!radar_id) {
+            return json({ error: `Radar asset not found for identifier "${body.identifier}"` }, {
+              status: 404,
+            });
+          }
         }
 
         await radarDeleteAsset(radar_id);
@@ -197,7 +220,7 @@ Deno.serve(async (req) => {
       default:
         return json({ error: "Method not allowed" }, { status: 405 });
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     const msg = typeof e === "string" ? e : e?.message ?? "Unknown error";
     // If we threw a Response above, return it as-is
     if (e instanceof Response) return e;

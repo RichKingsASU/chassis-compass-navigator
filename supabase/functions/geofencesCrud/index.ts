@@ -43,14 +43,17 @@ Deno.serve(async (req) => {
 
       if (!r.ok) {
         return new Response(
-          JSON.stringify({ error: `Radar geofence create failed: ${r.status}`, detail: await r.text() }),
+          JSON.stringify({
+            error: `Radar geofence create failed: ${r.status}`,
+            detail: await r.text(),
+          }),
           { status: 502, headers: { "content-type": "application/json", ...cors } },
         );
       }
 
       const g = await r.json();
       const { data, error } = await sb
-.from("geofences")
+        .from("geofences")
         .insert({
           org_id: env.PROJECT_ORG_ID,
           radar_geofence_id: g.id,
@@ -61,7 +64,9 @@ Deno.serve(async (req) => {
         .single();
 
       if (error) throw error;
-      return new Response(JSON.stringify({ geofence: data }), { headers: { "content-type": "application/json", ...cors } });
+      return new Response(JSON.stringify({ geofence: data }), {
+        headers: { "content-type": "application/json", ...cors },
+      });
     }
 
     if (req.method === "DELETE") {
@@ -69,14 +74,18 @@ Deno.serve(async (req) => {
       const id = body.radar_geofence_id ?? body.geofence_id;
       if (!id) {
         return new Response(JSON.stringify({ error: "radar_geofence_id is required" }), {
-          status: 400, headers: { "content-type": "application/json", ...cors },
+          status: 400,
+          headers: { "content-type": "application/json", ...cors },
         });
       }
 
       const r = await bbFetch(`/geofences/${id}`, { method: "DELETE" });
       if (r.status !== 204) {
         return new Response(
-          JSON.stringify({ error: `Radar geofence delete failed: ${r.status}`, detail: await r.text() }),
+          JSON.stringify({
+            error: `Radar geofence delete failed: ${r.status}`,
+            detail: await r.text(),
+          }),
           { status: 502, headers: { "content-type": "application/json", ...cors } },
         );
       }
@@ -86,11 +95,19 @@ Deno.serve(async (req) => {
         .eq("org_id", env.PROJECT_ORG_ID)
         .eq("radar_geofence_id", id);
 
-      return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json", ...cors } });
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { "content-type": "application/json", ...cors },
+      });
     }
 
-    return new Response(JSON.stringify({ error: "method not allowed" }), { status: 405, headers: { "content-type": "application/json", ...cors } });
+    return new Response(JSON.stringify({ error: "method not allowed" }), {
+      status: 405,
+      headers: { "content-type": "application/json", ...cors },
+    });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e?.message ?? e) }), { status: 500, headers: { "content-type": "application/json", ...cors } });
+    return new Response(JSON.stringify({ error: String(e?.message ?? e) }), {
+      status: 500,
+      headers: { "content-type": "application/json", ...cors },
+    });
   }
 });

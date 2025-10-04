@@ -1,3 +1,31 @@
 {
-  "importMap": "./supabase/config/import_map.json"
+  "importMap": "supabase/config/import_map.json",
+  "tasks": {
+    "fmt": "deno fmt supabase/functions",
+    "lint": "deno lint supabase/functions",
+    "check": "deno check supabase/functions/**/index.ts",
+    "serve": "supabase functions serve --no-verify-jwt",
+    "deploy:getDistance": "supabase functions deploy getDistance --no-verify-jwt",
+    "deploy:assetsCrud": "supabase functions deploy assetsCrud --no-verify-jwt",
+    "deploy:refreshLocation": "supabase functions deploy refreshLocation --no-verify-jwt",
+    "deploy:geofencesCrud": "supabase functions deploy geofencesCrud --no-verify-jwt",
+    "deploy:syncAllAssets": "supabase functions deploy syncAllAssets --no-verify-jwt",
+    "deploy:extractDcliInvoice": "supabase functions deploy extract-dcli-invoice --no-verify-jwt"
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "semiColons": true,
+    "singleQuote": false
+  },
+  "lint": { "rules": { "tags": ["recommended"] } },
+  "compilerOptions": {
+    "strict": true,
+    "useDefineForClassFields": true
+  },
+  "exclude": [
+    ".git",
+    "node_modules",
+    "supabase/.temp"
+  ]
 }
