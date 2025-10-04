@@ -32,7 +32,8 @@
   },
   "workspace": {
     "dependencies": [
-      "npm:@supabase/supabase-js@2.45.0"
+      "npm:@supabase/supabase-js@2.45.0",
+      "npm:xlsx@0.20.1"
     ],
     "packageJson": {
       "dependencies": [

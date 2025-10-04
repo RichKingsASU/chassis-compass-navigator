@@ -1,5 +1,35 @@
 // supabase/functions/_shared/blackberry.ts
-import { env } from "./env.ts";
+// --- helpers (replace your existing need/secret reads with this) ---
+function must(name: string, v: string | undefined) {
+  if (!v) throw new Error(`Missing required secret: ${name}`);
+  return v;
+}
+
+type BBSecrets = {
+  APP_ID: string;
+  JWT_PRIVATE_KEY: string;
+  JWT_AUD: string;
+  OAUTH_TOKEN_URL: string;
+  SCOPE: string;
+  API_KEY?: string; // optional
+};
+
+function readBBSecrets(prefix: string): BBSecrets {
+  const g = (n: string) => Deno.env.get(`${prefix}_${n}`);
+  return {
+    APP_ID:         must(`${prefix}_APP_ID`,         g("APP_ID")),
+    JWT_PRIVATE_KEY:must(`${prefix}_JWT_PRIVATE_KEY`,g("JWT_PRIVATE_KEY")),
+    JWT_AUD:        must(`${prefix}_JWT_AUD`,        g("JWT_AUD")),
+    OAUTH_TOKEN_URL:must(`${prefix}_OAUTH_TOKEN_URL`,g("OAUTH_TOKEN_URL")),
+    SCOPE:          must(`${prefix}_SCOPE`,          g("SCOPE")),
+    API_KEY:        g("API_KEY") || undefined, // optional
+  };
+}
+
+// Pick which tenant to use: env override or default to BBLOG
+function resolvePrefix(explicit?: string) {
+  return explicit ?? Deno.env.get("BB_ENV_PREFIX") ?? "BBLOG";
+}
 
 const TOKEN_URL = "https://oauth2.radar.blackberry.com/1/token";
 
@@ -105,53 +135,61 @@ function headerPayload(appId: string, aud: string, kid?: string) {
   return { compact: `${h}.${p}` };
 }
 
-// ------------- token cache
-let accessToken = "";
-let tokenExp = 0;
+// cache tokens per-tenant (optional but recommended)
+const tokenCache = new Map<string, { token: string; exp: number }>();
 
-// ------------- public fetch wrapper
-export async function bbFetch(path: string, init: RequestInit = {}) {
-  const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${await getAccessToken()}`);
-  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
-  const url = `https://api.radar.blackberry.com/1${path}`;
-  return fetch(url, { ...init, headers });
-}
+async function getAccessToken(prefix: string, s: BBSecrets): Promise<string> {
+  // if you already have code that builds a JWT and posts to s.OAUTH_TOKEN_URL,
+  // reuse it here; just remove any BB_* direct reads and use `s.*` instead.
 
-async function getAccessToken(): Promise<string> {
-  // If user insisted on API key (legacy), allow non-empty value
-  if (env.BB_API_KEY && env.BB_API_KEY.length > 0) return env.BB_API_KEY;
-
-  if (!env.BB_APP_ID || !env.BB_JWT_PRIVATE_KEY) {
-    throw new Error("Missing BB_APP_ID or BB_JWT_PRIVATE_KEY");
-  }
-
-  const now = Date.now();
-  if (accessToken && now < tokenExp - 5_000) return accessToken;
+  // example: check cache
+  const now = Math.floor(Date.now() / 1000);
+  const cached = tokenCache.get(prefix);
+  if (cached && cached.exp > now + 60) return cached.token;
 
   // Build client assertion
-  const { compact } = headerPayload(env.BB_APP_ID, env.BB_JWT_AUD, env.BB_JWT_KID);
-  const key = await importPkcs8Key(env.BB_JWT_PRIVATE_KEY);
+  const { compact } = headerPayload(s.APP_ID, s.JWT_AUD, Deno.env.get(`${prefix}_JWT_KID`));
+  const key = await importPkcs8Key(s.JWT_PRIVATE_KEY);
   const sig = await es256Sign(compact, key);
   const clientJwt = `${compact}.${sig}`;
 
   // Exchange for access token
-  const r = await fetch(TOKEN_URL, {
+  const r = await fetch(s.OAUTH_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
       assertion: clientJwt,
-      scope: env.BB_SCOPE,
+      scope: s.SCOPE,
     }),
   });
   if (!r.ok) {
     throw new Error(`Radar OAuth failed: ${r.status} ${await r.text()}`);
   }
   const j = await r.json();
-  accessToken = j.access_token;
-  tokenExp = Date.now() + (j.expires_in ?? 900) * 1000;
-  return accessToken;
+  const access_token = j.access_token;
+  const expires_in = j.expires_in ?? 900;
+  
+  tokenCache.set(prefix, { token: access_token, exp: now + expires_in });
+  return access_token;
+}
+
+export async function bbFetch(
+  path: string,
+  init: RequestInit = {},
+  prefixOverride?: string,
+): Promise<Response> {
+  const prefix = resolvePrefix(prefixOverride);
+  const s = readBBSecrets(prefix);
+  const token = await getAccessToken(prefix, s);
+
+  const url = `https://prod.radar.blackberry.com/api${path}`; // keep your base URL
+  const headers = new Headers(init.headers ?? {});
+  headers.set("authorization", `Bearer ${token}`);
+  // Optional: if you actually use API keys in some calls
+  if (s.API_KEY && !headers.has("x-api-key")) headers.set("x-api-key", s.API_KEY);
+
+  return fetch(url, { ...init, headers });
 }
 
 export const toIso = (ms?: number | null) => ms == null ? null : new Date(ms).toISOString();
