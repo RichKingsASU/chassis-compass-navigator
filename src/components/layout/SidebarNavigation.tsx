@@ -69,6 +69,7 @@ const SidebarNavigation = () => {
       path: "/gps", 
       icon: MapPin,
       subItems: [
+        { title: "Overview", path: "/gps" },
         { title: "Samsara", path: "/gps/samsara" },
         { title: "BlackBerry Radar", path: "/gps/blackberry" },
         { title: "Fleetview", path: "/gps/fleetview" },

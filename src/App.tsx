@@ -21,6 +21,7 @@ import POLAYard from "./pages/yards/POLAYard";
 import JEDYard from "./pages/yards/JEDYard";
 
 // GPS Provider Pages
+import GpsOverview from "./pages/GpsOverview";
 import Samsara from "./pages/gps/Samsara";
 import BlackBerry from "./pages/gps/BlackBerry";
 import Fleetview from "./pages/gps/Fleetview";
@@ -99,6 +100,11 @@ function App() {
               } />
               
               {/* GPS Provider Routes */}
+              <Route path="/gps" element={
+                <DashboardLayout>
+                  <GpsOverview />
+                </DashboardLayout>
+              } />
               <Route path="/gps/samsara" element={
                 <DashboardLayout>
                   <Samsara />
