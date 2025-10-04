@@ -9,9 +9,21 @@ const cors = {
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 };
 
+function isCronAllowed(req: Request) {
+  const h = req.headers.get("x-cron-secret") ?? "";
+  return env.CRON_SHARED_SECRET && h === env.CRON_SHARED_SECRET;
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+
+    if (!isCronAllowed(req)) {
+      return new Response(JSON.stringify({ error: "forbidden" }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      });
+    }
 
     await ensureOrg(env.PROJECT_ORG_ID, "My Test Org");
 

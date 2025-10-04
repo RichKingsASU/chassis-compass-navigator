@@ -9,16 +9,19 @@ const cors = {
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 };
 
+function isCronAllowed(req: Request) {
+  const h = req.headers.get("x-cron-secret") ?? "";
+  return env.CRON_SHARED_SECRET && h === env.CRON_SHARED_SECRET;
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
-    // protect with shared header
-    const secret = req.headers.get("x-cron-secret");
-    if (!secret || secret !== env.CRON_SHARED_SECRET) {
+    if (!isCronAllowed(req)) {
       return new Response(JSON.stringify({ error: "forbidden" }), {
         status: 403,
-        headers: { "content-type": "application/json", ...cors },
+        headers: { "content-type": "application/json" },
       });
     }
 
