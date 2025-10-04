@@ -1,10 +1,24 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import KPICard from '@/components/ccm/KPICard';
 import { CheckCircle, AlertCircle, TrendingUp, Database } from 'lucide-react';
 
 const GpsOverview = () => {
+  const navigate = useNavigate();
+
+  const getProviderRoute = (name: string) => {
+    const routes: Record<string, string> = {
+      'Anytrek': '/gps/anytrek',
+      'Samsara': '/gps/samsara',
+      'Fleetview': '/gps/fleetview',
+      'Fleetlocate': '/gps/fleetlocate',
+      'BlackBerry Radar': '/gps/blackberry',
+    };
+    return routes[name] || '/gps';
+  };
+
   const providers = [
     {
       name: 'Anytrek',
@@ -118,7 +132,11 @@ const GpsOverview = () => {
       {/* Provider Health Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {providers.map((provider) => (
-          <Card key={provider.name} className="hover:shadow-lg transition-shadow">
+          <Card 
+            key={provider.name} 
+            className="hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => navigate(getProviderRoute(provider.name))}
+          >
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">{provider.name}</CardTitle>
