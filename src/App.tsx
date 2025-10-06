@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -7,38 +6,35 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import DashboardLayout from "./components/layout/DashboardLayout";
+import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import ChassisManagement from "./pages/ChassisManagement";
 import ChassisValidation from "./pages/ChassisValidation";
-import AdvancedFeatures from "./pages/AdvancedFeatures";
 import TMSData from "./pages/TMSData";
-import MercuryGate from "./pages/tms/MercuryGate";
-import PortPro from "./pages/tms/PortPro";
-import NotFound from "./pages/NotFound";
-
-// Yard Report Pages
-import POLAYard from "./pages/yards/POLAYard";
-import JEDYard from "./pages/yards/JEDYard";
-
-// GPS Provider Pages
 import GpsOverview from "./pages/GpsOverview";
+import Settings from "./pages/Settings";
+import AdvancedFeatures from "./pages/AdvancedFeatures";
+import VendorUpload from "./pages/VendorUpload";
+import GpsProviderUpload from "./pages/GpsProviderUpload";
+import NotFound from "./pages/NotFound";
+import Anytrek from "./pages/gps/Anytrek";
 import Samsara from "./pages/gps/Samsara";
 import BlackBerry from "./pages/gps/BlackBerry";
-import Fleetview from "./pages/gps/Fleetview";
 import Fleetlocate from "./pages/gps/Fleetlocate";
-import Anytrek from "./pages/gps/Anytrek";
-
-// Vendor Pages
-import DCLI from "./pages/vendors/DCLI";
-import DCLINewInvoice from "./pages/dcli/NewInvoice";
+import Fleetview from "./pages/gps/Fleetview";
+import MercuryGate from "./pages/tms/MercuryGate";
+import PortPro from "./pages/tms/PortPro";
+import JEDYard from "./pages/yards/JEDYard";
+import POLAYard from "./pages/yards/POLAYard";
 import CCM from "./pages/vendors/CCM";
-import SCSPA from "./pages/vendors/SCSPA";
-import WCCP from "./pages/vendors/WCCP";
-import TRAC from "./pages/vendors/TRAC";
+import DCLI from "./pages/vendors/DCLI";
 import FLEXIVAN from "./pages/vendors/FLEXIVAN";
-import Settings from "./pages/Settings";
-
-// Invoice Validation Pages
+import TRAC from "./pages/vendors/TRAC";
+import WCCP from "./pages/vendors/WCCP";
+import SCSPA from "./pages/vendors/SCSPA";
+import NewInvoice from "./pages/dcli/NewInvoice";
+import DCLIInvoiceLineDetails from "./pages/dcli/InvoiceLineDetails";
+import DCLIInvoiceLineDispute from "./pages/dcli/InvoiceLineDispute";
 import InvoicesList from "./pages/invoices/InvoicesList";
 import InvoiceLineDetails from "./pages/invoices/InvoiceLineDetails";
 import InvoiceLineDispute from "./pages/invoices/InvoiceLineDispute";
@@ -144,7 +140,17 @@ function App() {
               } />
               <Route path="/vendors/dcli/invoices/new" element={
                 <DashboardLayout>
-                  <DCLINewInvoice />
+                  <NewInvoice />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/dcli/invoice-line/:lineId" element={
+                <DashboardLayout>
+                  <DCLIInvoiceLineDetails />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/dcli/invoice-line/:lineId/dispute" element={
+                <DashboardLayout>
+                  <DCLIInvoiceLineDispute />
                 </DashboardLayout>
               } />
               <Route path="/vendors/ccm" element={
