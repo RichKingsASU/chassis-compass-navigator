@@ -143,11 +143,19 @@ const InvoiceLineDetails = () => {
       title: 'Success',
       description: 'Invoice line validated successfully',
     });
-    navigate('/vendors/dcli/invoices/new');
+    navigateBack();
   };
 
   const handleDispute = () => {
     navigate(`/vendors/dcli/invoice-line/${lineId}/dispute`);
+  };
+  
+  const navigateBack = () => {
+    const location = window.history.state?.usr;
+    navigate('/vendors/dcli/invoices/new', { 
+      state: location || {},
+      replace: false
+    });
   };
 
   return (
@@ -157,7 +165,7 @@ const InvoiceLineDetails = () => {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/vendors/dcli/invoices/new')}
+          onClick={navigateBack}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -239,7 +247,7 @@ const InvoiceLineDetails = () => {
       <div className="flex gap-4 items-center sticky bottom-6 bg-background/95 backdrop-blur-sm p-4 rounded-lg border shadow-lg">
         <Button
           variant="outline"
-          onClick={() => navigate('/vendors/dcli/invoices/new')}
+          onClick={navigateBack}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Review

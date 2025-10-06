@@ -11,14 +11,27 @@ import { Loader2 } from 'lucide-react';
 interface InvoiceValidateStepProps {
   extractedData: ExtractedData;
   onBack: () => void;
+  currentStep: number;
+  uploadedFiles: { pdf: File | null; excel: File | null };
 }
 
-const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({ extractedData, onBack }) => {
+const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({ 
+  extractedData, 
+  onBack, 
+  currentStep, 
+  uploadedFiles 
+}) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  const navigationState = {
+    currentStep,
+    extractedData,
+    uploadedFiles
+  };
 
   useEffect(() => {
     runValidation();
@@ -151,7 +164,7 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({ extractedData
             <span className="ml-3 text-lg">Validating against TMS data...</span>
           </div>
         ) : validationResult ? (
-          <ValidationDrawer validationResult={validationResult} />
+          <ValidationDrawer validationResult={validationResult} navigationState={navigationState} />
         ) : null}
       </Card>
 

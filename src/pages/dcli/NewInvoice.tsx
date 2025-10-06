@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -54,12 +54,16 @@ const steps = [
 
 const NewInvoice = () => {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [uploadedFiles, setUploadedFiles] = useState<{ pdf: File | null; excel: File | null }>({
-    pdf: null,
-    excel: null,
-  });
-  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const location = useLocation();
+  
+  // Restore state from navigation if returning from invoice line details
+  const savedState = location.state as { currentStep?: number; extractedData?: ExtractedData; uploadedFiles?: { pdf: File | null; excel: File | null } } | null;
+  
+  const [currentStep, setCurrentStep] = useState(savedState?.currentStep || 1);
+  const [uploadedFiles, setUploadedFiles] = useState<{ pdf: File | null; excel: File | null }>(
+    savedState?.uploadedFiles || { pdf: null, excel: null }
+  );
+  const [extractedData, setExtractedData] = useState<ExtractedData | null>(savedState?.extractedData || null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const progressPercentage = (currentStep / steps.length) * 100;
@@ -155,6 +159,8 @@ const NewInvoice = () => {
               <InvoiceValidateStep
                 extractedData={extractedData}
                 onBack={handleStepBack}
+                currentStep={currentStep}
+                uploadedFiles={uploadedFiles}
               />
             )}
           </div>
