@@ -38,6 +38,11 @@ import TRAC from "./pages/vendors/TRAC";
 import FLEXIVAN from "./pages/vendors/FLEXIVAN";
 import Settings from "./pages/Settings";
 
+// Invoice Validation Pages
+import InvoicesList from "./pages/invoices/InvoicesList";
+import InvoiceLineDetails from "./pages/invoices/InvoiceLineDetails";
+import InvoiceLineDispute from "./pages/invoices/InvoiceLineDispute";
+
 const queryClient = new QueryClient();
 
 function App() {
@@ -172,6 +177,23 @@ function App() {
               <Route path="/settings" element={
                 <DashboardLayout>
                   <Settings />
+                </DashboardLayout>
+              } />
+              
+              {/* Invoice Validation Routes */}
+              <Route path="/invoices" element={
+                <DashboardLayout>
+                  <InvoicesList />
+                </DashboardLayout>
+              } />
+              <Route path="/invoices/:invoiceId/details/:lineId" element={
+                <DashboardLayout>
+                  <InvoiceLineDetails />
+                </DashboardLayout>
+              } />
+              <Route path="/invoices/:invoiceId/dispute/:lineId" element={
+                <DashboardLayout>
+                  <InvoiceLineDispute />
                 </DashboardLayout>
               } />
               
