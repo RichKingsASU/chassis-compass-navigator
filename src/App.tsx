@@ -33,6 +33,7 @@ import TRAC from "./pages/vendors/TRAC";
 import WCCP from "./pages/vendors/WCCP";
 import SCSPA from "./pages/vendors/SCSPA";
 import NewInvoice from "./pages/dcli/NewInvoice";
+import InvoiceReview from "./pages/dcli/InvoiceReview";
 import DCLIInvoiceLineDetails from "./pages/dcli/InvoiceLineDetails";
 import DCLIInvoiceLineDispute from "./pages/dcli/InvoiceLineDispute";
 import InvoicesList from "./pages/invoices/InvoicesList";
@@ -141,6 +142,11 @@ function App() {
               <Route path="/vendors/dcli/invoices/new" element={
                 <DashboardLayout>
                   <NewInvoice />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/dcli/invoices/:invoiceId/review" element={
+                <DashboardLayout>
+                  <InvoiceReview />
                 </DashboardLayout>
               } />
               <Route path="/vendors/dcli/invoice-line/:lineId" element={

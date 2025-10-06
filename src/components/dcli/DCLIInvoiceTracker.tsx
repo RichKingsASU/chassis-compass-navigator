@@ -300,7 +300,7 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
                       <td className="p-3">
                         <div className="flex items-center space-x-1 text-sm">
                           <button 
-                            onClick={() => onViewDetail(record)}
+                            onClick={() => navigate(`/vendors/dcli/invoices/${record.invoiceNumber}/review`)}
                             className="text-blue-600 hover:text-blue-800 hover:underline"
                           >
                             View
