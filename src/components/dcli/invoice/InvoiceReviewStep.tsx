@@ -11,12 +11,15 @@ import { ExtractedData } from '@/pages/dcli/NewInvoice';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+import { Save } from 'lucide-react';
+
 interface InvoiceReviewStepProps {
   extractedData: ExtractedData;
   setExtractedData: (data: ExtractedData) => void;
   onComplete: () => void;
   onBack: () => void;
   setHasUnsavedChanges: (value: boolean) => void;
+  onSaveDraft: () => void;
 }
 
 const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
@@ -25,6 +28,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
   onComplete,
   onBack,
   setHasUnsavedChanges,
+  onSaveDraft,
 }) => {
   const { toast } = useToast();
   const [invoice, setInvoice] = useState(extractedData.invoice);
@@ -254,7 +258,13 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
         <Button variant="outline" onClick={onBack}>
           Back to Upload
         </Button>
-        <Button onClick={handleContinue}>Continue to Validate</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onSaveDraft}>
+            <Save className="w-4 h-4 mr-2" />
+            Save Draft
+          </Button>
+          <Button onClick={handleContinue}>Continue to Validate</Button>
+        </div>
       </div>
     </div>
   );

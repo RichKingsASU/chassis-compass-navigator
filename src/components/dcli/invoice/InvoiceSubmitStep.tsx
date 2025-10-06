@@ -10,12 +10,15 @@ import { ExtractedData } from '@/pages/dcli/NewInvoice';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+import { Save } from 'lucide-react';
+
 interface InvoiceSubmitStepProps {
   extractedData: ExtractedData;
   onBack: () => void;
+  onSaveDraft: () => void;
 }
 
-const InvoiceSubmitStep = ({ extractedData, onBack }: InvoiceSubmitStepProps) => {
+const InvoiceSubmitStep = ({ extractedData, onBack, onSaveDraft }: InvoiceSubmitStepProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [comments, setComments] = useState('');
@@ -213,13 +216,19 @@ const InvoiceSubmitStep = ({ extractedData, onBack }: InvoiceSubmitStepProps) =>
         <Button variant="outline" onClick={onBack}>
           Back to Validation
         </Button>
-        <Button 
-          onClick={handleSubmit} 
-          disabled={isSubmitting || (completionRate < 100 && !comments.trim())}
-          className="min-w-32"
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit Invoice'}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onSaveDraft}>
+            <Save className="w-4 h-4 mr-2" />
+            Save Draft
+          </Button>
+          <Button 
+            onClick={handleSubmit} 
+            disabled={isSubmitting || (completionRate < 100 && !comments.trim())}
+            className="min-w-32"
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit Invoice'}
+          </Button>
+        </div>
       </div>
     </div>
   );

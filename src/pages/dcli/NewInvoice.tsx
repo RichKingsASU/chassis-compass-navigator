@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import InvoiceUploadStep from '@/components/dcli/invoice/InvoiceUploadStep';
 import InvoiceReviewStep from '@/components/dcli/invoice/InvoiceReviewStep';
 import InvoiceValidateStep from '@/components/dcli/invoice/InvoiceValidateStep';
@@ -57,6 +59,7 @@ const steps = [
 const NewInvoice = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
   
   // Restore state from navigation if returning from invoice line details
   const savedState = location.state as { currentStep?: number; extractedData?: ExtractedData; uploadedFiles?: { pdf: File | null; excel: File | null } } | null;
@@ -86,6 +89,44 @@ const NewInvoice = () => {
   const handleStepBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!extractedData) return;
+    
+    try {
+      const { error } = await supabase
+        .from('dcli_invoice_staging')
+        .insert([{
+          summary_invoice_id: extractedData.invoice.summary_invoice_id,
+          billing_date: extractedData.invoice.billing_date,
+          due_date: extractedData.invoice.due_date,
+          total_amount: extractedData.invoice.amount_due,
+          account_code: extractedData.invoice.account_code,
+          vendor: extractedData.invoice.vendor,
+          currency: extractedData.invoice.currency_code,
+          status: 'draft',
+          line_items: extractedData.line_items as any,
+          attachments: extractedData.attachments as any,
+          excel_headers: (extractedData.excel_headers || []) as any,
+        }]);
+
+      if (error) throw error;
+      
+      toast({
+        title: "Draft Saved",
+        description: "Your progress has been saved. You can resume later from the dashboard.",
+      });
+      
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save draft. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -155,6 +196,7 @@ const NewInvoice = () => {
                 onComplete={handleStepComplete}
                 onBack={handleStepBack}
                 setHasUnsavedChanges={setHasUnsavedChanges}
+                onSaveDraft={handleSaveDraft}
               />
             )}
             {currentStep === 3 && extractedData && (
@@ -164,12 +206,14 @@ const NewInvoice = () => {
                 onComplete={handleStepComplete}
                 currentStep={currentStep}
                 uploadedFiles={uploadedFiles}
+                onSaveDraft={handleSaveDraft}
               />
             )}
             {currentStep === 4 && extractedData && (
               <InvoiceSubmitStep
                 extractedData={extractedData}
                 onBack={handleStepBack}
+                onSaveDraft={handleSaveDraft}
               />
             )}
           </div>

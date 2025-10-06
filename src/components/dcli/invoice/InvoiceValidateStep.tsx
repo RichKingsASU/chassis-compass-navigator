@@ -8,12 +8,15 @@ import { ExtractedData } from '@/pages/dcli/NewInvoice';
 import ValidationDrawer from './ValidationDrawer';
 import { Loader2 } from 'lucide-react';
 
+import { Save } from 'lucide-react';
+
 interface InvoiceValidateStepProps {
   extractedData: ExtractedData;
   onBack: () => void;
   onComplete: () => void;
   currentStep: number;
   uploadedFiles: { pdf: File | null; excel: File | null };
+  onSaveDraft: () => void;
 }
 
 const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({ 
@@ -21,7 +24,8 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({
   onBack,
   onComplete,
   currentStep, 
-  uploadedFiles 
+  uploadedFiles,
+  onSaveDraft
 }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -175,9 +179,15 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({
         <Button variant="outline" onClick={onBack}>
           Back to Review
         </Button>
-        <Button onClick={onComplete}>
-          Continue to Submit
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onSaveDraft}>
+            <Save className="w-4 h-4 mr-2" />
+            Save Draft
+          </Button>
+          <Button onClick={onComplete}>
+            Continue to Submit
+          </Button>
+        </div>
       </div>
     </div>
   );
