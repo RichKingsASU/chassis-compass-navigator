@@ -221,24 +221,30 @@ const CheckSection = ({ check, getStatusColor }: { check: any; getStatusColor: (
   const [isOpen, setIsOpen] = useState(true);
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger asChild>
-        <Button variant="outline" className="w-full justify-between">
-          {check.title}
-          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        </Button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="mt-2 pl-4">
-        <div className="space-y-1">
-          {check.items.map((item: any, itemIndex: number) => (
-            <div key={itemIndex} className="flex justify-between text-sm py-2 border-b">
-              <span className="font-medium">{item.label}:</span>
-              <span className={getStatusColor(item.status)}>{item.value}</span>
+    <Card>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-accent/50 transition-colors">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">{check.title}</CardTitle>
+              {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </div>
-          ))}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="pt-0">
+            <div className="space-y-1">
+              {check.items.map((item: any, itemIndex: number) => (
+                <div key={itemIndex} className="flex justify-between text-sm py-2 border-b last:border-0">
+                  <span className="font-medium">{item.label}:</span>
+                  <span className={getStatusColor(item.status)}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 };
 
