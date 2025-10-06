@@ -11,13 +11,15 @@ import { Loader2 } from 'lucide-react';
 interface InvoiceValidateStepProps {
   extractedData: ExtractedData;
   onBack: () => void;
+  onComplete: () => void;
   currentStep: number;
   uploadedFiles: { pdf: File | null; excel: File | null };
 }
 
 const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({ 
   extractedData, 
-  onBack, 
+  onBack,
+  onComplete,
   currentStep, 
   uploadedFiles 
 }) => {
@@ -170,24 +172,12 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({
 
       {/* Actions */}
       <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack} disabled={isSaving}>
+        <Button variant="outline" onClick={onBack}>
           Back to Review
         </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={runValidation} disabled={isValidating || isSaving}>
-            Re-validate
-          </Button>
-          <Button onClick={handleSave} disabled={!readyToSave || isSaving}>
-            {isSaving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Creating Invoice...
-              </>
-            ) : (
-              'Create Invoice'
-            )}
-          </Button>
-        </div>
+        <Button onClick={onComplete}>
+          Continue to Submit
+        </Button>
       </div>
     </div>
   );
