@@ -224,10 +224,13 @@ const InvoiceLineDetails = () => {
       {!isExactMatch && (
         <Card>
           <CardHeader>
-            <CardTitle>Detailed Analysis</CardTitle>
+            <CardTitle>Detailed Analysis - Issues Requiring Attention</CardTitle>
           </CardHeader>
           <CardContent>
-            <TroubleshootPanel lineItem={lineItem} />
+            <TroubleshootPanel 
+              lineItem={lineItem} 
+              validationCategories={validationCategories.filter(cat => cat.status !== 'pass')}
+            />
           </CardContent>
         </Card>
       )}
@@ -265,74 +268,64 @@ const InvoiceLineDetails = () => {
   );
 };
 
-const TroubleshootPanel = ({ lineItem }: { lineItem: any }) => {
-  const checks = [
-    {
-      title: 'Equipment Verification',
+const TroubleshootPanel = ({ lineItem, validationCategories }: { lineItem: any; validationCategories: ValidationCategory[] }) => {
+  const categoryDetailsMap: Record<string, any> = {
+    equipment: {
+      title: 'Equipment Mismatch Details',
       items: [
-        { 
-          label: 'Invoice Chassis', 
-          value: lineItem.chassis || 'N/A', 
-          status: lineItem.tms_match?.chassis_number === lineItem.chassis ? 'match' : 'mismatch' 
-        },
-        { 
-          label: 'TMS Chassis', 
-          value: lineItem.tms_match?.chassis_number || 'N/A', 
-          status: 'info' 
-        },
-        { 
-          label: 'Invoice Container', 
-          value: lineItem.container || 'N/A', 
-          status: lineItem.tms_match?.container_number === lineItem.container ? 'match' : 'mismatch' 
-        },
-        { 
-          label: 'TMS Container', 
-          value: lineItem.tms_match?.container_number || 'N/A', 
-          status: 'info' 
-        },
+        { label: 'Invoice Chassis', value: lineItem.chassis || 'N/A', status: 'info' },
+        { label: 'TMS Chassis', value: lineItem.tms_match?.chassis_number || 'N/A', status: 'info' },
+        { label: 'Invoice Container', value: lineItem.container || 'N/A', status: 'mismatch' },
+        { label: 'TMS Container', value: lineItem.tms_match?.container_number || 'N/A', status: 'mismatch' },
       ]
     },
-    {
-      title: 'Match Analysis',
+    dates: {
+      title: 'Date Mismatch Details',
       items: [
-        { 
-          label: 'Confidence Score', 
-          value: `${lineItem.match_confidence}%`, 
-          status: lineItem.match_confidence === 100 ? 'match' : lineItem.match_confidence >= 60 ? 'warning' : 'mismatch' 
-        },
-        { 
-          label: 'Match Type', 
-          value: lineItem.match_type, 
-          status: lineItem.match_type === 'exact' ? 'match' : lineItem.match_type === 'fuzzy' ? 'warning' : 'mismatch' 
-        },
+        { label: 'Invoice Date', value: lineItem.invoice_date || 'N/A', status: 'mismatch' },
+        { label: 'TMS Date Out', value: lineItem.tms_match?.date_out || 'N/A', status: 'info' },
+        { label: 'Billing Start', value: lineItem.billing_start || 'N/A', status: 'info' },
+        { label: 'Billing End', value: lineItem.billing_end || 'N/A', status: 'info' },
       ]
     },
-    {
-      title: 'TMS Data',
+    charges: {
+      title: 'Charges Mismatch Details',
       items: [
-        { 
-          label: 'LD Number', 
-          value: lineItem.tms_match?.ld_num || 'Not Found', 
-          status: lineItem.tms_match?.ld_num ? 'info' : 'mismatch' 
-        },
-        { 
-          label: 'SO Number', 
-          value: lineItem.tms_match?.so_num || 'Not Found', 
-          status: lineItem.tms_match?.so_num ? 'info' : 'mismatch' 
-        },
-        { 
-          label: 'Carrier', 
-          value: lineItem.tms_match?.carrier_name || 'Not Found', 
-          status: lineItem.tms_match?.carrier_name ? 'info' : 'mismatch' 
-        },
-        { 
-          label: 'Customer', 
-          value: lineItem.tms_match?.customer_name || 'Not Found', 
-          status: lineItem.tms_match?.customer_name ? 'info' : 'mismatch' 
-        },
+        { label: 'Invoice Total', value: `$${lineItem.total_charges?.toFixed(2) || '0.00'}`, status: 'mismatch' },
+        { label: 'TMS Calculated', value: `$${lineItem.tms_match?.calculated_charges?.toFixed(2) || '0.00'}`, status: 'info' },
+        { label: 'Difference', value: `$${Math.abs((lineItem.total_charges || 0) - (lineItem.tms_match?.calculated_charges || 0)).toFixed(2)}`, status: 'warning' },
+      ]
+    },
+    multi_load: {
+      title: 'Multi-Load Analysis',
+      items: [
+        { label: 'Multiple Loads Detected', value: lineItem.tms_match?.multi_load ? 'Yes' : 'No', status: 'warning' },
+        { label: 'Chassis Number', value: lineItem.chassis || 'N/A', status: 'info' },
+        { label: 'Review Required', value: 'Manual verification needed', status: 'warning' },
+      ]
+    },
+    special_contract: {
+      title: 'Special Contract Information',
+      items: [
+        { label: 'Contract Type', value: 'Special Terms Apply', status: 'info' },
+        { label: 'Customer', value: lineItem.tms_match?.customer_name || 'N/A', status: 'info' },
+        { label: 'Review Required', value: 'Verify special pricing', status: 'info' },
+      ]
+    },
+    tms_result: {
+      title: 'TMS Match Failure',
+      items: [
+        { label: 'LD Number', value: lineItem.tms_match?.ld_num || 'Not Found', status: 'mismatch' },
+        { label: 'SO Number', value: lineItem.tms_match?.so_num || 'Not Found', status: 'mismatch' },
+        { label: 'Chassis', value: lineItem.chassis || 'N/A', status: 'info' },
+        { label: 'Container', value: lineItem.container || 'N/A', status: 'info' },
       ]
     }
-  ];
+  };
+
+  const checks = validationCategories
+    .filter(cat => categoryDetailsMap[cat.id])
+    .map(cat => categoryDetailsMap[cat.id]);
 
   const getStatusColor = (status: string) => {
     if (status === 'match') return 'text-green-600';
