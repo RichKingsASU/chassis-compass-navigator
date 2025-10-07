@@ -85,7 +85,6 @@ const SidebarNavigation = () => {
         { title: "DCLI", path: "/vendors/dcli" },
         { title: "CCM", path: "/vendors/ccm" },
         { title: "SCSPA", path: "/vendors/scspa" },
-        { title: "WCCP", path: "/vendors/wccp" },
         { title: "TRAC", path: "/vendors/trac" },
         { title: "FLEXIVAN", path: "/vendors/flexivan" },
       ]
