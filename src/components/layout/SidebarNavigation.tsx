@@ -88,6 +88,7 @@ const SidebarNavigation = () => {
         { title: "SCSPA", path: "/vendors/scspa" },
         { title: "TRAC", path: "/vendors/trac" },
         { title: "FLEXIVAN", path: "/vendors/flexivan" },
+        { title: "WCCP", path: "/vendors/wccp" },
       ]
     },
     { title: "Advanced Features", path: "/advanced-features", icon: Sparkles },

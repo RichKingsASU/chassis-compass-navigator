@@ -30,7 +30,7 @@ import CCM from "./pages/vendors/CCM";
 import DCLI from "./pages/vendors/DCLI";
 import FLEXIVAN from "./pages/vendors/FLEXIVAN";
 import TRAC from "./pages/vendors/TRAC";
-// import WCCP from "./pages/vendors/WCCP";
+import WCCP from "./pages/vendors/WCCP";
 import SCSPA from "./pages/vendors/SCSPA";
 import VendorValidation from "./pages/VendorValidation";
 import NewInvoice from "./pages/dcli/NewInvoice";
@@ -175,11 +175,11 @@ function App() {
                   <SCSPA />
                 </DashboardLayout>
               } />
-              {/* <Route path="/vendors/wccp" element={
+              <Route path="/vendors/wccp" element={
                 <DashboardLayout>
                   <WCCP />
                 </DashboardLayout>
-              } /> */}
+              } />
               <Route path="/vendors/trac" element={
                 <DashboardLayout>
                   <TRAC />
