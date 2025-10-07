@@ -63,6 +63,7 @@ const InvoiceLineDetails = () => {
     total_charges: 450.00,
     invoice_rate: 45.00,
     invoice_quantity: 10,
+    charge_type: 'Chassis Charge',
     tms_match: {
       ld_num: 'LD123456',
       so_num: 'SO789012',
@@ -304,6 +305,7 @@ const TroubleshootPanel = ({ lineItem, validationCategories }: { lineItem: any; 
     charges: {
       title: 'Charges Mismatch Details',
       items: [
+        { label: 'Charge Type', value: lineItem.charge_type || 'N/A', status: 'info' },
         { label: 'Rated-Amount', value: `$${lineItem.tms_match?.rated_amount?.toFixed(2) || '0.00'}`, status: 'info' },
         { label: 'Rated-Rate', value: `$${lineItem.tms_match?.rated_rate?.toFixed(2) || '0.00'}`, status: 'info' },
         { label: 'Rated-Quantity', value: lineItem.tms_match?.rated_quantity || '0', status: 'info' },
