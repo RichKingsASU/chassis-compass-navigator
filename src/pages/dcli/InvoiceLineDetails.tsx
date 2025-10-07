@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CheckCircle, AlertCircle, XCircle, AlertTriangle, FileText, DollarSign, Calendar, Package, Users } from 'lucide-react';
+import { ArrowLeft, CheckCircle, AlertCircle, XCircle, AlertTriangle, FileText, DollarSign, Calendar, Package, Users, Save } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -152,6 +152,13 @@ const InvoiceLineDetails = () => {
     navigateBack();
   };
 
+  const handleSave = () => {
+    toast({
+      title: 'Saved',
+      description: 'Invoice line details saved successfully',
+    });
+  };
+
   const handleDispute = () => {
     navigate(`/vendors/dcli/invoice-line/${lineId}/dispute`);
   };
@@ -259,6 +266,14 @@ const InvoiceLineDetails = () => {
           Back to Review
         </Button>
         <div className="flex-1" />
+        <Button
+          onClick={handleSave}
+          variant="outline"
+          className="gap-2"
+        >
+          <Save className="h-4 w-4" />
+          Save
+        </Button>
         <Button
           onClick={handleValidate}
           disabled={!isExactMatch}
