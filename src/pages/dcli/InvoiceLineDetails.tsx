@@ -265,7 +265,6 @@ const InvoiceLineDetails = () => {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Review
         </Button>
-        <div className="flex-1" />
         <Button
           onClick={handleSave}
           variant="outline"
@@ -274,6 +273,7 @@ const InvoiceLineDetails = () => {
           <Save className="h-4 w-4" />
           Save
         </Button>
+        <div className="flex-1" />
         <Button
           onClick={handleValidate}
           disabled={!isExactMatch}
