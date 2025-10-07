@@ -31,3 +31,6 @@ payload.json
 secrets-backup.env
 token-*.json
 .env.*
+
+# Supabase local state
+supabase/.branches/
