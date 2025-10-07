@@ -1,0 +1,1 @@
+ALTER ROLE authenticator SET search_path = public, fleet;

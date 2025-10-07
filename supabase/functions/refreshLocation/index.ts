@@ -18,6 +18,13 @@ Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
+    try {
+      const head = await fetch(env.BB_OAUTH_TOKEN_URL, { method: "HEAD" });
+      console.log("HEAD status:", head.status);
+    } catch (e) {
+      console.error("HEAD failed:", e);
+    }
+
     if (!isCronAllowed(req)) {
       return new Response(JSON.stringify({ error: "forbidden" }), {
         status: 403,
@@ -80,10 +87,17 @@ Deno.serve(async (req) => {
       headers: { "content-type": "application/json", ...cors },
     });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { "content-type": "application/json", ...cors },
-    });
-  }
+  const msg =
+    e instanceof Error
+      ? `${e.name}: ${e.message}${e.stack ? `\n${e.stack}` : ""}`
+      : typeof e === "string"
+      ? e
+      : JSON.stringify(e);
+
+  console.error("[refreshLocation] error:", e);
+  return new Response(JSON.stringify({ error: msg }), {
+    status: 500,
+    headers: { "content-type": "application/json" },
+  });
+}
 });

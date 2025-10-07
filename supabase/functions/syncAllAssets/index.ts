@@ -78,10 +78,17 @@ Deno.serve(async (req) => {
       headers: { "content-type": "application/json", ...cors },
     });
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { "content-type": "application/json", ...cors },
-    });
-  }
+  const msg =
+    e instanceof Error
+      ? `${e.name}: ${e.message}${e.stack ? `\n${e.stack}` : ""}`
+      : typeof e === "string"
+      ? e
+      : JSON.stringify(e);
+
+  console.error("[syncAllAssets] error:", e);
+  return new Response(JSON.stringify({ error: msg }), {
+    status: 500,
+    headers: { "content-type": "application/json" },
+  });
+}
 });

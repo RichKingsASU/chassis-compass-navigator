@@ -100,6 +100,9 @@ ALTER TABLE dcli_invoice_line_item ENABLE ROW LEVEL SECURITY;
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 
 -- Create basic RLS policies for public access (adjust based on your needs)
+DROP POLICY IF EXISTS "Public access to dcli_invoice" ON dcli_invoice;
 CREATE POLICY "Public access to dcli_invoice" ON dcli_invoice FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public access to dcli_invoice_line_item" ON dcli_invoice_line_item;
 CREATE POLICY "Public access to dcli_invoice_line_item" ON dcli_invoice_line_item FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public access to invoices" ON invoices;
 CREATE POLICY "Public access to invoices" ON invoices FOR ALL USING (true);

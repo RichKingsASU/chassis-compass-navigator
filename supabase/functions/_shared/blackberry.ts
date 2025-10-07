@@ -1,4 +1,26 @@
-// supabase/functions/_shared/blackberry.ts
+const MULTI_TENANT = Deno.env.get("BLACKBERRY_MULTI_TENANT") === "1";
+
+// add this helper (top or near bbFetch)
+async function fetchRadarToken(orgId: string, scope: string): Promise<string> {
+  const url =
+    `${Deno.env.get("SUPABASE_URL")}/functions/v1/radar-token`;
+  const auth =
+    Deno.env.get("SERVICE_ROLE_KEY") ??
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""; // you have SUPABASE_SERVICE_ROLE_KEY set
+  const r = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(auth ? { authorization: `Bearer ${auth}` } : {}),
+    },
+    body: JSON.stringify({ org_id: orgId, scope }),
+  });
+  if (!r.ok) throw new Error(`radar-token failed: ${r.status} ${await r.text()}`);
+  const j = await r.json();
+  // supports either {access_token:"..."} or raw token string
+  return (j && j.access_token) ? j.access_token : j;
+}
+
 // --- helpers (replace your existing need/secret reads with this) ---
 function must(name: string, v: string | undefined) {
   if (!v) throw new Error(`Missing required secret: ${name}`);
@@ -24,11 +46,6 @@ function readBBSecrets(prefix: string): BBSecrets {
     SCOPE:          must(`${prefix}_SCOPE`,          g("SCOPE")),
     API_KEY:        g("API_KEY") || undefined, // optional
   };
-}
-
-// Pick which tenant to use: env override or default to BBLOG
-function resolvePrefix(explicit?: string) {
-  return explicit ?? Deno.env.get("BB_ENV_PREFIX") ?? "BBLOG";
 }
 
 const TOKEN_URL = "https://oauth2.radar.blackberry.com/1/token";
@@ -139,6 +156,7 @@ function headerPayload(appId: string, aud: string, kid?: string) {
 const tokenCache = new Map<string, { token: string; exp: number }>();
 
 async function getAccessToken(prefix: string, s: BBSecrets): Promise<string> {
+  console.log("BB_OAUTH_TOKEN_URL =", s.OAUTH_TOKEN_URL);
   // if you already have code that builds a JWT and posts to s.OAUTH_TOKEN_URL,
   // reuse it here; just remove any BB_* direct reads and use `s.*` instead.
 
@@ -177,16 +195,19 @@ async function getAccessToken(prefix: string, s: BBSecrets): Promise<string> {
 export async function bbFetch(
   path: string,
   init: RequestInit = {},
-  prefixOverride?: string,
+  orgId?: string,   // make optional
 ): Promise<Response> {
-  const prefix = resolvePrefix(prefixOverride);
-  const s = readBBSecrets(prefix);
-  const token = await getAccessToken(prefix, s);
+  // In single-tenant, just use global (no per-org prefix)
+  const s = readBBSecrets("BLACKBERRY"); // relies on global BLACKBERRY_* envs
 
-  const url = `https://prod.radar.blackberry.com/api${path}`; // keep your base URL
+  // Always get token via radar-token
+  const token = await fetchRadarToken("GLOBAL", s.SCOPE);
+
+  const baseUrl = Deno.env.get("BLACKBERRY_API_BASE") ?? "https://api.radar.blackberry.com";
+  const url = `${baseUrl}${path}`;
+
   const headers = new Headers(init.headers ?? {});
   headers.set("authorization", `Bearer ${token}`);
-  // Optional: if you actually use API keys in some calls
   if (s.API_KEY && !headers.has("x-api-key")) headers.set("x-api-key", s.API_KEY);
 
   return fetch(url, { ...init, headers });

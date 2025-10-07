@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.dcli_invoice_staging (
 ALTER TABLE public.dcli_invoice_staging ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for public access (matching other tables)
+DROP POLICY IF EXISTS "Public access to dcli_invoice_staging" ON public.dcli_invoice_staging;
 CREATE POLICY "Public access to dcli_invoice_staging"
 ON public.dcli_invoice_staging
 FOR ALL
@@ -36,6 +37,7 @@ USING (true)
 WITH CHECK (true);
 
 -- Add trigger for updated_at
+DROP TRIGGER IF EXISTS update_dcli_invoice_staging_updated_at ON public.dcli_invoice_staging;
 CREATE TRIGGER update_dcli_invoice_staging_updated_at
   BEFORE UPDATE ON public.dcli_invoice_staging
   FOR EACH ROW

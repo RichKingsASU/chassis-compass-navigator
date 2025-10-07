@@ -1,5 +1,5 @@
 -- Create CCM Invoice table
-CREATE TABLE public.ccm_invoice (
+CREATE TABLE IF NOT EXISTS public.ccm_invoice (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   invoice_number TEXT NOT NULL,
   invoice_date DATE NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE public.ccm_invoice (
 );
 
 -- Create CCM Invoice Data table for Excel parsing results
-CREATE TABLE public.ccm_invoice_data (
+CREATE TABLE IF NOT EXISTS public.ccm_invoice_data (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   invoice_id UUID NOT NULL REFERENCES public.ccm_invoice(id) ON DELETE CASCADE,
   sheet_name TEXT NOT NULL,
@@ -30,12 +30,14 @@ ALTER TABLE public.ccm_invoice ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ccm_invoice_data ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for full access (since this appears to be an internal business app)
+DROP POLICY IF EXISTS "Allow all operations on ccm_invoice" ON public.ccm_invoice;
 CREATE POLICY "Allow all operations on ccm_invoice" 
 ON public.ccm_invoice 
 FOR ALL 
 USING (true)
 WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow all operations on ccm_invoice_data" ON public.ccm_invoice_data;
 CREATE POLICY "Allow all operations on ccm_invoice_data" 
 ON public.ccm_invoice_data 
 FOR ALL 
@@ -52,14 +54,15 @@ END;
 $$ LANGUAGE plpgsql SET search_path = public;
 
 -- Create trigger for automatic timestamp updates
+DROP TRIGGER IF EXISTS update_ccm_invoice_updated_at ON public.ccm_invoice;
 CREATE TRIGGER update_ccm_invoice_updated_at
   BEFORE UPDATE ON public.ccm_invoice
   FOR EACH ROW
   EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Create indexes for better performance
-CREATE INDEX idx_ccm_invoice_provider ON public.ccm_invoice(provider);
-CREATE INDEX idx_ccm_invoice_status ON public.ccm_invoice(status);
-CREATE INDEX idx_ccm_invoice_date ON public.ccm_invoice(invoice_date);
-CREATE INDEX idx_ccm_invoice_data_invoice_id ON public.ccm_invoice_data(invoice_id);
-CREATE INDEX idx_ccm_invoice_data_sheet ON public.ccm_invoice_data(sheet_name);
+CREATE INDEX IF NOT EXISTS idx_ccm_invoice_provider ON public.ccm_invoice(provider);
+CREATE INDEX IF NOT EXISTS idx_ccm_invoice_status ON public.ccm_invoice(status);
+CREATE INDEX IF NOT EXISTS idx_ccm_invoice_date ON public.ccm_invoice(invoice_date);
+CREATE INDEX IF NOT EXISTS idx_ccm_invoice_data_invoice_id ON public.ccm_invoice_data(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_ccm_invoice_data_sheet ON public.ccm_invoice_data(sheet_name);

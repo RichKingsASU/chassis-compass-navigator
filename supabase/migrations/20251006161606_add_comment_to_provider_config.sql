@@ -1,0 +1,1 @@
+COMMENT ON TABLE fleet.provider_config IS 'Configuration for fleet providers';

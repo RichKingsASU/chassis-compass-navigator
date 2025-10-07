@@ -32,27 +32,41 @@ ALTER TABLE public.trac_receipts ENABLE ROW LEVEL SECURITY;
 -- You can modify these later to implement user-based access control
 
 -- CCM Activity policies
+DROP POLICY IF EXISTS "Public access to ccm_activity" ON public.ccm_activity;
 CREATE POLICY "Public access to ccm_activity" ON public.ccm_activity FOR ALL USING (true);
 
 -- DCLI Activity policies
+DROP POLICY IF EXISTS "Public access to dcli_activity" ON public.dcli_activity;
 CREATE POLICY "Public access to dcli_activity" ON public.dcli_activity FOR ALL USING (true);
 
 -- Flexivan policies
+DROP POLICY IF EXISTS "Public access to flexivan_dispute" ON public."flexivan-dispute";
 CREATE POLICY "Public access to flexivan_dispute" ON public."flexivan-dispute" FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public access to flexivan_invoices" ON public."flexivan-invoices";
 CREATE POLICY "Public access to flexivan_invoices" ON public."flexivan-invoices" FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public access to flexivan_outstanding" ON public."flexivan-outstanding";
 CREATE POLICY "Public access to flexivan_outstanding" ON public."flexivan-outstanding" FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public access to flexivan_payhistory" ON public."flexivan-payhistory";
 CREATE POLICY "Public access to flexivan_payhistory" ON public."flexivan-payhistory" FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public access to flexivan_activity" ON public.flexivan_activity;
 CREATE POLICY "Public access to flexivan_activity" ON public.flexivan_activity FOR ALL USING (true);
 
 -- Mercury Gate TMS policies
+DROP POLICY IF EXISTS "Public access to mg_tms" ON public.mg_tms;
 CREATE POLICY "Public access to mg_tms" ON public.mg_tms FOR ALL USING (true);
 
 -- SCSPA Activity policies
+DROP POLICY IF EXISTS "Public access to scspa_activity" ON public.scspa_activity;
 CREATE POLICY "Public access to scspa_activity" ON public.scspa_activity FOR ALL USING (true);
 
 -- TRAC policies
+DROP POLICY IF EXISTS "Public access to trac_customer_information" ON public.trac_customer_information;
 CREATE POLICY "Public access to trac_customer_information" ON public.trac_customer_information FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public access to trac_debtor_transactions" ON public.trac_debtor_transactions;
 CREATE POLICY "Public access to trac_debtor_transactions" ON public.trac_debtor_transactions FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public access to trac_invoice_lines" ON public.trac_invoice_lines;
 CREATE POLICY "Public access to trac_invoice_lines" ON public.trac_invoice_lines FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public access to trac_invoices" ON public.trac_invoices;
 CREATE POLICY "Public access to trac_invoices" ON public.trac_invoices FOR ALL USING (true);
+DROP POLICY IF EXISTS "Public access to trac_receipts" ON public.trac_receipts;
 CREATE POLICY "Public access to trac_receipts" ON public.trac_receipts FOR ALL USING (true);

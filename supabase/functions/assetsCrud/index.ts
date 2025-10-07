@@ -20,7 +20,7 @@ type AssetPayload = {
 };
 
 async function radarCreateAsset(p: Required<Pick<AssetPayload, "identifier">> & AssetPayload) {
-  const r = await bbFetch(`/assets`, {
+  const r = await bbFetch(`/1/assets`, {
     method: "POST",
     body: JSON.stringify({
       identifier: p.identifier,
@@ -55,7 +55,7 @@ async function radarCreateAsset(p: Required<Pick<AssetPayload, "identifier">> & 
 
 async function radarFindByIdentifier(identifier: string): Promise<string | null> {
   // If Radar supports filtering by identifier directly:
-  const r = await bbFetch(`/assets?identifier=${encodeURIComponent(identifier)}&size=1`);
+  const r = await bbFetch(`/1/assets?identifier=${encodeURIComponent(identifier)}&size=1`);
   if (!r.ok) throw new Error(`Radar search failed: ${r.status} ${await r.text()}`);
   const j = await r.json();
   const items = j.items ?? j.assets ?? [];
@@ -65,7 +65,7 @@ async function radarFindByIdentifier(identifier: string): Promise<string | null>
 }
 
 async function radarUpdateAsset(id: string, p: AssetPayload) {
-  const r = await bbFetch(`/assets/${id}`, {
+  const r = await bbFetch(`/1/assets/${id}`, {
     method: "PUT",
     body: JSON.stringify({
       // only send defined fields
@@ -82,7 +82,7 @@ async function radarUpdateAsset(id: string, p: AssetPayload) {
 }
 
 async function radarDeleteAsset(id: string) {
-  const r = await bbFetch(`/assets/${id}`, { method: "DELETE" });
+  const r = await bbFetch(`/1/assets/${id}`, { method: "DELETE" });
   if (!(r.ok || r.status === 204)) {
     throw new Error(`Radar delete failed: ${r.status} ${await r.text()}`);
   }
@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
     if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
     const sb = sbAdmin(); // db schema should be set to "fleet" in _shared/db.ts
-    const body = (await req.json().catch(() => ({}))) as AssetPayload;
+    const body = (await req.json().catch(() => ({}))) as AssetPayload & { org_id?: string };
 
     switch (req.method) {
       case "POST": {
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
 
         // 1) Try create
         const res = await radarCreateAsset(
-          body as Required<Pick<AssetPayload, "identifier">> & AssetPayload,
+          body as Required<Pick<AssetPayload, "identifier">> & AssetPayload
         );
 
         // 2) If duplicate, resolve its id
@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
           .from("assets")
           .upsert(
             {
-              org_id: env.PROJECT_ORG_ID,
+              org_id: body.org_id,
               radar_asset_id: radar_id,
               identifier: body.identifier,
               type: body.type ?? null,
@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
             updated_at: new Date().toISOString(),
             ...(body.identifier ? { identifier: body.identifier } : {}),
           })
-          .eq("org_id", env.PROJECT_ORG_ID)
+          .eq("org_id", body.org_id)
           .eq("radar_asset_id", radar_id)
           .select("id, radar_asset_id, identifier")
           .maybeSingle();
@@ -195,8 +195,7 @@ Deno.serve(async (req) => {
           if (!body.identifier) {
             return json({ error: "Provide radar_asset_id or identifier" }, { status: 400 });
           }
-          radar_id = await radarFindByIdentifier(body.identifier!);
-          if (!radar_id) {
+          radar_id = await radarFindByIdentifier(body.identifier!);if (!radar_id) {
             return json({ error: `Radar asset not found for identifier "${body.identifier}"` }, {
               status: 404,
             });
@@ -209,7 +208,7 @@ Deno.serve(async (req) => {
         const { error } = await sb
           .from("assets")
           .delete()
-          .eq("org_id", env.PROJECT_ORG_ID)
+          .eq("org_id", body.org_id)
           .eq("radar_asset_id", radar_id);
 
         if (error) throw error;
