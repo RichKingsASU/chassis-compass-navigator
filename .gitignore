@@ -26,3 +26,8 @@ supabase/.temp/
 *.pem
 .env
 payload.json
+.secrets.json
+.secrets_*.txt
+secrets-backup.env
+token-*.json
+.env.*
