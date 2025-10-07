@@ -37,6 +37,10 @@ import NewInvoice from "./pages/dcli/NewInvoice";
 import InvoiceReview from "./pages/dcli/InvoiceReview";
 import DCLIInvoiceLineDetails from "./pages/dcli/InvoiceLineDetails";
 import DCLIInvoiceLineDispute from "./pages/dcli/InvoiceLineDispute";
+import WCCPNewInvoice from "./pages/wccp/NewInvoice";
+import WCCPInvoiceReview from "./pages/wccp/InvoiceReview";
+import WCCPInvoiceLineDetails from "./pages/wccp/InvoiceLineDetails";
+import WCCPInvoiceLineDispute from "./pages/wccp/InvoiceLineDispute";
 import InvoicesList from "./pages/invoices/InvoicesList";
 import InvoiceLineDetails from "./pages/invoices/InvoiceLineDetails";
 import InvoiceLineDispute from "./pages/invoices/InvoiceLineDispute";
@@ -178,6 +182,26 @@ function App() {
               <Route path="/vendors/wccp" element={
                 <DashboardLayout>
                   <WCCP />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/wccp/invoices/new" element={
+                <DashboardLayout>
+                  <WCCPNewInvoice />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/wccp/invoices/:invoiceId/review" element={
+                <DashboardLayout>
+                  <WCCPInvoiceReview />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/wccp/invoice-line/:lineId" element={
+                <DashboardLayout>
+                  <WCCPInvoiceLineDetails />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/wccp/invoice-line/:lineId/dispute" element={
+                <DashboardLayout>
+                  <WCCPInvoiceLineDispute />
                 </DashboardLayout>
               } />
               <Route path="/vendors/trac" element={
