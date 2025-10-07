@@ -61,6 +61,8 @@ const InvoiceLineDetails = () => {
     billing_start: '2024-01-10',
     billing_end: '2024-01-20',
     total_charges: 450.00,
+    invoice_rate: 45.00,
+    invoice_quantity: 10,
     tms_match: {
       ld_num: 'LD123456',
       so_num: 'SO789012',
@@ -71,6 +73,9 @@ const InvoiceLineDetails = () => {
       date_out: '2024-01-10',
       date_in: '2024-01-20',
       calculated_charges: 420.00,
+      rated_amount: 420.00,
+      rated_rate: 42.00,
+      rated_quantity: 10,
       confidence: 85,
       match_reasons: ['Chassis exact match', 'Container partial match'],
       multi_load: false,
@@ -299,9 +304,13 @@ const TroubleshootPanel = ({ lineItem, validationCategories }: { lineItem: any; 
     charges: {
       title: 'Charges Mismatch Details',
       items: [
-        { label: 'Invoice Total', value: `$${lineItem.total_charges?.toFixed(2) || '0.00'}`, status: 'mismatch' },
-        { label: 'TMS Calculated', value: `$${lineItem.tms_match?.calculated_charges?.toFixed(2) || '0.00'}`, status: 'info' },
-        { label: 'Difference', value: `$${Math.abs((lineItem.total_charges || 0) - (lineItem.tms_match?.calculated_charges || 0)).toFixed(2)}`, status: 'warning' },
+        { label: 'Rated-Amount', value: `$${lineItem.tms_match?.rated_amount?.toFixed(2) || '0.00'}`, status: 'info' },
+        { label: 'Rated-Rate', value: `$${lineItem.tms_match?.rated_rate?.toFixed(2) || '0.00'}`, status: 'info' },
+        { label: 'Rated-Quantity', value: lineItem.tms_match?.rated_quantity || '0', status: 'info' },
+        { label: 'Invoice-Amount', value: `$${lineItem.total_charges?.toFixed(2) || '0.00'}`, status: 'mismatch' },
+        { label: 'Invoice-Rate', value: `$${lineItem.invoice_rate?.toFixed(2) || '0.00'}`, status: 'mismatch' },
+        { label: 'Invoice-Quantity', value: lineItem.invoice_quantity || '0', status: 'mismatch' },
+        { label: 'Difference', value: `$${Math.abs((lineItem.total_charges || 0) - (lineItem.tms_match?.rated_amount || 0)).toFixed(2)}`, status: 'warning' },
       ]
     },
     multi_load: {
