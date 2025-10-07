@@ -1,50 +1,39 @@
 
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import CCMInvoiceManager from './CCMInvoiceManager';
-import DashboardKPIs from './dashboard/DashboardKPIs';
+import CCMFinancialPulse from './CCMFinancialPulse';
+import CCMInvoiceTracker from './CCMInvoiceTracker';
 import ImportantNotices from './dashboard/ImportantNotices';
 import ContactsAndResources from './dashboard/ContactsAndResources';
-import RecentActivity from './dashboard/RecentActivity';
-import DocumentUpload from './DocumentUpload';
-
-import DataView from './DataView';
 
 const CCMDashboard = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">CCM Control Center</h1>
+          <p className="text-muted-foreground">From Reporting to Resolution - Actionable Finance Management</p>
+        </div>
+      </div>
+
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full md:w-[800px] grid-cols-4">
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="invoices">Invoice Management</TabsTrigger>
-          <TabsTrigger value="dataview">Data View</TabsTrigger>
-          <TabsTrigger value="upload">Upload Documents</TabsTrigger>
+        <TabsList className="grid w-full md:w-[600px] grid-cols-2">
+          <TabsTrigger value="dashboard">Vendor Health</TabsTrigger>
+          <TabsTrigger value="tracker">Invoice Tracker</TabsTrigger>
         </TabsList>
         
         <TabsContent value="dashboard" className="space-y-6 pt-4">
-          {/* KPI Section */}
-          <DashboardKPIs />
+          <CCMFinancialPulse />
           
           {/* Important Notices */}
           <ImportantNotices />
           
           {/* Contact Information and Resources */}
           <ContactsAndResources />
-          
-          {/* Recent Transactions/Activity */}
-          <RecentActivity />
         </TabsContent>
         
-        <TabsContent value="invoices" className="pt-4">
-          <CCMInvoiceManager />
-        </TabsContent>
-        
-        <TabsContent value="dataview" className="pt-4">
-          <DataView />
-        </TabsContent>
-        
-        <TabsContent value="upload" className="pt-4">
-          <DocumentUpload />
+        <TabsContent value="tracker" className="pt-4">
+          <CCMInvoiceTracker />
         </TabsContent>
       </Tabs>
     </div>

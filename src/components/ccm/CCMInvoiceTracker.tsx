@@ -1,0 +1,295 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, Filter, Download, Plus, FileText } from "lucide-react";
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+
+interface CCMInvoiceTrackerProps {
+  onViewDetail?: (record: any) => void;
+}
+
+const CCMInvoiceTracker: React.FC<CCMInvoiceTrackerProps> = ({ onViewDetail }) => {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+  const { toast } = useToast();
+
+  const { data: invoiceData, isLoading } = useQuery({
+    queryKey: ['ccm-invoices'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ccm_invoice')
+        .select('*')
+        .order('invoice_date', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
+  const formatDate = (dateString: string | Date) => {
+    if (!dateString) return 'N/A';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit',
+        year: 'numeric'
+      });
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  const formatCurrency = (amount: string | number) => {
+    if (!amount) return '$0.00';
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return isNaN(numAmount) ? '$0.00' : `$${numAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+  };
+
+  // Filter data
+  const filteredData = (invoiceData || []).filter(record => {
+    const matchesSearch = !searchQuery || 
+      Object.values(record).some(value => 
+        value?.toString().toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Pagination
+  const totalRecords = filteredData.length;
+  const totalPages = Math.ceil(totalRecords / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = Math.min(startIndex + rowsPerPage, totalRecords);
+  const paginatedData = filteredData.slice(startIndex, endIndex);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = paginatedData.map((_, index) => `${startIndex + index}`);
+      setSelectedItems(new Set(allIds));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleSelectItem = (index: string, checked: boolean) => {
+    const newSelected = new Set(selectedItems);
+    if (checked) {
+      newSelected.add(index);
+    } else {
+      newSelected.delete(index);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { variant: any, className: string }> = {
+      pending: { variant: "secondary", className: "bg-blue-100 text-blue-800 border-blue-200" },
+      paid: { variant: "outline", className: "bg-green-100 text-green-800 border-green-200" },
+      disputed: { variant: "destructive", className: "bg-red-100 text-red-800 border-red-200" },
+    };
+    const config = statusMap[status.toLowerCase()] || statusMap.pending;
+    return (
+      <Badge variant={config.variant} className={config.className}>
+        {status}
+      </Badge>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="animate-pulse space-y-4">
+            {[...Array(10)].map((_, i) => (
+              <div key={i} className="h-12 bg-muted rounded"></div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold">Invoice Tracker</h2>
+          <p className="text-muted-foreground">Search smarter, find faster</p>
+        </div>
+        <div className="flex gap-2">
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            New Invoice
+          </Button>
+          <Button variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="relative col-span-2">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search invoice number, provider..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="disputed">Disputed</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" className="w-full">
+              <Filter className="h-4 w-4 mr-2" />
+              More Filters
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Results Summary */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Showing {startIndex + 1}–{endIndex} of {totalRecords} records
+        </p>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-muted-foreground">Rows per page:</span>
+          <Select value={rowsPerPage.toString()} onValueChange={(value) => {
+            setRowsPerPage(parseInt(value));
+            setCurrentPage(1);
+          }}>
+            <SelectTrigger className="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="25">25</SelectItem>
+              <SelectItem value="50">50</SelectItem>
+              <SelectItem value="100">100</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Invoice Table */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="border-b bg-muted/50">
+                <tr>
+                  <th className="text-left p-3 w-12">
+                    <Checkbox
+                      checked={selectedItems.size === paginatedData.length && paginatedData.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </th>
+                  <th className="text-left p-3 text-sm font-medium">Invoice Number</th>
+                  <th className="text-left p-3 text-sm font-medium">Invoice Date</th>
+                  <th className="text-left p-3 text-sm font-medium">Provider</th>
+                  <th className="text-left p-3 text-sm font-medium">Total Amount</th>
+                  <th className="text-left p-3 text-sm font-medium">Status</th>
+                  <th className="text-left p-3 text-sm font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedData.map((record, index) => {
+                  const globalIndex = `${startIndex + index}`;
+                  return (
+                    <tr key={globalIndex} className="border-b hover:bg-muted/50 transition-colors">
+                      <td className="p-3">
+                        <Checkbox
+                          checked={selectedItems.has(globalIndex)}
+                          onCheckedChange={(checked) => handleSelectItem(globalIndex, checked as boolean)}
+                        />
+                      </td>
+                      <td className="p-3 font-medium text-sm">{record.invoice_number}</td>
+                      <td className="p-3 text-sm">{formatDate(record.invoice_date)}</td>
+                      <td className="p-3 text-sm">{record.provider}</td>
+                      <td className="p-3 text-sm font-medium">{formatCurrency(record.total_amount_usd)}</td>
+                      <td className="p-3">{getStatusBadge(record.status)}</td>
+                      <td className="p-3">
+                        <Button variant="ghost" size="sm">
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          
+          {filteredData.length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-muted-foreground">
+                No invoices found matching your criteria
+              </div>
+              <Button variant="outline" className="mt-4" onClick={() => {
+                setSearchQuery('');
+                setStatusFilter('all');
+              }}>
+                Clear Filters
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            {startIndex + 1}–{endIndex} of {totalRecords}
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+            >
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default CCMInvoiceTracker;
