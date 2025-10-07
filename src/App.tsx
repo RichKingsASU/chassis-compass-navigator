@@ -32,6 +32,7 @@ import FLEXIVAN from "./pages/vendors/FLEXIVAN";
 import TRAC from "./pages/vendors/TRAC";
 // import WCCP from "./pages/vendors/WCCP";
 import SCSPA from "./pages/vendors/SCSPA";
+import VendorValidation from "./pages/VendorValidation";
 import NewInvoice from "./pages/dcli/NewInvoice";
 import InvoiceReview from "./pages/dcli/InvoiceReview";
 import DCLIInvoiceLineDetails from "./pages/dcli/InvoiceLineDetails";
@@ -134,6 +135,11 @@ function App() {
               } />
               
               {/* Vendor Routes */}
+              <Route path="/vendor-validation" element={
+                <DashboardLayout>
+                  <VendorValidation />
+                </DashboardLayout>
+              } />
               <Route path="/vendors/dcli" element={
                 <DashboardLayout>
                   <DCLI />

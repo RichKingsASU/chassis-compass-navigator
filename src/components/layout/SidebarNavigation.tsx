@@ -82,6 +82,7 @@ const SidebarNavigation = () => {
       path: "/validation", 
       icon: FileCheck,
       subItems: [
+        { title: "Overview", path: "/vendor-validation" },
         { title: "DCLI", path: "/vendors/dcli" },
         { title: "CCM", path: "/vendors/ccm" },
         { title: "SCSPA", path: "/vendors/scspa" },
