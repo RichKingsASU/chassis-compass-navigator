@@ -77,60 +77,81 @@ const InvoiceValidate = () => {
       if (tmsError) throw tmsError;
 
       // Perform validation matching
-      const validatedLines = linesToValidate.map((lineItem: any) => {
+      const validatedRows = linesToValidate.map((lineItem: any) => {
         const chassis = lineItem.row_data?.chassis_norm || lineItem.row_data?.Chassis;
+        const container = lineItem.row_data?.container_norm || lineItem.row_data?.Container;
         const tmsMatch = tmsMatches?.find(tms => tms.chassis_norm === chassis);
 
         if (!tmsMatch) {
           return {
-            ...lineItem,
-            match_type: 'no_match',
-            match_score: 0,
-            tms_data: null,
-            mismatch_reasons: ['Chassis not found in TMS data']
+            line_invoice_number: lineItem.id || 'N/A',
+            chassis: chassis || 'N/A',
+            container: container || 'N/A',
+            match_confidence: 0,
+            match_type: 'mismatch' as const,
+            tms_match: null
           };
         }
 
-        // Calculate match score based on field matches
+        // Calculate match confidence based on field matches
         let matchScore = 0;
         let totalFields = 0;
-        const mismatchReasons = [];
+        const matchReasons = [];
+
+        // Compare chassis
+        if (chassis) {
+          totalFields++;
+          if (tmsMatch.chassis_norm === chassis) {
+            matchScore++;
+            matchReasons.push('Chassis match');
+          }
+        }
 
         // Compare container
-        const container = lineItem.row_data?.container_norm || lineItem.row_data?.Container;
         if (container) {
           totalFields++;
           if (tmsMatch.container_norm === container) {
             matchScore++;
-          } else {
-            mismatchReasons.push(`Container mismatch: Invoice(${container}) vs TMS(${tmsMatch.container_norm})`);
+            matchReasons.push('Container match');
           }
         }
 
-        const matchPercentage = totalFields > 0 ? (matchScore / totalFields) * 100 : 0;
+        const matchPercentage = totalFields > 0 ? Math.round((matchScore / totalFields) * 100) : 0;
         
         return {
-          ...lineItem,
-          match_type: matchPercentage === 100 ? 'exact' : matchPercentage >= 80 ? 'fuzzy' : 'mismatch',
-          match_score: matchPercentage,
-          tms_data: tmsMatch,
-          mismatch_reasons: mismatchReasons
+          line_invoice_number: lineItem.id || 'N/A',
+          chassis: chassis || 'N/A',
+          container: container || 'N/A',
+          match_confidence: matchPercentage,
+          match_type: matchPercentage === 100 ? 'exact' : matchPercentage >= 50 ? 'fuzzy' : 'mismatch' as const,
+          tms_match: {
+            ld_num: tmsMatch.ld_num || '',
+            so_num: tmsMatch.so_num || '',
+            shipment_number: tmsMatch.id || '',
+            chassis_number: tmsMatch.chassis_norm || '',
+            container_number: tmsMatch.container_norm || '',
+            pickup_actual_date: tmsMatch.pickup_actual_date || '',
+            delivery_actual_date: tmsMatch.delivery_actual_date || '',
+            carrier_name: tmsMatch.carrier_name || '',
+            customer_name: tmsMatch.customer_name || '',
+            confidence: matchPercentage,
+            match_reasons: matchReasons
+          }
         };
       });
 
-      const exactMatches = validatedLines.filter(l => l.match_type === 'exact').length;
-      const fuzzyMatches = validatedLines.filter(l => l.match_type === 'fuzzy').length;
-      const mismatches = validatedLines.filter(l => l.match_type === 'mismatch' || l.match_type === 'no_match').length;
+      const exactMatches = validatedRows.filter(r => r.match_type === 'exact').length;
+      const fuzzyMatches = validatedRows.filter(r => r.match_type === 'fuzzy').length;
+      const mismatches = validatedRows.filter(r => r.match_type === 'mismatch').length;
 
       const result = {
         summary: {
-          total_lines: validatedLines.length,
+          total_rows: validatedRows.length,
           exact_matches: exactMatches,
           fuzzy_matches: fuzzyMatches,
-          mismatches: mismatches,
-          no_matches: validatedLines.filter(l => l.match_type === 'no_match').length
+          mismatches: mismatches
         },
-        validated_lines: validatedLines,
+        rows: validatedRows,
         errors: mismatches > 0 ? [`${mismatches} line items have validation issues`] : []
       };
 
