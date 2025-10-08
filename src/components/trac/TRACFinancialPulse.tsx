@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import KPICard from '../ccm/KPICard';
-import { DollarSign, TrendingUp, AlertCircle, Clock } from 'lucide-react';
 
 const TRACFinancialPulse = () => {
   const { data: invoices } = useQuery({
@@ -28,26 +27,30 @@ const TRACFinancialPulse = () => {
       <KPICard
         title="Total Invoiced"
         value={`$${totalInvoiced.toLocaleString()}`}
-        icon={DollarSign}
-        trend={{ value: 0, isPositive: true }}
+        description="Total amount across all invoices"
+        icon="dollar"
+        change={0}
       />
       <KPICard
         title="Total Invoices"
-        value={invoices?.length || 0}
-        icon={TrendingUp}
-        trend={{ value: 0, isPositive: true }}
+        value={String(invoices?.length || 0)}
+        description="Number of invoices received"
+        icon="file"
+        change={0}
       />
       <KPICard
         title="Pending Review"
-        value={pendingCount}
-        icon={Clock}
-        trend={{ value: 0, isPositive: false }}
+        value={String(pendingCount)}
+        description="Invoices awaiting review"
+        icon="alert"
+        change={0}
       />
       <KPICard
         title="Overdue"
-        value={overdueCount}
-        icon={AlertCircle}
-        trend={{ value: 0, isPositive: false }}
+        value={String(overdueCount)}
+        description="Past due date invoices"
+        icon="alert"
+        change={0}
       />
     </div>
   );

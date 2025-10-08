@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import ExcelDataTable from '@/components/ccm/invoice/ExcelDataTable';
+import { ExcelDataItem } from '@/components/ccm/invoice/types';
 
 const InvoiceReview = () => {
   const { invoiceId } = useParams();
@@ -25,7 +26,7 @@ const InvoiceReview = () => {
     },
   });
 
-  const { data: invoiceData } = useQuery({
+  const { data: invoiceData, isLoading: isLoadingData, refetch } = useQuery({
     queryKey: ['trac-invoice-data', invoiceId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -38,9 +39,19 @@ const InvoiceReview = () => {
     },
   });
 
+  const handleRefresh = async () => {
+    await refetch();
+  };
+
   if (isLoading) {
     return <div className="p-6">Loading...</div>;
   }
+
+  // Transform the data to match ExcelDataItem type
+  const transformedData: ExcelDataItem[] = (invoiceData || []).map(item => ({
+    ...item,
+    row_data: item.row_data as Record<string, any>
+  }));
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -77,8 +88,13 @@ const InvoiceReview = () => {
         </CardContent>
       </Card>
 
-      {invoiceData && invoiceData.length > 0 && (
-        <ExcelDataTable data={invoiceData} invoiceId={invoiceId!} tableName="trac_invoice_data" />
+      {transformedData.length > 0 && (
+        <ExcelDataTable 
+          data={transformedData} 
+          loading={isLoadingData}
+          invoiceId={invoiceId}
+          onRefresh={handleRefresh}
+        />
       )}
     </div>
   );

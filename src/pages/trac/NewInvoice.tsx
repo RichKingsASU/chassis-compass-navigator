@@ -14,7 +14,7 @@ const NewInvoice = () => {
           <CardTitle>Invoice Upload</CardTitle>
         </CardHeader>
         <CardContent>
-          <DocumentUpload vendor="TRAC" />
+          <DocumentUpload />
         </CardContent>
       </Card>
     </div>
