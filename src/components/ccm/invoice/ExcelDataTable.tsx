@@ -120,8 +120,8 @@ const ExcelDataTable: React.FC<ExcelDataTableProps> = ({
       </CardHeader>
       
       <CardContent className="p-0">
-        <ScrollArea className="rounded-md border h-[600px]">
-          <div className="min-w-full">
+        <div className="rounded-md border">
+          <ScrollArea className="h-[600px] w-full">
             <Table className="relative">
               <ExcelTableHeader displayColumns={displayColumns} />
               <ExcelTableBody 
@@ -131,10 +131,9 @@ const ExcelDataTable: React.FC<ExcelDataTableProps> = ({
                 searchTerm={searchTerm}
               />
             </Table>
-          </div>
-          <ScrollBar orientation="horizontal" />
-          <ScrollBar orientation="vertical" />
-        </ScrollArea>
+            <ScrollBar orientation="horizontal" className="h-3 hover:bg-muted" />
+          </ScrollArea>
+        </div>
         
         <ExcelPagination 
           page={page} 
