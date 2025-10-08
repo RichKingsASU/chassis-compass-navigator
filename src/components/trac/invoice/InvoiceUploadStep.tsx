@@ -259,10 +259,8 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         description: `Invoice ${invoiceNumber} created with ${parsedData.data.length} line items.`,
       });
 
-      // Navigate to the review page with actual database ID
-      setTimeout(() => {
-        navigate(`/vendors/trac/invoices/${invoiceData.id}/review`);
-      }, 500);
+      // Continue to next step in the workflow
+      onComplete();
 
     } catch (error) {
       console.error('Upload error:', error);
