@@ -307,37 +307,6 @@ const InvoiceReview = () => {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Line Items Table */}
-            <div>
-              <h2 className="text-xl font-semibold mb-4">
-                Line Items - Full Data Review ({total})
-              </h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Review all extracted data from the Excel file. Scroll horizontally to see all columns.
-              </p>
-              {invoiceData.length > 0 && (
-                <ExcelDataTable 
-                  data={invoiceData} 
-                  loading={loading}
-                  invoiceId={invoiceId}
-                  onRefresh={handleRefresh}
-                />
-              )}
-              
-              {/* Action Buttons */}
-              <div className="flex gap-2 mt-6">
-                <Button variant="outline" onClick={() => navigate('/vendors/trac/invoices/new')}>
-                  Back to Upload
-                </Button>
-                <Button variant="outline">
-                  Save Draft
-                </Button>
-                <Button onClick={() => navigate(`/vendors/trac/invoices/${invoiceId}/validate`)}>
-                  Continue to Validate
-                </Button>
-              </div>
-            </div>
           </div>
 
           {/* Right Column - Summary */}
@@ -386,6 +355,37 @@ const InvoiceReview = () => {
                 )}
               </CardContent>
             </Card>
+          </div>
+        </div>
+
+        {/* Line Items Table - Full Width */}
+        <div className="mt-6">
+          <h2 className="text-xl font-semibold mb-4">
+            Line Items - Full Data Review ({total})
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Review all extracted data from the Excel file. Scroll horizontally to see all columns.
+          </p>
+          {invoiceData.length > 0 && (
+            <ExcelDataTable 
+              data={invoiceData} 
+              loading={loading}
+              invoiceId={invoiceId}
+              onRefresh={handleRefresh}
+            />
+          )}
+          
+          {/* Action Buttons */}
+          <div className="flex gap-2 mt-6">
+            <Button variant="outline" onClick={() => navigate('/vendors/trac/invoices/new')}>
+              Back to Upload
+            </Button>
+            <Button variant="outline">
+              Save Draft
+            </Button>
+            <Button onClick={() => navigate(`/vendors/trac/invoices/${invoiceId}/validate`)}>
+              Continue to Validate
+            </Button>
           </div>
         </div>
       </div>
