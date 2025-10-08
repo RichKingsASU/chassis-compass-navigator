@@ -142,14 +142,16 @@ const InvoiceReview = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="relative max-w-4xl mx-auto">
             {/* Progress Bar Background */}
-            <div className="absolute top-5 left-0 right-0 h-1 bg-muted" />
-            {/* Progress Bar Fill */}
-            <div className="absolute top-5 left-0 h-1 bg-primary" style={{ width: '50%' }} />
+            <div className="absolute top-5 left-0 right-0 h-1 bg-muted rounded-full" />
+            {/* Progress Bar Fill - Dark portion (completed) */}
+            <div className="absolute top-5 left-0 h-1 bg-[hsl(215,25%,27%)] rounded-full" style={{ width: '25%' }} />
+            {/* Progress Bar Fill - Teal portion (current) */}
+            <div className="absolute top-5 left-0 h-1 bg-gradient-to-r from-[hsl(215,25%,27%)] via-[hsl(215,25%,27%)] to-teal-500 rounded-full" style={{ width: '50%' }} />
             
             <div className="relative flex items-start justify-between">
               {/* Step 1 - Upload (Complete) */}
               <div className="flex flex-col items-center" style={{ width: '25%' }}>
-                <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center mb-2">
+                <div className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center mb-2">
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
                 <div className="text-center">
@@ -160,7 +162,7 @@ const InvoiceReview = () => {
               
               {/* Step 2 - Review (Current) */}
               <div className="flex flex-col items-center" style={{ width: '25%' }}>
-                <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center mb-2 font-bold">
+                <div className="w-10 h-10 rounded-full bg-[hsl(215,25%,27%)] text-white flex items-center justify-center mb-2 font-bold">
                   2
                 </div>
                 <div className="text-center">
