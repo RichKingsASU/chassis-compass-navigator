@@ -68,26 +68,17 @@ const ExcelDataTable: React.FC<ExcelDataTableProps> = ({
     page * rowsPerPage
   );
 
-  // Get all keys (columns) from data
-  const allKeys = new Set<string>();
-  filteredData.forEach(item => {
-    Object.keys(item.row_data).forEach(key => allKeys.add(key));
-  });
+  // Get all keys (columns) from data - preserve original order from first row
+  const allKeys: string[] = [];
+  if (filteredData.length > 0) {
+    // Use the first row's keys to preserve the original column order from CSV
+    allKeys.push(...Object.keys(filteredData[0].row_data));
+  }
   
-  // Convert to array and prioritize common column names
-  const priorityColumns = ['id', 'invoice_number', 'date', 'amount', 'description'];
-  const columns = Array.from(allKeys).sort((a, b) => {
-    const indexA = priorityColumns.findIndex(col => a.toLowerCase().includes(col.toLowerCase()));
-    const indexB = priorityColumns.findIndex(col => b.toLowerCase().includes(col.toLowerCase()));
-    
-    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-    if (indexA !== -1) return -1;
-    if (indexB !== -1) return 1;
-    return a.localeCompare(b);
-  });
+  const columns = allKeys;
 
-  // Display a maximum of 8 columns
-  const displayColumns = columns.slice(0, 8);
+  // Show ALL columns for review - users need to verify against original invoice
+  const displayColumns = columns;
 
   // Handle refresh button click
   const handleRefresh = async () => {
@@ -127,9 +118,9 @@ const ExcelDataTable: React.FC<ExcelDataTableProps> = ({
         />
       </CardHeader>
       
-      <CardContent>
-        <div className="rounded-md border overflow-x-auto">
-          <Table>
+      <CardContent className="p-0">
+        <div className="rounded-md border overflow-auto max-h-[600px]">
+          <Table className="relative">
             <ExcelTableHeader displayColumns={displayColumns} />
             <ExcelTableBody 
               loading={loading} 

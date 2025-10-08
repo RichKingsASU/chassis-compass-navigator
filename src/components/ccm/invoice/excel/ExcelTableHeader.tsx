@@ -8,13 +8,15 @@ interface ExcelTableHeaderProps {
 
 const ExcelTableHeader: React.FC<ExcelTableHeaderProps> = ({ displayColumns }) => {
   return (
-    <TableHeader>
+    <TableHeader className="sticky top-0 bg-background z-10">
       <TableRow>
-        <TableHead>Sheet</TableHead>
+        <TableHead className="font-semibold sticky left-0 bg-background z-20 border-r min-w-[120px]">Sheet</TableHead>
         {displayColumns.map(column => (
-          <TableHead key={column}>{column}</TableHead>
+          <TableHead key={column} className="font-semibold whitespace-nowrap min-w-[150px]">
+            {column}
+          </TableHead>
         ))}
-        <TableHead>Validated</TableHead>
+        <TableHead className="font-semibold min-w-[120px]">Status</TableHead>
       </TableRow>
     </TableHeader>
   );
