@@ -322,6 +322,19 @@ const InvoiceReview = () => {
                   onRefresh={handleRefresh}
                 />
               )}
+              
+              {/* Action Buttons */}
+              <div className="flex gap-2 mt-6">
+                <Button variant="outline" onClick={() => navigate('/vendors/trac/invoices/new')}>
+                  Back to Upload
+                </Button>
+                <Button variant="outline">
+                  Save Draft
+                </Button>
+                <Button>
+                  Continue to Validate
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -371,18 +384,6 @@ const InvoiceReview = () => {
                 )}
               </CardContent>
             </Card>
-
-            <div className="flex flex-col gap-2">
-              <Button variant="outline" className="w-full" onClick={() => navigate('/vendors/trac/invoices/new')}>
-                Back to Upload
-              </Button>
-              <Button variant="outline" className="w-full">
-                Save Draft
-              </Button>
-              <Button className="w-full">
-                Continue to Validate
-              </Button>
-            </div>
           </div>
         </div>
       </div>
