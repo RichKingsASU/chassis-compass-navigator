@@ -1,124 +1,101 @@
-// supabase/functions/radar-token/index.ts
-// Mint a Radar access token via JWT-bearer, per org.
-// POST { org_id: string, scope?: string }  ->  { access_token, expires_in, scope }
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { SignJWT, importPKCS8, decodeJwt } from "https://deno.land/x/jose@v4.15.5/index.ts";
-const TOKEN_URL = Deno.env.get("BLACKBERRY_OAUTH_TOKEN_URL")
-  ?? "https://oauth2.radar.blackberry.com/1/token";
+// Minimal, resilient Radar token function for single-tenant "Logistics"
+import { importPKCS8, SignJWT } from "https://deno.land/x/jose@v4.15.5/index.ts";
 
-// Critical: audience must match token URL exactly.
-const AUD = TOKEN_URL;
+type Json = Record<string, unknown>;
+const json = (body: Json, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-const DEFAULT_SCOPE = Deno.env.get("BLACKBERRY_SCOPE")
-  ?? "modules:read assets:read";
+const REQUIRED = [
+  "BLACKBERRY_APP_ID",
+  "BLACKBERRY_OAUTH_TOKEN_URL",
+  "BLACKBERRY_JWT_AUD",
+  "BLACKBERRY_SCOPE",
+  "BLACKBERRY_JWT_PRIVATE_KEY",
+] as const;
 
-// Single-tenant: ignore org_id mapping; use global app + key
-const APP_ID = Deno.env.get("BLACKBERRY_APP_ID") ?? "";
-const KEY_ENV = "BLACKBERRY_JWT_PRIVATE_KEY";
+function getEnvStrict(name: string) {
+  const v = Deno.env.get(name);
+  if (!v || !v.trim()) throw new Error(`missing env ${name}`);
+  return v;
+}
 
+// Accepts 3 formats for KEY: (a) full PEM with headers, (b) single-line with \n, (c) bare base64 body.
+// Always returns a proper PEM string with \n newlines.
+function normalizePem(input: string): string {
+  const val = input.includes("\n") ? input.replace(/\\n/g, "\n") : input;
+  if (val.includes("-----BEGIN") && val.includes("-----END")) {
+    // Already PEM; normalize newlines and trim
+    return val.replace(/\r\n/g, "\n").trim() + "\n";
+  }
+  // Looks like a bare base64 block: wrap it
+  const base64 = val.replace(/\s+/g, "");
+  // Simple sanity: base64 charset only
+  if (!/^[A-Za-z0-9+/=]+$/.test(base64)) throw new Error("private key is not PEM or base64");
+  // Chunk to 64 chars per RFC 7468 (optional, but nice)
+  const lines = base64.match(/.{1,64}/g) ?? [base64];
+  return `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----\n`;
+}
 
-// very small in-memory cache per function instance
-const tokenCache = new Map<string, { token: string; exp: number }>();
-
-function now() { return Math.floor(Date.now() / 1000); }
-
-serve(async (req) => {
-  const auth = req.headers.get("authorization");
-  console.log("AUTH HEADER", auth);
+Deno.serve(async (req) => {
   try {
-    const body = (await req.json().catch(() => ({}))) as { org_id?: string; scope?: string, probe?: string };
-    const { org_id, scope } = body;
-    // org_id is ignored in single-tenant mode
+    // 1) Body is optional (org_id not needed for single-tenant)
+    let body: any = {};
+    try { body = await req.json(); } catch (_) { /* ignore empty body */ }
 
-    const pem = Deno.env.get(KEY_ENV);
-    if (!pem) return json({ error: `missing private key secret ${KEY_ENV}` }, 500);
+    // 2) Required env
+    const missing = REQUIRED.filter((k) => !Deno.env.get(k));
+    if (missing.length) return json({ error: "config_error", detail: { missing } }, 500);
 
-    const cacheKey = `${org_id}|${scope ?? DEFAULT_SCOPE}`;
-    const cached = tokenCache.get(cacheKey);
-    if (cached && cached.exp - now() > 120) { // >2 min left
-      const decoded = decodeJwt(cached.token);
-      return json({
-        access_token: cached.token,
-        expires_in: cached.exp - now(),
-        scope: scope ?? DEFAULT_SCOPE,
-        meta: {
-          app_id_used: APP_ID,
-          org_id: org_id,
-          radar_customerId: decoded["radar:customerId"],
-        }
-      });
+    const APP_ID = getEnvStrict("BLACKBERRY_APP_ID");
+    const TOKEN_URL = getEnvStrict("BLACKBERRY_OAUTH_TOKEN_URL");
+    const AUD = getEnvStrict("BLACKBERRY_JWT_AUD");
+    const SCOPE = getEnvStrict("BLACKBERRY_SCOPE");
+    const RAW_KEY = getEnvStrict("BLACKBERRY_JWT_PRIVATE_KEY");
+
+    // 3) Key import (ES256)
+    let key;
+    try {
+      const pem = normalizePem(RAW_KEY);
+      key = await importPKCS8(pem, "ES256");
+    } catch (e) {
+      return json({ error: "import_key_failed", detail: String(e) }, 500);
     }
 
-    const iat = now();
-    const jwt = await new SignJWT({
-      jti: crypto.randomUUID(),
-      iss: APP_ID,
-      sub: APP_ID,
-      aud: AUD,
-      iat,
-      exp: iat + 60, // Radar expects ~60s window
-    })
-      .setProtectedHeader({ alg: "ES256", typ: "JWT" })
-      .sign(await importPKCS8(pem, "ES256"));
+    // 4) Build client assertion JWT
+    const now = Math.floor(Date.now() / 1000);
+    let clientAssertion: string;
+    try {
+      clientAssertion = await new SignJWT({ jti: crypto.randomUUID() })
+        .setProtectedHeader({ alg: "ES256", typ: "JWT" })
+        .setIssuer(APP_ID)
+        .setSubject(APP_ID)
+        .setAudience(AUD)
+        .setIssuedAt(now)
+        .setExpirationTime(now + 60)
+        .sign(key);
+    } catch (e) {
+      return json({ error: "sign_jwt_failed", detail: String(e) }, 500);
+    }
 
-    const resp = await fetch(TOKEN_URL, {
+    // 5) OAuth2 Token exchange
+    const form = new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      scope: body?.scope ?? SCOPE,
+      assertion: clientAssertion,
+    });
+
+    const r = await fetch(TOKEN_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion: jwt,
-        scope: scope ?? DEFAULT_SCOPE,
-      }),
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
     });
 
-    if (!resp.ok) {
-      const text = await resp.text();
-      return json({ error: "token_exchange_failed", status: resp.status, body: text }, 502);
-    }
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return json({ error: "oauth_failed", status: r.status, detail: data }, 502);
 
-    const data = await resp.json() as { access_token: string; expires_in: number; scope?: string };
-    tokenCache.set(cacheKey, { token: data.access_token, exp: now() + (data.expires_in ?? 900) });
-    
-    const decoded = decodeJwt(data.access_token);
-
-    if (body?.probe === 'modules') {
-      const r = await fetch('https://api.radar.blackberry.com/1/modules', {
-        headers: { Authorization: `Bearer ${data.access_token}` }
-      });
-      const www = r.headers.get('www-authenticate') || null;
-      const reqId = r.headers.get('x-request-id') || r.headers.get('cf-ray') || null;
-      const text = await r.text();
-      return json({
-        access_token: data.access_token,
-        meta: {
-          app_id_used: APP_ID,
-          org_id: org_id,
-          radar_customerId: decoded["radar:customerId"],
-        },
-        probe: { status: r.status, wwwAuthenticate: www, requestId: reqId, body: text?.slice(0, 400) }
-      });
-    }
-
-    return json({
-      access_token: data.access_token,
-      token_type: "bearer",
-      expires_in: data.expires_in,
-      scope: data.scope,
-      meta: {
-        app_id_used: APP_ID,
-        org_id: org_id,
-        radar_customerId: decoded["radar:customerId"],
-      }
-    });
+    return json(data, 200); // { access_token, token_type, expires_in, ... }
   } catch (e) {
-    return json({ error: String(e?.message ?? e) }, 500);
+    return json({ error: "unhandled", detail: String(e) }, 500);
   }
 });
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "Content-Type": "application/json"
-    }
-  });
-}
+

@@ -157,6 +157,8 @@ const tokenCache = new Map<string, { token: string; exp: number }>();
 
 async function getAccessToken(prefix: string, s: BBSecrets): Promise<string> {
   console.log("BB_OAUTH_TOKEN_URL =", s.OAUTH_TOKEN_URL);
+  console.log("APP_ID =", s.APP_ID);
+  console.log("JWT_AUD =", s.JWT_AUD);
   // if you already have code that builds a JWT and posts to s.OAUTH_TOKEN_URL,
   // reuse it here; just remove any BB_* direct reads and use `s.*` instead.
 
