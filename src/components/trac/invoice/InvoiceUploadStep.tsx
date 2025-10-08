@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ExtractedData } from '@/pages/trac/NewInvoice';
 import { Progress } from '@/components/ui/progress';
+import * as XLSX from 'xlsx';
 
 interface InvoiceUploadStepProps {
   uploadedFiles: { pdf: File | null; excel: File | null };
@@ -130,52 +131,115 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       // Upload Excel to storage
       const excelFileName = `trac_invoices/${Date.now()}_${uploadedFiles.excel.name}`;
-      setUploadProgress(40);
+      setUploadProgress(30);
       const { data: excelData, error: excelError } = await supabase.storage
         .from('invoice-files')
         .upload(excelFileName, uploadedFiles.excel);
 
       if (excelError) throw excelError;
 
+      setUploadProgress(50);
+
+      // Parse Excel file
+      const reader = new FileReader();
+      const parsedData = await new Promise<any[]>((resolve, reject) => {
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+            resolve(jsonData);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(uploadedFiles.excel);
+      });
+
       setUploadProgress(60);
 
-      // Create invoice ID for routing
-      const invoiceId = `TRAC-${Date.now()}`;
+      // Calculate total amount from Excel data
+      const totalAmount = parsedData.reduce((sum: number, row: any) => {
+        const amount = parseFloat(row['Amount'] || row['Total'] || row['total_amount_usd'] || 0);
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0);
 
-      // For TRAC, we'll use a simplified extraction (you can create a TRAC-specific edge function later)
-      // For now, we'll create a basic extracted data structure
-      const mockExtractedData: ExtractedData = {
-        invoice: {
-          summary_invoice_id: invoiceId,
-          billing_date: new Date().toISOString().split('T')[0],
+      const invoiceNumber = `TRAC-${Date.now()}`;
+
+      // Insert invoice header into database
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from('trac_invoice')
+        .insert({
+          invoice_number: invoiceNumber,
+          invoice_date: new Date().toISOString().split('T')[0],
           due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          total_amount_usd: totalAmount,
+          status: 'pending',
+          provider: 'TRAC',
+          file_name: uploadedFiles.pdf.name,
+          file_type: 'pdf',
+          file_path: pdfData.path,
+        })
+        .select()
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      setUploadProgress(75);
+
+      // Insert Excel data rows
+      if (parsedData.length > 0) {
+        const invoiceDataRows = parsedData.map((row: any) => ({
+          invoice_id: invoiceData.id,
+          sheet_name: 'Sheet1',
+          row_data: row,
+          validated: false,
+        }));
+
+        const { error: dataError } = await supabase
+          .from('trac_invoice_data')
+          .insert(invoiceDataRows);
+
+        if (dataError) throw dataError;
+      }
+
+      setUploadProgress(90);
+
+      // Create extracted data for state management
+      const extractedData: ExtractedData = {
+        invoice: {
+          summary_invoice_id: invoiceData.id,
+          billing_date: invoiceData.invoice_date,
+          due_date: invoiceData.due_date || '',
           billing_terms: 'Net 30',
           vendor: 'TRAC',
           currency_code: 'USD',
-          amount_due: 0,
+          amount_due: totalAmount,
           status: 'pending',
         },
-        line_items: [],
+        line_items: parsedData.map((row: any) => ({ row_data: row })),
         attachments: [
           { name: uploadedFiles.pdf.name, path: pdfData.path },
           { name: uploadedFiles.excel.name, path: excelData.path },
         ],
-        warnings: ['Please review and complete invoice details in the next step'],
-        source_hash: '',
-        excel_headers: [],
+        warnings: [],
+        source_hash: invoiceData.id,
+        excel_headers: parsedData.length > 0 ? Object.keys(parsedData[0]) : [],
       };
 
       setUploadProgress(100);
-      setExtractedData(mockExtractedData);
+      setExtractedData(extractedData);
 
       toast({
-        title: 'Upload Successful',
-        description: 'Files uploaded successfully. Redirecting to review...',
+        title: 'Invoice Created',
+        description: `Invoice ${invoiceNumber} created with ${parsedData.length} line items.`,
       });
 
-      // Navigate to the review page
+      // Navigate to the review page with actual database ID
       setTimeout(() => {
-        navigate(`/vendors/trac/invoices/${invoiceId}/review`);
+        navigate(`/vendors/trac/invoices/${invoiceData.id}/review`);
       }, 500);
 
     } catch (error) {
