@@ -125,17 +125,19 @@ const ExcelDataTable: React.FC<ExcelDataTableProps> = ({
       
       <CardContent className="p-0">
         <div className="rounded-md border">
-          <ScrollArea className="h-[600px] w-full">
-            <Table className="relative">
-              <ExcelTableHeader displayColumns={displayColumns} />
-              <ExcelTableBody 
-                loading={loading} 
-                paginatedData={paginatedData} 
-                displayColumns={displayColumns}
-                searchTerm={searchTerm}
-              />
-            </Table>
-            <ScrollBar orientation="horizontal" className="h-3 hover:bg-muted" />
+          <ScrollArea className="h-[600px] w-full overflow-auto">
+            <div className="min-w-max">
+              <Table className="relative">
+                <ExcelTableHeader displayColumns={displayColumns} />
+                <ExcelTableBody 
+                  loading={loading} 
+                  paginatedData={paginatedData} 
+                  displayColumns={displayColumns}
+                  searchTerm={searchTerm}
+                />
+              </Table>
+            </div>
+            <ScrollBar orientation="horizontal" className="h-4 bg-muted/30" />
           </ScrollArea>
         </div>
         
