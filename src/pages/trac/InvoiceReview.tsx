@@ -140,51 +140,55 @@ const InvoiceReview = () => {
       {/* Progress Stepper */}
       <div className="border-b bg-background">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between max-w-4xl mx-auto">
-            {/* Step 1 - Upload */}
-            <div className="flex flex-col items-center flex-1">
-              <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center mb-2">
-                <CheckCircle2 className="w-5 h-5" />
-              </div>
-              <div className="text-center">
-                <div className="font-semibold">Upload</div>
-                <div className="text-xs text-muted-foreground">PDF + Excel</div>
-              </div>
-            </div>
-            <div className="flex-1 h-1 bg-primary -mx-2" />
+          <div className="relative max-w-4xl mx-auto">
+            {/* Progress Bar Background */}
+            <div className="absolute top-5 left-0 right-0 h-1 bg-muted" />
+            {/* Progress Bar Fill */}
+            <div className="absolute top-5 left-0 h-1 bg-primary" style={{ width: '25%' }} />
             
-            {/* Step 2 - Review (Current) */}
-            <div className="flex flex-col items-center flex-1">
-              <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center mb-2 font-bold">
-                2
+            <div className="relative flex items-start justify-between">
+              {/* Step 1 - Upload (Complete) */}
+              <div className="flex flex-col items-center" style={{ width: '25%' }}>
+                <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center mb-2">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-sm">Upload</div>
+                  <div className="text-xs text-muted-foreground">PDF + Excel</div>
+                </div>
               </div>
-              <div className="text-center">
-                <div className="font-semibold">Review</div>
-                <div className="text-xs text-muted-foreground">Prefill & Edit</div>
+              
+              {/* Step 2 - Review (Current) */}
+              <div className="flex flex-col items-center" style={{ width: '25%' }}>
+                <div className="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center mb-2 font-bold">
+                  2
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-sm">Review</div>
+                  <div className="text-xs text-muted-foreground">Prefill & Edit</div>
+                </div>
               </div>
-            </div>
-            <div className="flex-1 h-1 bg-muted -mx-2" />
-            
-            {/* Step 3 - Validate */}
-            <div className="flex flex-col items-center flex-1">
-              <div className="w-10 h-10 rounded-full bg-muted text-muted-foreground flex items-center justify-center mb-2">
-                3
+              
+              {/* Step 3 - Validate */}
+              <div className="flex flex-col items-center" style={{ width: '25%' }}>
+                <div className="w-10 h-10 rounded-full bg-muted text-muted-foreground flex items-center justify-center mb-2 font-bold">
+                  3
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-sm text-muted-foreground">Validate</div>
+                  <div className="text-xs text-muted-foreground">Match Data</div>
+                </div>
               </div>
-              <div className="text-center">
-                <div className="font-semibold text-muted-foreground">Validate</div>
-                <div className="text-xs text-muted-foreground">Match Data</div>
-              </div>
-            </div>
-            <div className="flex-1 h-1 bg-muted -mx-2" />
-            
-            {/* Step 4 - Submit */}
-            <div className="flex flex-col items-center flex-1">
-              <div className="w-10 h-10 rounded-full bg-muted text-muted-foreground flex items-center justify-center mb-2">
-                4
-              </div>
-              <div className="text-center">
-                <div className="font-semibold text-muted-foreground">Submit</div>
-                <div className="text-xs text-muted-foreground">Review & Submit</div>
+              
+              {/* Step 4 - Submit */}
+              <div className="flex flex-col items-center" style={{ width: '25%' }}>
+                <div className="w-10 h-10 rounded-full bg-muted text-muted-foreground flex items-center justify-center mb-2 font-bold">
+                  4
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-sm text-muted-foreground">Submit</div>
+                  <div className="text-xs text-muted-foreground">Review & Submit</div>
+                </div>
               </div>
             </div>
           </div>
@@ -290,12 +294,14 @@ const InvoiceReview = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {invoice.file_name && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="font-medium">{invoice.file_name}</span>
-                      <span className="text-muted-foreground">{invoice.file_path}</span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium">{invoice.invoice_number}.pdf</span>
+                    <span className="text-muted-foreground">{invoice.file_path}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium">{invoice.invoice_number}.xlsx</span>
+                    <span className="text-muted-foreground">{invoice.file_path?.replace('.pdf', '.xlsx')}</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -358,8 +364,8 @@ const InvoiceReview = () => {
                   <div className="border-t pt-4">
                     <div className="text-sm font-semibold mb-3">Attachments</div>
                     <div className="space-y-2 text-sm">
-                      <div>{invoice.file_name.replace('.pdf', '.pdf')}</div>
-                      <div>{invoice.file_name.replace('.pdf', '.xlsx')}</div>
+                      <div>{invoice.invoice_number}.pdf</div>
+                      <div>{invoice.invoice_number}.xlsx</div>
                     </div>
                   </div>
                 )}
@@ -367,7 +373,7 @@ const InvoiceReview = () => {
             </Card>
 
             <div className="flex flex-col gap-2">
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" onClick={() => navigate('/vendors/trac/invoices/new')}>
                 Back to Upload
               </Button>
               <Button variant="outline" className="w-full">
