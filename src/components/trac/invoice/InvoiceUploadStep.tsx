@@ -73,16 +73,18 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       } else if (
         fileName.endsWith('.xlsx') ||
         fileName.endsWith('.xls') ||
+        fileName.endsWith('.csv') ||
         fileType.includes('spreadsheet') ||
-        fileType.includes('excel')
+        fileType.includes('excel') ||
+        fileType.includes('csv')
       ) {
         newFiles.excel = file;
-        console.log('Excel file detected:', fileName);
+        console.log('Data file detected:', fileName);
       } else {
         console.log('File type not recognized:', fileName, fileType);
         toast({
           title: 'File type not supported',
-          description: `${file.name} is not a PDF or Excel file`,
+          description: `${file.name} is not a PDF, Excel, or CSV file`,
           variant: 'destructive',
         });
       }
@@ -208,7 +210,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
                 type="file"
                 className="hidden"
                 multiple
-                accept=".pdf,.xlsx,.xls"
+                accept=".pdf,.xlsx,.xls,.csv"
                 onChange={handleFileInput}
               />
             </label>
@@ -295,7 +297,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
               </p>
               <ul className="list-disc list-inside space-y-1 text-blue-800 dark:text-blue-200">
                 <li>PDF invoice document</li>
-                <li>Excel file with invoice line items</li>
+                <li>Excel (.xlsx, .xls) or CSV file with invoice line items</li>
               </ul>
               <p className="text-xs text-blue-700 dark:text-blue-300">
                 Maximum file size: 50MB per file
