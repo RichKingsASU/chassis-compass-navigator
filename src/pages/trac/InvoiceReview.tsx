@@ -333,7 +333,7 @@ const InvoiceReview = () => {
                 <Button variant="outline">
                   Save Draft
                 </Button>
-                <Button>
+                <Button onClick={() => navigate(`/vendors/trac/invoices/${invoiceId}/validate`)}>
                   Continue to Validate
                 </Button>
               </div>
