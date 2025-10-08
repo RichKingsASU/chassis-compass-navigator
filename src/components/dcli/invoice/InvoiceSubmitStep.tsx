@@ -212,23 +212,18 @@ const InvoiceSubmitStep = ({ extractedData, onBack, onSaveDraft }: InvoiceSubmit
       </Card>
 
       {/* Action Buttons */}
-      <div className="flex justify-between pt-4">
-        <Button variant="outline" onClick={onBack}>
-          Back to Validation
+      <div className="flex justify-end gap-2 pt-4">
+        <Button variant="outline" onClick={onSaveDraft}>
+          <Save className="w-4 h-4 mr-2" />
+          Save Draft
         </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={onSaveDraft}>
-            <Save className="w-4 h-4 mr-2" />
-            Save Draft
-          </Button>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={isSubmitting || (completionRate < 100 && !comments.trim())}
-            className="min-w-32"
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit Invoice'}
-          </Button>
-        </div>
+        <Button 
+          onClick={handleSubmit} 
+          disabled={isSubmitting || (completionRate < 100 && !comments.trim())}
+          className="min-w-32"
+        >
+          {isSubmitting ? 'Submitting...' : 'Submit Invoice'}
+        </Button>
       </div>
     </div>
   );

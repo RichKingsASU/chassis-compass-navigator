@@ -254,17 +254,12 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
       </Card>
 
       {/* Actions */}
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
-          Back to Upload
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onSaveDraft}>
+          <Save className="w-4 h-4 mr-2" />
+          Save Draft
         </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={onSaveDraft}>
-            <Save className="w-4 h-4 mr-2" />
-            Save Draft
-          </Button>
-          <Button onClick={handleContinue}>Continue to Validate</Button>
-        </div>
+        <Button onClick={handleContinue}>Continue to Validate</Button>
       </div>
     </div>
   );

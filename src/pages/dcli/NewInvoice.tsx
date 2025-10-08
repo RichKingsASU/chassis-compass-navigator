@@ -88,6 +88,16 @@ const NewInvoice = () => {
 
   const handleStepBack = () => {
     if (currentStep > 1) {
+      // If we have extracted data and we're going back to step 1,
+      // skip step 1 since data is already uploaded
+      if (currentStep === 2 && extractedData) {
+        // Don't go back to upload if we already have data
+        toast({
+          title: "Already Uploaded",
+          description: "Files are already uploaded. Use 'Back to Invoice Tracker' to start over.",
+        });
+        return;
+      }
       setCurrentStep(currentStep - 1);
     }
   };
