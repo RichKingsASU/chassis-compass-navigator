@@ -2195,6 +2195,7 @@ export type Database = {
       }
       trac_invoice_data: {
         Row: {
+          column_headers: Json | null
           created_at: string
           id: string
           invoice_id: string
@@ -2204,6 +2205,7 @@ export type Database = {
           validated: boolean | null
         }
         Insert: {
+          column_headers?: Json | null
           created_at?: string
           id?: string
           invoice_id: string
@@ -2213,6 +2215,7 @@ export type Database = {
           validated?: boolean | null
         }
         Update: {
+          column_headers?: Json | null
           created_at?: string
           id?: string
           invoice_id?: string
