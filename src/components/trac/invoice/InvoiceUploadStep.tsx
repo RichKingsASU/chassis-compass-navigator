@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Upload, FileText, FileSpreadsheet, X, AlertCircle } from 'lucide-react';
@@ -21,6 +22,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
   setExtractedData,
 }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -137,11 +139,14 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       setUploadProgress(60);
 
+      // Create invoice ID for routing
+      const invoiceId = `TRAC-${Date.now()}`;
+
       // For TRAC, we'll use a simplified extraction (you can create a TRAC-specific edge function later)
       // For now, we'll create a basic extracted data structure
       const mockExtractedData: ExtractedData = {
         invoice: {
-          summary_invoice_id: `TRAC-${Date.now()}`,
+          summary_invoice_id: invoiceId,
           billing_date: new Date().toISOString().split('T')[0],
           due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           billing_terms: 'Net 30',
@@ -165,10 +170,14 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       toast({
         title: 'Upload Successful',
-        description: 'Files uploaded successfully. Please review the invoice details.',
+        description: 'Files uploaded successfully. Redirecting to review...',
       });
 
-      onComplete();
+      // Navigate to the review page
+      setTimeout(() => {
+        navigate(`/vendors/trac/invoices/${invoiceId}/review`);
+      }, 500);
+
     } catch (error) {
       console.error('Upload error:', error);
       toast({
