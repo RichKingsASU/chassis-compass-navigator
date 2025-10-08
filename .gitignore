@@ -34,3 +34,6 @@ token-*.json
 
 # Supabase local state
 supabase/.branches/
+
+# Supabase local state
+supabase/.branches/
