@@ -377,8 +377,8 @@ const InvoiceReview = () => {
           
           {/* Action Buttons */}
           <div className="flex gap-2 mt-6">
-            <Button variant="outline" onClick={() => navigate('/vendors/trac/invoices/new')}>
-              Back to Upload
+            <Button variant="outline" onClick={() => navigate('/vendors/trac')}>
+              Back to TRAC Dashboard
             </Button>
             <Button variant="outline">
               Save Draft
