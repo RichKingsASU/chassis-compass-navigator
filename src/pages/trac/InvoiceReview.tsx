@@ -53,47 +53,34 @@ const InvoiceReview = () => {
     try {
       setLoading(true);
       
-      // First try staging table
-      const { data: stagingData, error: stagingError } = await supabase
-        .from('trac_invoice_staging' as any)
+      // Try main invoice table
+      const { data: invoiceHeader, error: invoiceError } = await supabase
+        .from('trac_invoice' as any)
         .select('*')
-        .eq('summary_invoice_id', invoiceId)
+        .eq('id', invoiceId)
         .maybeSingle();
 
-      if (stagingData && !stagingError) {
-        setInvoiceData(stagingData as unknown as InvoiceData);
-        await runValidation(stagingData as unknown as InvoiceData);
-      } else {
-        // Try main invoice table
-        const { data: invoiceHeader, error: invoiceError } = await supabase
-          .from('trac_invoice' as any)
-          .select('*')
-          .eq('id', invoiceId)
-          .maybeSingle();
+      if (invoiceError) throw invoiceError;
+      if (!invoiceHeader) throw new Error('Invoice not found');
 
-        if (invoiceError) throw invoiceError;
-        if (!invoiceHeader) throw new Error('Invoice not found');
+      // Get line items
+      const { data: lineItems, error: lineItemsError } = await supabase
+        .from('trac_invoice_data' as any)
+        .select('*')
+        .eq('invoice_id', invoiceId);
 
-        // Get line items
-        const { data: lineItems, error: lineItemsError } = await supabase
-          .from('trac_invoice_data' as any)
-          .select('*')
-          .eq('invoice_id', invoiceId);
+      if (lineItemsError) throw lineItemsError;
 
-        if (lineItemsError) throw lineItemsError;
+      const fullData: InvoiceData = {
+        summary_invoice_id: (invoiceHeader as any).invoice_number || invoiceId || '',
+        billing_date: (invoiceHeader as any).invoice_date || '',
+        due_date: (invoiceHeader as any).due_date || '',
+        status: (invoiceHeader as any).status || 'pending',
+        line_items: lineItems || [],
+        attachments: []
+      };
 
-        const fullData: InvoiceData = {
-          summary_invoice_id: (invoiceHeader as any).invoice_number || invoiceId || '',
-          billing_date: (invoiceHeader as any).invoice_date || '',
-          due_date: (invoiceHeader as any).due_date || '',
-          status: (invoiceHeader as any).status || 'pending',
-          line_items: lineItems || [],
-          attachments: []
-        };
-
-        setInvoiceData(fullData);
-        await runValidation(fullData);
-      }
+      setInvoiceData(fullData);
     } catch (error: any) {
       console.error('Error loading invoice:', error);
       toast({
@@ -107,20 +94,8 @@ const InvoiceReview = () => {
   };
 
   const runValidation = async (data: InvoiceData) => {
-    try {
-      const { data: validationData, error } = await supabase.rpc('validate_trac_invoice' as any, {
-        p_summary_invoice_id: data.summary_invoice_id,
-        p_account_code: '',
-        p_billing_date: data.billing_date,
-        p_due_date: data.due_date,
-        p_line_items: data.line_items as any,
-      });
-
-      if (error) throw error;
-      setValidationResult(validationData);
-    } catch (error) {
-      console.error('Validation error:', error);
-    }
+    // Validation placeholder - will be implemented when TRAC validation is ready
+    console.log('Validation skipped for TRAC - function not yet implemented');
   };
 
   const loadComments = async () => {
