@@ -66,7 +66,7 @@ const InvoiceValidate = () => {
 
       // Query TMS data for validation
       const chassisNumbers = linesToValidate
-        .map((item: any) => item.row_data?.chassis_norm || item.row_data?.Chassis)
+        .map((item: any) => item.row_data?.chassis_norm || item.row_data?.Chassis || item.row_data?.['CHASSIS ID'])
         .filter(Boolean);
 
       const { data: tmsMatches, error: tmsError } = await supabase
@@ -78,8 +78,8 @@ const InvoiceValidate = () => {
 
       // Perform validation matching
       const validatedRows = linesToValidate.map((lineItem: any) => {
-        const chassis = lineItem.row_data?.chassis_norm || lineItem.row_data?.Chassis;
-        const container = lineItem.row_data?.container_norm || lineItem.row_data?.Container;
+        const chassis = lineItem.row_data?.chassis_norm || lineItem.row_data?.Chassis || lineItem.row_data?.['CHASSIS ID'];
+        const container = lineItem.row_data?.container_norm || lineItem.row_data?.Container || lineItem.row_data?.['PICK UP CONTAINER'] || lineItem.row_data?.['DROP OFF CONTAINER'];
         const tmsMatch = tmsMatches?.find(tms => tms.chassis_norm === chassis);
 
         if (!tmsMatch) {
