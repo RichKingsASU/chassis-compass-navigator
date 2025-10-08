@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table } from "@/components/ui/table";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { ExcelDataItem } from './types';
 import ExcelTableHeader from './excel/ExcelTableHeader';
@@ -119,17 +120,21 @@ const ExcelDataTable: React.FC<ExcelDataTableProps> = ({
       </CardHeader>
       
       <CardContent className="p-0">
-        <div className="rounded-md border overflow-auto max-h-[600px]">
-          <Table className="relative">
-            <ExcelTableHeader displayColumns={displayColumns} />
-            <ExcelTableBody 
-              loading={loading} 
-              paginatedData={paginatedData} 
-              displayColumns={displayColumns}
-              searchTerm={searchTerm}
-            />
-          </Table>
-        </div>
+        <ScrollArea className="rounded-md border h-[600px]">
+          <div className="min-w-full">
+            <Table className="relative">
+              <ExcelTableHeader displayColumns={displayColumns} />
+              <ExcelTableBody 
+                loading={loading} 
+                paginatedData={paginatedData} 
+                displayColumns={displayColumns}
+                searchTerm={searchTerm}
+              />
+            </Table>
+          </div>
+          <ScrollBar orientation="horizontal" />
+          <ScrollBar orientation="vertical" />
+        </ScrollArea>
         
         <ExcelPagination 
           page={page} 
