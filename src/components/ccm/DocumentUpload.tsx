@@ -12,13 +12,17 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-const DocumentUpload = () => {
+interface DocumentUploadProps {
+  vendor?: string;
+}
+
+const DocumentUpload: React.FC<DocumentUploadProps> = ({ vendor = 'CCM' }) => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState<Date>();
   const [totalAmount, setTotalAmount] = useState('');
-  const [provider, setProvider] = useState('CCM');
+  const [provider, setProvider] = useState(vendor);
   const [status, setStatus] = useState('pending');
   const [reasonForDispute, setReasonForDispute] = useState('');
   const [tags, setTags] = useState('');
@@ -81,9 +85,9 @@ const DocumentUpload = () => {
       const uploadPromises = selectedFiles.map(async (file) => {
         const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
         const fileName = `${Date.now()}_${invoiceNumber}.${fileExt}`;
-        const filePath = `ccm_invoices/${fileName}`;
+        const filePath = `${vendor.toLowerCase()}_invoices/${fileName}`;
         
-        console.log("Starting file upload:", { fileName, filePath, fileSize: file.size, fileType: file.type });
+        console.log("Starting file upload:", { fileName, filePath, fileSize: file.size, fileType: file.type, vendor });
         
         // Upload file to Supabase storage
         const { data: uploadedFile, error: uploadError } = await supabase.storage
@@ -116,9 +120,12 @@ const DocumentUpload = () => {
           ? tags.split(',').map(tag => tag.trim()).filter(tag => tag)
           : [];
 
+        // Determine which table to use based on vendor
+        const tableName = vendor === 'TRAC' ? 'trac_invoice' : 'ccm_invoice';
+
         // Insert invoice data into the database
         const { data: insertedInvoice, error: insertError } = await supabase
-          .from('ccm_invoice')
+          .from(tableName)
           .insert({
             invoice_number: invoiceNumber,
             invoice_date: format(invoiceDate, 'yyyy-MM-dd'),
@@ -155,7 +162,7 @@ const DocumentUpload = () => {
       setInvoiceNumber('');
       setInvoiceDate(undefined);
       setTotalAmount('');
-      setProvider('CCM');
+      setProvider(vendor);
       setStatus('pending');
       setReasonForDispute('');
       setTags('');
