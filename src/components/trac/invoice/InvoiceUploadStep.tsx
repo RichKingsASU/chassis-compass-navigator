@@ -62,18 +62,29 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
     const newFiles = { ...uploadedFiles };
 
     files.forEach((file) => {
-      const fileType = file.type.toLowerCase();
       const fileName = file.name.toLowerCase();
+      const fileType = file.type.toLowerCase();
 
-      if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+      console.log('Processing file:', fileName, 'Type:', fileType);
+
+      if (fileName.endsWith('.pdf') || fileType.includes('pdf')) {
         newFiles.pdf = file;
+        console.log('PDF file detected:', fileName);
       } else if (
-        fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-        fileType === 'application/vnd.ms-excel' ||
         fileName.endsWith('.xlsx') ||
-        fileName.endsWith('.xls')
+        fileName.endsWith('.xls') ||
+        fileType.includes('spreadsheet') ||
+        fileType.includes('excel')
       ) {
         newFiles.excel = file;
+        console.log('Excel file detected:', fileName);
+      } else {
+        console.log('File type not recognized:', fileName, fileType);
+        toast({
+          title: 'File type not supported',
+          description: `${file.name} is not a PDF or Excel file`,
+          variant: 'destructive',
+        });
       }
     });
 
