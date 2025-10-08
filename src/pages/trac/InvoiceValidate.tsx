@@ -76,10 +76,41 @@ const InvoiceValidate = () => {
 
       if (tmsError) throw tmsError;
 
+      // Helper function to convert Excel serial date to JS Date
+      const excelSerialToDate = (serial: number): Date | null => {
+        if (!serial || typeof serial !== 'number') return null;
+        // Excel epoch starts at 1899-12-30
+        const excelEpoch = new Date(1899, 11, 30);
+        const msPerDay = 24 * 60 * 60 * 1000;
+        return new Date(excelEpoch.getTime() + serial * msPerDay);
+      };
+
+      // Helper function to parse TMS date string
+      const parseTMSDate = (dateStr: string): Date | null => {
+        if (!dateStr) return null;
+        const parsed = new Date(dateStr);
+        return isNaN(parsed.getTime()) ? null : parsed;
+      };
+
+      // Helper to compare dates (within 1 day tolerance)
+      const datesMatch = (date1: Date | null, date2: Date | null): boolean => {
+        if (!date1 || !date2) return false;
+        const diffMs = Math.abs(date1.getTime() - date2.getTime());
+        const diffDays = diffMs / (24 * 60 * 60 * 1000);
+        return diffDays <= 1; // 1 day tolerance
+      };
+
       // Perform validation matching
       const validatedRows = linesToValidate.map((lineItem: any) => {
         const chassis = lineItem.row_data?.chassis_norm || lineItem.row_data?.Chassis || lineItem.row_data?.['CHASSIS ID'];
         const container = lineItem.row_data?.container_norm || lineItem.row_data?.Container || lineItem.row_data?.['PICK UP CONTAINER'] || lineItem.row_data?.['DROP OFF CONTAINER'];
+        
+        // Extract dates from TRAC invoice
+        const onHireSerial = lineItem.row_data?.['ON HIRE DATE'];
+        const offHireSerial = lineItem.row_data?.['OFF HIRE DATE'];
+        const onHireDate = excelSerialToDate(onHireSerial);
+        const offHireDate = excelSerialToDate(offHireSerial);
+        
         const tmsMatch = tmsMatches?.find(tms => tms.chassis_norm === chassis);
 
         if (!tmsMatch) {
@@ -87,16 +118,23 @@ const InvoiceValidate = () => {
             line_invoice_number: lineItem.id || 'N/A',
             chassis: chassis || 'N/A',
             container: container || 'N/A',
+            on_hire_date: onHireDate?.toLocaleDateString() || 'N/A',
+            off_hire_date: offHireDate?.toLocaleDateString() || 'N/A',
             match_confidence: 0,
             match_type: 'mismatch' as const,
             tms_match: null
           };
         }
 
+        // Parse TMS dates
+        const tmsPickupDate = parseTMSDate(tmsMatch.pickup_actual_date);
+        const tmsDeliveryDate = parseTMSDate(tmsMatch.delivery_actual_date);
+
         // Calculate match confidence based on field matches
         let matchScore = 0;
         let totalFields = 0;
         const matchReasons = [];
+        const mismatchReasons = [];
 
         // Compare chassis
         if (chassis) {
@@ -104,6 +142,8 @@ const InvoiceValidate = () => {
           if (tmsMatch.chassis_norm === chassis) {
             matchScore++;
             matchReasons.push('Chassis match');
+          } else {
+            mismatchReasons.push('Chassis mismatch');
           }
         }
 
@@ -113,6 +153,30 @@ const InvoiceValidate = () => {
           if (tmsMatch.container_norm === container) {
             matchScore++;
             matchReasons.push('Container match');
+          } else {
+            mismatchReasons.push('Container mismatch');
+          }
+        }
+
+        // Compare ON HIRE DATE with TMS pickup_actual_date
+        if (onHireDate && tmsPickupDate) {
+          totalFields++;
+          if (datesMatch(onHireDate, tmsPickupDate)) {
+            matchScore++;
+            matchReasons.push('On-Hire date matches TMS pickup');
+          } else {
+            mismatchReasons.push(`On-Hire date mismatch (Invoice: ${onHireDate.toLocaleDateString()}, TMS: ${tmsPickupDate.toLocaleDateString()})`);
+          }
+        }
+
+        // Compare OFF HIRE DATE with TMS delivery_actual_date
+        if (offHireDate && tmsDeliveryDate) {
+          totalFields++;
+          if (datesMatch(offHireDate, tmsDeliveryDate)) {
+            matchScore++;
+            matchReasons.push('Off-Hire date matches TMS delivery');
+          } else {
+            mismatchReasons.push(`Off-Hire date mismatch (Invoice: ${offHireDate.toLocaleDateString()}, TMS: ${tmsDeliveryDate.toLocaleDateString()})`);
           }
         }
 
@@ -122,6 +186,8 @@ const InvoiceValidate = () => {
           line_invoice_number: lineItem.id || 'N/A',
           chassis: chassis || 'N/A',
           container: container || 'N/A',
+          on_hire_date: onHireDate?.toLocaleDateString() || 'N/A',
+          off_hire_date: offHireDate?.toLocaleDateString() || 'N/A',
           match_confidence: matchPercentage,
           match_type: matchPercentage === 100 ? 'exact' : matchPercentage >= 50 ? 'fuzzy' : 'mismatch' as const,
           tms_match: {
@@ -135,7 +201,8 @@ const InvoiceValidate = () => {
             carrier_name: tmsMatch.carrier_name || '',
             customer_name: tmsMatch.customer_name || '',
             confidence: matchPercentage,
-            match_reasons: matchReasons
+            match_reasons: matchReasons,
+            mismatch_reasons: mismatchReasons
           }
         };
       });
