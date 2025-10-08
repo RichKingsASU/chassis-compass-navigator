@@ -22,6 +22,7 @@ export interface ExcelDataItem {
   row_data: Record<string, any>;
   created_at: string;
   validated: boolean;
+  column_headers?: string[];
 }
 
 export interface InvoiceFilters {

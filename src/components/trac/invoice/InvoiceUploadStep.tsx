@@ -140,16 +140,37 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       setUploadProgress(50);
 
-      // Parse Excel file
+      // Parse Excel file preserving column order
       const reader = new FileReader();
-      const parsedData = await new Promise<any[]>((resolve, reject) => {
+      const parsedData = await new Promise<{data: any[], headers: string[]}>((resolve, reject) => {
         reader.onload = (e) => {
           try {
             const data = new Uint8Array(e.target?.result as ArrayBuffer);
             const workbook = XLSX.read(data, { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-            resolve(jsonData);
+            
+            // Get headers in original order from the first row
+            const range = XLSX.utils.decode_range(firstSheet['!ref'] || 'A1');
+            const headers: string[] = [];
+            for (let col = range.s.c; col <= range.e.c; col++) {
+              const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: col });
+              const cell = firstSheet[cellAddress];
+              if (cell && cell.v) {
+                headers.push(String(cell.v));
+              }
+            }
+            
+            // Parse data with header:1 to get raw arrays, then convert to objects maintaining order
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
+            const dataRows = jsonData.slice(1).map(row => {
+              const obj: any = {};
+              headers.forEach((header, index) => {
+                obj[header] = row[index] !== undefined ? row[index] : '';
+              });
+              return obj;
+            });
+            
+            resolve({ data: dataRows, headers });
           } catch (error) {
             reject(error);
           }
@@ -161,8 +182,8 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       setUploadProgress(60);
 
       // Calculate total amount from Excel data
-      const totalAmount = parsedData.reduce((sum: number, row: any) => {
-        const amount = parseFloat(row['Amount'] || row['Total'] || row['total_amount_usd'] || 0);
+      const totalAmount = parsedData.data.reduce((sum: number, row: any) => {
+        const amount = parseFloat(row['TOTAL'] || row['Amount'] || row['Total'] || row['total_amount_usd'] || 0);
         return sum + (isNaN(amount) ? 0 : amount);
       }, 0);
 
@@ -189,12 +210,13 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       setUploadProgress(75);
 
-      // Insert Excel data rows
-      if (parsedData.length > 0) {
-        const invoiceDataRows = parsedData.map((row: any) => ({
+      // Insert Excel data rows with column headers
+      if (parsedData.data.length > 0) {
+        const invoiceDataRows = parsedData.data.map((row: any) => ({
           invoice_id: invoiceData.id,
           sheet_name: 'Sheet1',
           row_data: row,
+          column_headers: parsedData.headers,
           validated: false,
         }));
 
@@ -219,14 +241,14 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
           amount_due: totalAmount,
           status: 'pending',
         },
-        line_items: parsedData.map((row: any) => ({ row_data: row })),
+        line_items: parsedData.data.map((row: any) => ({ row_data: row })),
         attachments: [
           { name: uploadedFiles.pdf.name, path: pdfData.path },
           { name: uploadedFiles.excel.name, path: excelData.path },
         ],
         warnings: [],
         source_hash: invoiceData.id,
-        excel_headers: parsedData.length > 0 ? Object.keys(parsedData[0]) : [],
+        excel_headers: parsedData.headers,
       };
 
       setUploadProgress(100);
@@ -234,7 +256,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       toast({
         title: 'Invoice Created',
-        description: `Invoice ${invoiceNumber} created with ${parsedData.length} line items.`,
+        description: `Invoice ${invoiceNumber} created with ${parsedData.data.length} line items.`,
       });
 
       // Navigate to the review page with actual database ID

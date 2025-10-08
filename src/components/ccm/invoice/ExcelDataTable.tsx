@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table } from "@/components/ui/table";
@@ -69,14 +68,19 @@ const ExcelDataTable: React.FC<ExcelDataTableProps> = ({
     page * rowsPerPage
   );
 
-  // Get all keys (columns) from data - preserve original order from first row
-  const allKeys: string[] = [];
+  // Get column order from stored headers or fallback to first row keys
+  const columns: string[] = [];
   if (filteredData.length > 0) {
-    // Use the first row's keys to preserve the original column order from CSV
-    allKeys.push(...Object.keys(filteredData[0].row_data));
+    const firstItem = filteredData[0];
+    
+    // Try to use stored column_headers if available
+    if (firstItem.column_headers && Array.isArray(firstItem.column_headers) && firstItem.column_headers.length > 0) {
+      columns.push(...firstItem.column_headers);
+    } else {
+      // Fallback: Use the first row's keys to preserve the original column order from CSV
+      columns.push(...Object.keys(firstItem.row_data));
+    }
   }
-  
-  const columns = allKeys;
 
   // Show ALL columns for review - users need to verify against original invoice
   const displayColumns = columns;
