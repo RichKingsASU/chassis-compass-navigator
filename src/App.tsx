@@ -41,6 +41,10 @@ import WCCPNewInvoice from "./pages/wccp/NewInvoice";
 import WCCPInvoiceReview from "./pages/wccp/InvoiceReview";
 import WCCPInvoiceLineDetails from "./pages/wccp/InvoiceLineDetails";
 import WCCPInvoiceLineDispute from "./pages/wccp/InvoiceLineDispute";
+import TRACNewInvoice from "./pages/trac/NewInvoice";
+import TRACInvoiceReview from "./pages/trac/InvoiceReview";
+import TRACInvoiceLineDetails from "./pages/trac/InvoiceLineDetails";
+import TRACInvoiceLineDispute from "./pages/trac/InvoiceLineDispute";
 import InvoicesList from "./pages/invoices/InvoicesList";
 import InvoiceLineDetails from "./pages/invoices/InvoiceLineDetails";
 import InvoiceLineDispute from "./pages/invoices/InvoiceLineDispute";
@@ -207,6 +211,26 @@ function App() {
               <Route path="/vendors/trac" element={
                 <DashboardLayout>
                   <TRAC />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoices/new" element={
+                <DashboardLayout>
+                  <TRACNewInvoice />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoices/:invoiceId/review" element={
+                <DashboardLayout>
+                  <TRACInvoiceReview />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoice-line/:lineId" element={
+                <DashboardLayout>
+                  <TRACInvoiceLineDetails />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoice-line/:lineId/dispute" element={
+                <DashboardLayout>
+                  <TRACInvoiceLineDispute />
                 </DashboardLayout>
               } />
               <Route path="/vendors/flexivan" element={

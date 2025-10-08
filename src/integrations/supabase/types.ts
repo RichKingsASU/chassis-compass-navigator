@@ -253,6 +253,7 @@ export type Database = {
           invoice_id: string
           row_data: Json
           sheet_name: string
+          updated_at: string
           validated: boolean | null
         }
         Insert: {
@@ -261,6 +262,7 @@ export type Database = {
           invoice_id: string
           row_data: Json
           sheet_name: string
+          updated_at?: string
           validated?: boolean | null
         }
         Update: {
@@ -269,6 +271,7 @@ export type Database = {
           invoice_id?: string
           row_data?: Json
           sheet_name?: string
+          updated_at?: string
           validated?: boolean | null
         }
         Relationships: [
@@ -1989,6 +1992,45 @@ export type Database = {
         }
         Relationships: []
       }
+      trac_activity: {
+        Row: {
+          amount_due: number | null
+          amount_paid: number | null
+          created_at: string
+          due_date: string | null
+          id: number
+          invoice_amount: number | null
+          invoice_category: string | null
+          invoice_date: string | null
+          invoice_number: string | null
+          invoice_status: string | null
+        }
+        Insert: {
+          amount_due?: number | null
+          amount_paid?: number | null
+          created_at?: string
+          due_date?: string | null
+          id?: never
+          invoice_amount?: number | null
+          invoice_category?: string | null
+          invoice_date?: string | null
+          invoice_number?: string | null
+          invoice_status?: string | null
+        }
+        Update: {
+          amount_due?: number | null
+          amount_paid?: number | null
+          created_at?: string
+          due_date?: string | null
+          id?: never
+          invoice_amount?: number | null
+          invoice_category?: string | null
+          invoice_date?: string | null
+          invoice_number?: string | null
+          invoice_status?: string | null
+        }
+        Relationships: []
+      }
       trac_customer_information: {
         Row: {
           account_number: string | null
@@ -2100,6 +2142,95 @@ export type Database = {
         }
         Relationships: []
       }
+      trac_invoice: {
+        Row: {
+          created_at: string
+          due_date: string | null
+          file_name: string | null
+          file_path: string | null
+          file_type: string | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          provider: string
+          reason_for_dispute: string | null
+          status: string | null
+          tags: string[] | null
+          total_amount_usd: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          due_date?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_type?: string | null
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          provider?: string
+          reason_for_dispute?: string | null
+          status?: string | null
+          tags?: string[] | null
+          total_amount_usd: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          due_date?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_type?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          provider?: string
+          reason_for_dispute?: string | null
+          status?: string | null
+          tags?: string[] | null
+          total_amount_usd?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      trac_invoice_data: {
+        Row: {
+          created_at: string
+          id: string
+          invoice_id: string
+          row_data: Json
+          sheet_name: string
+          updated_at: string
+          validated: boolean | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invoice_id: string
+          row_data: Json
+          sheet_name: string
+          updated_at?: string
+          validated?: boolean | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          row_data?: Json
+          sheet_name?: string
+          updated_at?: string
+          validated?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trac_invoice_data_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "trac_invoice"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trac_invoice_lines: {
         Row: {
           attribute_category: string | null
@@ -2172,6 +2303,60 @@ export type Database = {
           tax_exists_for_this_line?: boolean | null
           unit_selling_price?: number | null
           unit_selling_price_formatted?: string | null
+        }
+        Relationships: []
+      }
+      trac_invoice_staging: {
+        Row: {
+          account_code: string | null
+          attachments: Json | null
+          billing_date: string | null
+          created_at: string
+          currency: string | null
+          due_date: string | null
+          excel_headers: Json | null
+          id: string
+          invoice_date: string | null
+          line_items: Json
+          status: string | null
+          summary_invoice_id: string
+          total_amount: number | null
+          updated_at: string
+          vendor: string | null
+        }
+        Insert: {
+          account_code?: string | null
+          attachments?: Json | null
+          billing_date?: string | null
+          created_at?: string
+          currency?: string | null
+          due_date?: string | null
+          excel_headers?: Json | null
+          id?: string
+          invoice_date?: string | null
+          line_items?: Json
+          status?: string | null
+          summary_invoice_id: string
+          total_amount?: number | null
+          updated_at?: string
+          vendor?: string | null
+        }
+        Update: {
+          account_code?: string | null
+          attachments?: Json | null
+          billing_date?: string | null
+          created_at?: string
+          currency?: string | null
+          due_date?: string | null
+          excel_headers?: Json | null
+          id?: string
+          invoice_date?: string | null
+          line_items?: Json
+          status?: string | null
+          summary_invoice_id?: string
+          total_amount?: number | null
+          updated_at?: string
+          vendor?: string | null
         }
         Relationships: []
       }
