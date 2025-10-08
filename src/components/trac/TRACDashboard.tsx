@@ -1,23 +1,27 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import ImportantNotices from './dashboard/ImportantNotices';
-import ContactsAndResources from './dashboard/ContactsAndResources';
 import TRACFinancialPulse from './TRACFinancialPulse';
 import TRACInvoiceTracker from './TRACInvoiceTracker';
+import ImportantNotices from './dashboard/ImportantNotices';
+import ContactsAndResources from './dashboard/ContactsAndResources';
 
 const TRACDashboard = () => {
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="overview">Vendor Health</TabsTrigger>
+      <Tabs defaultValue="health" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="health">Vendor Health</TabsTrigger>
+          <TabsTrigger value="invoices">Invoice Tracker</TabsTrigger>
           <TabsTrigger value="support">Support</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6 mt-6">
+        <TabsContent value="health" className="space-y-6 mt-6">
           <TRACFinancialPulse />
-          <TRACInvoiceTracker />
           <ImportantNotices />
+        </TabsContent>
+
+        <TabsContent value="invoices" className="mt-6">
+          <TRACInvoiceTracker />
         </TabsContent>
 
         <TabsContent value="support" className="mt-6">

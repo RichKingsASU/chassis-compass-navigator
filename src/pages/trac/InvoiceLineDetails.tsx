@@ -1,28 +1,22 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import React from 'react';
+import { useParams } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const InvoiceLineDetails = () => {
-  const navigate = useNavigate();
+  const { lineId } = useParams();
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/vendors/trac")}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h2 className="text-3xl font-bold tracking-tight">Invoice Line Details</h2>
-      </div>
-
+    <div className="container mx-auto p-6 space-y-6">
+      <h1 className="text-3xl font-bold">TRAC Invoice Line Details</h1>
+      
       <Card>
         <CardHeader>
-          <CardTitle>Line Item Details</CardTitle>
+          <CardTitle>Line Item: {lineId}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-12 text-muted-foreground">
-            <p>Line item details pending TRAC data integration.</p>
-          </div>
+          <p className="text-muted-foreground">
+            Detailed view for TRAC invoice line item will be displayed here.
+          </p>
         </CardContent>
       </Card>
     </div>

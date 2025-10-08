@@ -30,6 +30,10 @@ import CCM from "./pages/vendors/CCM";
 import DCLI from "./pages/vendors/DCLI";
 import FLEXIVAN from "./pages/vendors/FLEXIVAN";
 import TRAC from "./pages/vendors/TRAC";
+import TRACNewInvoice from "./pages/trac/NewInvoice";
+import TRACInvoiceReview from "./pages/trac/InvoiceReview";
+import TRACInvoiceLineDetails from "./pages/trac/InvoiceLineDetails";
+import TRACInvoiceLineDispute from "./pages/trac/InvoiceLineDispute";
 import WCCP from "./pages/vendors/WCCP";
 import SCSPA from "./pages/vendors/SCSPA";
 import VendorValidation from "./pages/VendorValidation";
@@ -211,6 +215,26 @@ function App() {
               <Route path="/vendors/trac" element={
                 <DashboardLayout>
                   <TRAC />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoices/new" element={
+                <DashboardLayout>
+                  <TRACNewInvoice />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoices/:invoiceId/review" element={
+                <DashboardLayout>
+                  <TRACInvoiceReview />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoice-line/:lineId" element={
+                <DashboardLayout>
+                  <TRACInvoiceLineDetails />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoice-line/:lineId/dispute" element={
+                <DashboardLayout>
+                  <TRACInvoiceLineDispute />
                 </DashboardLayout>
               } />
               <Route path="/vendors/trac/invoices/new" element={
