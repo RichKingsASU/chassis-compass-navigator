@@ -187,7 +187,34 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         return sum + (isNaN(amount) ? 0 : amount);
       }, 0);
 
-      const invoiceNumber = `TRAC-${Date.now()}`;
+      // Extract invoice number from PDF
+      setUploadProgress(65);
+      let invoiceNumber = `TRAC-${Date.now()}`; // Default fallback
+      
+      try {
+        const { data: extractResult, error: extractError } = await supabase.functions.invoke(
+          'extract-trac-invoice',
+          {
+            body: { pdf_path: pdfData.path }
+          }
+        );
+
+        if (!extractError && extractResult?.success && extractResult?.invoice_number) {
+          invoiceNumber = extractResult.invoice_number;
+          console.log("Extracted invoice number from PDF:", invoiceNumber);
+        } else {
+          console.warn("Failed to extract invoice number, using generated one:", invoiceNumber);
+          toast({
+            title: "Note",
+            description: "Could not extract invoice number from PDF. Using generated number.",
+            variant: "default",
+          });
+        }
+      } catch (extractErr) {
+        console.error("Error extracting invoice number:", extractErr);
+      }
+
+      setUploadProgress(70);
 
       // Insert invoice header into database
       const { data: invoiceData, error: invoiceError } = await supabase
