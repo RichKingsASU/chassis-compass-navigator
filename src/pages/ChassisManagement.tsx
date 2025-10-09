@@ -60,9 +60,9 @@ const ChassisManagement = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('mcl_master_chassis_list')
+        .from('assets')
         .select('*')
-        .order('forrest_chz', { ascending: true });
+        .order('identifier', { ascending: true });
 
       if (error) throw error;
 
@@ -89,22 +89,12 @@ const ChassisManagement = () => {
   const filteredChassis = chassisData.filter(chassis => {
     // Search term filter
     if (searchTerm && 
-        !chassis.forrest_chz?.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !chassis.serial?.toLowerCase().includes(searchTerm.toLowerCase())) {
+        !chassis.identifier?.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
     
     // Dropdown filters
-    if (selectedFilters.chassisType !== 'all' && chassis.forrest_chassis_type !== selectedFilters.chassisType) {
-      return false;
-    }
-    if (selectedFilters.lessor !== 'all' && chassis.lessor !== selectedFilters.lessor) {
-      return false;
-    }
-    if (selectedFilters.region !== 'all' && chassis.region !== selectedFilters.region) {
-      return false;
-    }
-    if (selectedFilters.status !== 'all' && chassis.chassis_status !== selectedFilters.status) {
+    if (selectedFilters.chassisType !== 'all' && chassis.type !== selectedFilters.chassisType) {
       return false;
     }
     
@@ -129,22 +119,23 @@ const ChassisManagement = () => {
 
   const metrics = useMemo(() => {
     const total = chassisData.length;
-    const active = chassisData.filter(c => c.chassis_status?.toLowerCase() === 'active').length;
-    const withContracts = chassisData.filter(c => c.contract && c.contract !== 'N/A').length;
-    const byLessor = chassisData.reduce((acc, c) => {
-      const lessor = c.lessor || 'Unknown';
-      acc[lessor] = (acc[lessor] || 0) + 1;
+    const byType = chassisData.reduce((acc, c) => {
+      const type = c.type || 'Unknown';
+      acc[type] = (acc[type] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    const topLessor = Object.entries(byLessor).sort(([,a], [,b]) => (b as number) - (a as number))[0];
-    const activePercent = total > 0 ? ((active / total) * 100).toFixed(1) : '0.0';
+    const topType = Object.entries(byType).sort(([,a], [,b]) => (b as number) - (a as number))[0];
+    const byClass = chassisData.reduce((acc, c) => {
+      const assetClass = c.asset_class || 'Unknown';
+      acc[assetClass] = (acc[assetClass] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
 
     return {
       total,
-      active,
-      withContracts,
-      topLessor: topLessor ? `${topLessor[0]} (${topLessor[1]})` : 'N/A',
-      activePercent
+      byType: Object.keys(byType).length,
+      byClass: Object.keys(byClass).length,
+      topType: topType ? `${topType[0]} (${topType[1]})` : 'N/A',
     };
   }, [chassisData]);
 
@@ -248,21 +239,21 @@ const ChassisManagement = () => {
           icon="chart" 
         />
         <KPICard 
-          title="Active Chassis" 
-          value={metrics.active.toString()} 
-          description={`${metrics.activePercent}% of fleet`}
+          title="Chassis Types" 
+          value={metrics.byType.toString()} 
+          description="Different types"
           icon="users" 
         />
         <KPICard 
-          title="Under Contract" 
-          value={metrics.withContracts.toString()} 
-          description="Active contract assignments" 
+          title="Asset Classes" 
+          value={metrics.byClass.toString()} 
+          description="Different classes" 
           icon="file" 
         />
         <KPICard 
-          title="Top Lessor" 
-          value={metrics.topLessor} 
-          description="Most chassis units" 
+          title="Most Common" 
+          value={metrics.topType} 
+          description="Top chassis type" 
           icon="users" 
         />
       </div>
@@ -301,62 +292,8 @@ const ChassisManagement = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  {Array.from(new Set(chassisData.map(c => c.forrest_chassis_type).filter(Boolean))).map(type => (
+                  {Array.from(new Set(chassisData.map(c => c.type).filter(Boolean))).map(type => (
                     <SelectItem key={type} value={type}>{type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <FormLabel>Lessor</FormLabel>
-              <Select 
-                value={selectedFilters.lessor} 
-                onValueChange={(value) => setSelectedFilters({...selectedFilters, lessor: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Lessors" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Lessors</SelectItem>
-                  {Array.from(new Set(chassisData.map(c => c.lessor).filter(Boolean))).map(lessor => (
-                    <SelectItem key={lessor} value={lessor}>{lessor}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <FormLabel>Region</FormLabel>
-              <Select 
-                value={selectedFilters.region} 
-                onValueChange={(value) => setSelectedFilters({...selectedFilters, region: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Regions" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Regions</SelectItem>
-                  {Array.from(new Set(chassisData.map(c => c.region).filter(Boolean))).map(region => (
-                    <SelectItem key={region} value={region}>{region}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <FormLabel>Status</FormLabel>
-              <Select 
-                value={selectedFilters.status} 
-                onValueChange={(value) => setSelectedFilters({...selectedFilters, status: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  {Array.from(new Set(chassisData.map(c => c.chassis_status).filter(Boolean))).map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -368,48 +305,38 @@ const ChassisManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Chassis ID</TableHead>
-                  <TableHead>Serial</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Lessor</TableHead>
-                  <TableHead>Region</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Daily Rate</TableHead>
-                  <TableHead>Plate</TableHead>
+                  <TableHead>Asset Class</TableHead>
+                  <TableHead>Door Type</TableHead>
+                  <TableHead>Length</TableHead>
+                  <TableHead>Width</TableHead>
+                  <TableHead>Height</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-4 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
                       Loading chassis data...
                     </TableCell>
                   </TableRow>
                 ) : filteredChassis.length > 0 ? (
                   filteredChassis.map((chassis) => (
                     <TableRow key={chassis.id}>
-                      <TableCell className="font-medium">{chassis.forrest_chz || 'N/A'}</TableCell>
-                      <TableCell>{chassis.serial || 'N/A'}</TableCell>
-                      <TableCell>{chassis.forrest_chassis_type || 'N/A'}</TableCell>
-                      <TableCell>{chassis.lessor || 'N/A'}</TableCell>
-                      <TableCell>{chassis.region || 'N/A'}</TableCell>
+                      <TableCell className="font-medium">{chassis.identifier || 'N/A'}</TableCell>
+                      <TableCell>{chassis.type || 'N/A'}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{chassis.chassis_status || 'Unknown'}</Badge>
+                        <Badge variant="outline">{chassis.asset_class || 'N/A'}</Badge>
                       </TableCell>
-                      <TableCell>{chassis.chassis_category || 'N/A'}</TableCell>
-                      <TableCell>
-                        {chassis.daily_rate ? `$${Number(chassis.daily_rate).toFixed(2)}` : 'N/A'}
-                      </TableCell>
-                      <TableCell>
-                        {chassis.plate_state && chassis.plate_nbr 
-                          ? `${chassis.plate_state} ${chassis.plate_nbr}` 
-                          : 'N/A'}
-                      </TableCell>
+                      <TableCell>{chassis.door_type || 'N/A'}</TableCell>
+                      <TableCell>{chassis.length ? `${chassis.length}"` : 'N/A'}</TableCell>
+                      <TableCell>{chassis.width ? `${chassis.width}"` : 'N/A'}</TableCell>
+                      <TableCell>{chassis.height ? `${chassis.height}"` : 'N/A'}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-4 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
                       No chassis found matching your filters.
                     </TableCell>
                   </TableRow>
