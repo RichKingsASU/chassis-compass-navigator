@@ -40,6 +40,7 @@ import SCSPA from "./pages/vendors/SCSPA";
 import VendorValidation from "./pages/VendorValidation";
 import NewInvoice from "./pages/dcli/NewInvoice";
 import InvoiceReview from "./pages/dcli/InvoiceReview";
+import DCLIInvoiceDetail from "./pages/dcli/InvoiceDetail";
 import DCLIInvoiceLineDetails from "./pages/dcli/InvoiceLineDetails";
 import DCLIInvoiceLineDispute from "./pages/dcli/InvoiceLineDispute";
 import WCCPNewInvoice from "./pages/wccp/NewInvoice";
@@ -163,6 +164,11 @@ function App() {
               <Route path="/vendors/dcli/invoices/:invoiceId/review" element={
                 <DashboardLayout>
                   <InvoiceReview />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/dcli/invoices/:invoiceId/detail" element={
+                <DashboardLayout>
+                  <DCLIInvoiceDetail />
                 </DashboardLayout>
               } />
               <Route path="/vendors/dcli/invoice-line/:lineId" element={
