@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useNavigate } from 'react-router-dom';
 import { 
   CheckCircle2, 
@@ -11,7 +12,9 @@ import {
   Clock, 
   TrendingUp,
   FileText,
-  DollarSign
+  DollarSign,
+  ChevronRight,
+  ChevronDown
 } from "lucide-react";
 
 interface VendorStatus {
@@ -306,66 +309,154 @@ const VendorValidation = () => {
         </Card>
       </div>
 
-      {/* Vendor Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {vendorStatuses.map((vendor) => (
-          <Card key={vendor.name} className="hover:shadow-lg transition-shadow">
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <CardTitle className="text-2xl font-bold">{vendor.name}</CardTitle>
-                  {getStatusBadge(vendor.status)}
-                </div>
-                {getStatusIcon(vendor.status)}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Invoices</p>
-                  <p className="text-2xl font-semibold">{vendor.totalInvoices}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Amount</p>
-                  <p className="text-2xl font-semibold">{formatCurrency(vendor.totalAmount)}</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Pending</span>
-                  <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-                    {vendor.pendingInvoices}
-                  </Badge>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Overdue</span>
-                  <Badge variant="outline" className="text-red-600 border-red-600">
-                    {vendor.overdueInvoices}
-                  </Badge>
-                </div>
-              </div>
-
-              {vendor.lastUpdate && (
-                <div className="pt-2 border-t">
-                  <p className="text-xs text-muted-foreground">
-                    Last updated: {formatDate(vendor.lastUpdate)}
-                  </p>
-                </div>
-              )}
-
-              <Button 
-                className="w-full mt-4" 
-                onClick={() => navigate(vendor.path)}
-                variant={vendor.status === 'needs-attention' ? 'default' : 'outline'}
-              >
-                View Details
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Vendor Tree View */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Vendor Invoice Status Tree</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {vendorStatuses.map((vendor) => (
+              <VendorTreeNode key={vendor.name} vendor={vendor} navigate={navigate} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
+  );
+};
+
+// Separate component for tree nodes with collapsible functionality
+const VendorTreeNode: React.FC<{ vendor: VendorStatus; navigate: any }> = ({ vendor, navigate }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const getStatusBadge = (status: VendorStatus['status']) => {
+    switch (status) {
+      case 'up-to-date':
+        return (
+          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 text-xs">
+            <CheckCircle2 className="w-3 h-3 mr-1" />
+            Up to Date
+          </Badge>
+        );
+      case 'needs-attention':
+        return (
+          <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100 text-xs">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Needs Attention
+          </Badge>
+        );
+      case 'pending-review':
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100 text-xs">
+            <Clock className="w-3 h-3 mr-1" />
+            Pending Review
+          </Badge>
+        );
+      case 'no-data':
+        return (
+          <Badge variant="secondary" className="text-xs">
+            No Data
+          </Badge>
+        );
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="border rounded-lg p-3 hover:bg-muted/50 transition-colors">
+        <div className="flex items-center justify-between">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="p-0 hover:bg-transparent">
+              <div className="flex items-center gap-2">
+                {isOpen ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                <span className="font-semibold text-base">{vendor.name}</span>
+                {getStatusBadge(vendor.status)}
+              </div>
+            </Button>
+          </CollapsibleTrigger>
+          
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Total Invoices</p>
+              <p className="font-semibold">{vendor.totalInvoices}</p>
+            </div>
+            <Button 
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(vendor.path)}
+            >
+              View Portal
+            </Button>
+          </div>
+        </div>
+
+        <CollapsibleContent className="mt-3 space-y-3 border-t pt-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="text-xs text-muted-foreground mb-1">Total Amount</p>
+              <p className="text-lg font-bold">{formatCurrency(vendor.totalAmount)}</p>
+            </div>
+            
+            <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
+              <p className="text-xs text-muted-foreground mb-1">Pending Review</p>
+              <p className="text-lg font-bold text-yellow-700 dark:text-yellow-400">
+                {vendor.pendingInvoices}
+              </p>
+            </div>
+            
+            <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+              <p className="text-xs text-muted-foreground mb-1">Overdue</p>
+              <p className="text-lg font-bold text-red-700 dark:text-red-400">
+                {vendor.overdueInvoices}
+              </p>
+            </div>
+            
+            <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+              <p className="text-xs text-muted-foreground mb-1">Completed</p>
+              <p className="text-lg font-bold text-green-700 dark:text-green-400">
+                {vendor.totalInvoices - vendor.pendingInvoices - vendor.overdueInvoices}
+              </p>
+            </div>
+          </div>
+
+          {vendor.lastUpdate && (
+            <div className="pt-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                Last updated: {new Date(vendor.lastUpdate).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </p>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <Button 
+              className="flex-1"
+              onClick={() => navigate(vendor.path)}
+              variant={vendor.status === 'needs-attention' ? 'default' : 'outline'}
+            >
+              View All Invoices
+            </Button>
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 };
 
