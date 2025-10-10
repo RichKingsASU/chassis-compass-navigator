@@ -128,10 +128,12 @@ const SidebarNavigation = () => {
                 >
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton className="group/collapsible">
+                      <SidebarMenuButton>
                         <item.icon size={18} />
                         <span>{item.title}</span>
-                        <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                        <ChevronRight 
+                          className={`ml-auto h-4 w-4 transition-transform duration-200 ${isGroupOpen(item.title) ? 'rotate-90' : ''}`}
+                        />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     
