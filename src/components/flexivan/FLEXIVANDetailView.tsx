@@ -1,13 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from "lucide-react";
 
-interface WCCPDetailViewProps {
+interface FLEXIVANDetailViewProps {
   record: any;
   onBack: () => void;
 }
 
-const WCCPDetailView = ({ record, onBack }: WCCPDetailViewProps) => {
+const FLEXIVANDetailView = ({ record, onBack }: FLEXIVANDetailViewProps) => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <Button 
@@ -24,13 +24,11 @@ const WCCPDetailView = ({ record, onBack }: WCCPDetailViewProps) => {
           <CardTitle>Invoice Details</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">
-            Detailed invoice view will be available once WCCP data integration is complete.
-          </p>
+          <p className="text-muted-foreground">Invoice details for: {record?.invoice || 'N/A'}</p>
         </CardContent>
       </Card>
     </div>
   );
 };
 
-export default WCCPDetailView;
+export default FLEXIVANDetailView;

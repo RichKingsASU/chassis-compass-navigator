@@ -2,32 +2,50 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import FLEXIVANFinancialPulse from './FLEXIVANFinancialPulse';
 import FLEXIVANInvoiceTracker from './FLEXIVANInvoiceTracker';
+import FLEXIVANDetailView from './FLEXIVANDetailView';
 import ImportantNotices from './dashboard/ImportantNotices';
 import ContactsAndResources from './dashboard/ContactsAndResources';
+import { useFLEXIVANData } from '@/hooks/useFLEXIVANData';
 
 const FLEXIVANDashboard = () => {
+  const { selectedRecord, setSelectedRecord } = useFLEXIVANData();
+
+  if (selectedRecord) {
+    return (
+      <FLEXIVANDetailView 
+        record={selectedRecord}
+        onBack={() => setSelectedRecord(null)}
+      />
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="support">Support</TabsTrigger>
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">FLEXIVAN Control Center</h1>
+          <p className="text-muted-foreground">From Reporting to Resolution - Actionable Finance Management</p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="dashboard" className="w-full">
+        <TabsList className="grid w-full md:w-[600px] grid-cols-2">
+          <TabsTrigger value="dashboard">Vendor Health</TabsTrigger>
+          <TabsTrigger value="tracker">Invoice Tracker</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="overview" className="space-y-6 mt-6">
+        
+        <TabsContent value="dashboard" className="space-y-6 pt-4">
           <FLEXIVANFinancialPulse />
-          <div className="grid gap-6 md:grid-cols-1">
-            <ImportantNotices />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="invoices" className="mt-6">
-          <FLEXIVANInvoiceTracker />
-        </TabsContent>
-
-        <TabsContent value="support" className="mt-6">
+          
+          {/* Important Notices */}
+          <ImportantNotices />
+          
+          {/* Contact Information and Resources */}
           <ContactsAndResources />
+        </TabsContent>
+        
+        <TabsContent value="tracker" className="pt-4">
+          <FLEXIVANInvoiceTracker onViewDetail={setSelectedRecord} />
         </TabsContent>
       </Tabs>
     </div>
