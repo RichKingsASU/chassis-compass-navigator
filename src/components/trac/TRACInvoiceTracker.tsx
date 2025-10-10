@@ -19,7 +19,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
-const TRACInvoiceTracker = () => {
+interface TRACInvoiceTrackerProps {
+  onViewDetail?: (record: any) => void;
+}
+
+const TRACInvoiceTracker = ({ onViewDetail }: TRACInvoiceTrackerProps = {}) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
