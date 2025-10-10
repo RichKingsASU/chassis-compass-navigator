@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -36,10 +37,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, Search, Upload, FileX, Filter, MapPin, UploadCloud, FileCheck } from 'lucide-react';
+import { Check, Search, Upload, FileX, Filter, MapPin, UploadCloud, FileCheck, Eye } from 'lucide-react';
 import { useForm } from "react-hook-form";
 
 const ChassisManagement = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -311,12 +313,13 @@ const ChassisManagement = () => {
                   <TableHead>Length</TableHead>
                   <TableHead>Width</TableHead>
                   <TableHead>Height</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
                       Loading chassis data...
                     </TableCell>
                   </TableRow>
@@ -332,11 +335,22 @@ const ChassisManagement = () => {
                       <TableCell>{chassis.length ? `${chassis.length}"` : 'N/A'}</TableCell>
                       <TableCell>{chassis.width ? `${chassis.width}"` : 'N/A'}</TableCell>
                       <TableCell>{chassis.height ? `${chassis.height}"` : 'N/A'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="gap-2"
+                          onClick={() => navigate(`/chassis/${chassis.id}`)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          View
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
                       No chassis found matching your filters.
                     </TableCell>
                   </TableRow>
