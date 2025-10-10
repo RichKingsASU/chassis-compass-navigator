@@ -60,6 +60,7 @@ const SidebarNavigation = () => {
       path: "/yards", 
       icon: FileText,
       subItems: [
+        { title: "Overview", path: "/yards" },
         { title: "PIER S", path: "/yards/pola" },
         { title: "JED YARD", path: "/yards/jed" },
       ] 

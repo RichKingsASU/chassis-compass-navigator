@@ -26,6 +26,7 @@ import MercuryGate from "./pages/tms/MercuryGate";
 import PortPro from "./pages/tms/PortPro";
 import JEDYard from "./pages/yards/JEDYard";
 import POLAYard from "./pages/yards/POLAYard";
+import YardReportOverview from "./pages/YardReportOverview";
 import CCM from "./pages/vendors/CCM";
 import DCLI from "./pages/vendors/DCLI";
 import FLEXIVAN from "./pages/vendors/FLEXIVAN";
@@ -91,6 +92,11 @@ function App() {
               } />
               
               {/* Yard Report Routes */}
+              <Route path="/yards" element={
+                <DashboardLayout>
+                  <YardReportOverview />
+                </DashboardLayout>
+              } />
               <Route path="/yards/pola" element={
                 <DashboardLayout>
                   <POLAYard />
