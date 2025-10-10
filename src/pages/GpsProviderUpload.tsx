@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/tabs";
 
 import GpsProviderHeader from '@/components/gps/GpsProviderHeader';
+import GpsDashboardTab from '@/components/gps/GpsDashboardTab';
 import GpsUploadTab from '@/components/gps/GpsUploadTab';
 import GpsHistoryTab from '@/components/gps/GpsHistoryTab';
 import GpsDataTab from '@/components/gps/GpsDataTab';
@@ -30,7 +31,7 @@ interface GpsProviderUploadProps {
  * browsing extracted data, and managing documents
  */
 const GpsProviderUpload: React.FC<GpsProviderUploadProps> = ({ providerName, providerLogo }) => {
-  const [activeTab, setActiveTab] = useState("upload");
+  const [activeTab, setActiveTab] = useState("dashboard");
   
   // Generate mock data for the provider
   const previousUploads = generatePreviousUploads(providerName);
@@ -44,13 +45,18 @@ const GpsProviderUpload: React.FC<GpsProviderUploadProps> = ({ providerName, pro
     <div className="dashboard-layout">
       <GpsProviderHeader providerName={providerName} providerLogo={providerLogo} />
 
-      <Tabs defaultValue="upload" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 mb-6">
+      <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-5 mb-6">
+          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="upload">Upload</TabsTrigger>
           <TabsTrigger value="history">Previous Uploads</TabsTrigger>
           <TabsTrigger value="data">Extracted Data</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="dashboard" className="space-y-6">
+          <GpsDashboardTab providerName={providerName} />
+        </TabsContent>
         
         <TabsContent value="upload" className="space-y-6">
           <GpsUploadTab providerName={providerName} />
