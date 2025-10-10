@@ -957,6 +957,104 @@ export type Database = {
         }
         Relationships: []
       }
+      gps_data: {
+        Row: {
+          altitude: number | null
+          battery_level: number | null
+          created_at: string | null
+          device_id: string | null
+          heading: number | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          provider: string
+          raw_data: Json | null
+          recorded_at: string | null
+          speed: number | null
+          upload_id: string | null
+        }
+        Insert: {
+          altitude?: number | null
+          battery_level?: number | null
+          created_at?: string | null
+          device_id?: string | null
+          heading?: number | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          provider: string
+          raw_data?: Json | null
+          recorded_at?: string | null
+          speed?: number | null
+          upload_id?: string | null
+        }
+        Update: {
+          altitude?: number | null
+          battery_level?: number | null
+          created_at?: string | null
+          device_id?: string | null
+          heading?: number | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          provider?: string
+          raw_data?: Json | null
+          recorded_at?: string | null
+          speed?: number | null
+          upload_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gps_data_upload_id_fkey"
+            columns: ["upload_id"]
+            isOneToOne: false
+            referencedRelation: "gps_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gps_uploads: {
+        Row: {
+          created_at: string | null
+          data_date: string
+          file_name: string
+          file_path: string
+          file_type: string
+          id: string
+          notes: string | null
+          provider: string
+          row_count: number | null
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_date: string
+          file_name: string
+          file_path: string
+          file_type: string
+          id?: string
+          notes?: string | null
+          provider: string
+          row_count?: number | null
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_date?: string
+          file_name?: string
+          file_path?: string
+          file_type?: string
+          id?: string
+          notes?: string | null
+          provider?: string
+          row_count?: number | null
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ingest_cursors: {
         Row: {
           last_synced_at: string | null
