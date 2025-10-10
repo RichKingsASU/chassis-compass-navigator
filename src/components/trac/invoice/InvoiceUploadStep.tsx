@@ -120,20 +120,20 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
     setUploadProgress(0);
 
     try {
-      // Upload PDF to storage
+      // Upload to TRAC-specific bucket
       const pdfFileName = `trac_invoices/${Date.now()}_${uploadedFiles.pdf.name}`;
       setUploadProgress(20);
       const { data: pdfData, error: pdfError } = await supabase.storage
-        .from('invoice-files')
+        .from('trac-invoices')
         .upload(pdfFileName, uploadedFiles.pdf);
 
       if (pdfError) throw pdfError;
 
-      // Upload Excel to storage
+      // Upload Excel to TRAC bucket
       const excelFileName = `trac_invoices/${Date.now()}_${uploadedFiles.excel.name}`;
       setUploadProgress(30);
       const { data: excelData, error: excelError } = await supabase.storage
-        .from('invoice-files')
+        .from('trac-invoices')
         .upload(excelFileName, uploadedFiles.excel);
 
       if (excelError) throw excelError;

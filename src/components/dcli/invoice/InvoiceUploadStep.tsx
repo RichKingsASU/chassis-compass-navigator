@@ -97,11 +97,11 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
 
-      // Upload PDF
+      // Upload to DCLI-specific bucket
       const pdfPath = `vendor/dcli/invoices/${year}/${month}/${tempUuid}/${uploadedFiles.pdf.name}`;
       setUploadProgress(30);
       const { error: pdfError } = await supabase.storage
-        .from('invoices')
+        .from('dcli-invoices')
         .upload(pdfPath, uploadedFiles.pdf, { upsert: false });
 
       if (pdfError) throw pdfError;
@@ -110,7 +110,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       const excelPath = `vendor/dcli/invoices/${year}/${month}/${tempUuid}/${uploadedFiles.excel.name}`;
       setUploadProgress(50);
       const { error: excelError } = await supabase.storage
-        .from('invoices')
+        .from('dcli-invoices')
         .upload(excelPath, uploadedFiles.excel, { upsert: false });
 
       if (excelError) throw excelError;
