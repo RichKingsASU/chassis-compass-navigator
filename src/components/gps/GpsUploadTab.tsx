@@ -6,17 +6,23 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { FileType, Upload, FileCheck, Info, X, CalendarIcon, Eye } from 'lucide-react';
+import { FileType, Upload, FileCheck, Info, X, CalendarIcon, Eye, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import * as XLSX from 'xlsx';
 
-interface PreviewData {
+interface SheetPreview {
+  sheetName: string;
   headers: string[];
   rows: any[][];
   totalRows: number;
+  approved: boolean;
+}
+
+interface PreviewData {
+  sheets: SheetPreview[];
 }
 
 const GpsUploadTab = ({ providerName }: { providerName: string }) => {
@@ -27,6 +33,7 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
   const [notes, setNotes] = useState('');
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
   const { toast } = useToast();
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -92,6 +99,7 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
   const parseAndPreview = async (file: File) => {
     try {
       const extension = file.name.split('.').pop()?.toLowerCase();
+      const sheets: SheetPreview[] = [];
       
       if (extension === 'csv') {
         const text = await file.text();
@@ -99,25 +107,37 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
         const headers = rows[0];
         const dataRows = rows.slice(1, 11); // Preview first 10 rows
         
-        setPreviewData({
+        sheets.push({
+          sheetName: file.name,
           headers,
           rows: dataRows,
-          totalRows: rows.length - 1
+          totalRows: rows.length - 1,
+          approved: false
         });
       } else if (extension === 'xlsx' || extension === 'xls') {
         const data = await file.arrayBuffer();
         const workbook = XLSX.read(data);
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
         
-        setPreviewData({
-          headers: jsonData[0] || [],
-          rows: jsonData.slice(1, 11), // Preview first 10 rows
-          totalRows: jsonData.length - 1
+        // Parse all sheets
+        workbook.SheetNames.forEach(sheetName => {
+          const sheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+          
+          if (jsonData.length > 0) {
+            sheets.push({
+              sheetName,
+              headers: jsonData[0] || [],
+              rows: jsonData.slice(1, 11), // Preview first 10 rows
+              totalRows: jsonData.length - 1,
+              approved: false
+            });
+          }
         });
       }
       
+      setPreviewData({ sheets });
       setShowPreview(true);
+      setCurrentPreviewIndex(0);
     } catch (error) {
       console.error('Error parsing file:', error);
       toast({
@@ -133,7 +153,30 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
     if (selectedFiles.length === 1) {
       setPreviewData(null);
       setShowPreview(false);
+      setCurrentPreviewIndex(0);
     }
+  };
+
+  const toggleSheetApproval = (index: number) => {
+    if (!previewData) return;
+    
+    const updatedSheets = [...previewData.sheets];
+    updatedSheets[index].approved = !updatedSheets[index].approved;
+    setPreviewData({ sheets: updatedSheets });
+  };
+
+  const approveAllSheets = () => {
+    if (!previewData) return;
+    
+    const updatedSheets = previewData.sheets.map(sheet => ({
+      ...sheet,
+      approved: true
+    }));
+    setPreviewData({ sheets: updatedSheets });
+  };
+
+  const getApprovedCount = () => {
+    return previewData?.sheets.filter(s => s.approved).length || 0;
   };
 
   const handleUpload = async () => {
@@ -155,6 +198,16 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
       return;
     }
 
+    const approvedCount = getApprovedCount();
+    if (approvedCount === 0) {
+      toast({
+        title: "No sheets approved",
+        description: "Please approve at least one sheet before uploading",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsUploading(true);
     const bucketName = `gps-${providerName.toLowerCase().replace(/\s+/g, '-')}`;
 
@@ -170,23 +223,28 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
 
         if (uploadError) throw uploadError;
 
-        // Parse file data if CSV or Excel
+        // Calculate row count for approved sheets only
         let rowCount = 0;
         if (fileExtension === 'csv' || fileExtension === 'xlsx' || fileExtension === 'xls') {
           const extension = file.name.split('.').pop()?.toLowerCase();
-          let parsedData: any[][] = [];
 
           if (extension === 'csv') {
             const text = await file.text();
-            parsedData = text.split('\n').map(row => row.split(','));
+            const parsedData = text.split('\n').map(row => row.split(','));
+            rowCount = parsedData.length - 1;
           } else if (extension === 'xlsx' || extension === 'xls') {
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data);
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            parsedData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
+            
+            // Only count rows from approved sheets
+            previewData?.sheets.forEach((sheetPreview, index) => {
+              if (sheetPreview.approved) {
+                const sheet = workbook.Sheets[workbook.SheetNames[index]];
+                const parsedData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+                rowCount += Math.max(0, parsedData.length - 1);
+              }
+            });
           }
-
-          rowCount = parsedData.length - 1; // Subtract header row
         }
 
         // Create upload record in database
@@ -210,7 +268,7 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
 
       toast({
         title: "Upload successful",
-        description: `${selectedFiles.length} file(s) uploaded and logged`
+        description: `${approvedCount} sheet(s) uploaded successfully`
       });
 
       // Reset form
@@ -219,6 +277,7 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
       setNotes('');
       setPreviewData(null);
       setShowPreview(false);
+      setCurrentPreviewIndex(0);
     } catch (error) {
       console.error('Upload error:', error);
       toast({
@@ -368,20 +427,68 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
             </div>
           </div>
 
-          {/* Data Preview */}
-          {showPreview && previewData && (
+          {/* Data Preview with Sheet Navigation */}
+          {showPreview && previewData && previewData.sheets.length > 0 && (
             <div className="border rounded-lg p-4 bg-background">
-              <div className="flex items-center justify-between mb-3">
-                <div className="font-medium">Data Preview</div>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="font-medium">
+                    {previewData.sheets.length > 1 
+                      ? `Sheet ${currentPreviewIndex + 1} of ${previewData.sheets.length}: ${previewData.sheets[currentPreviewIndex].sheetName}`
+                      : 'Data Preview'
+                    }
+                  </div>
+                  {previewData.sheets.length > 1 && (
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setCurrentPreviewIndex(Math.max(0, currentPreviewIndex - 1))}
+                        disabled={currentPreviewIndex === 0}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setCurrentPreviewIndex(Math.min(previewData.sheets.length - 1, currentPreviewIndex + 1))}
+                        disabled={currentPreviewIndex === previewData.sheets.length - 1}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
                 <div className="text-sm text-muted-foreground">
-                  Showing 10 of {previewData.totalRows} rows
+                  {getApprovedCount()} of {previewData.sheets.length} sheet(s) approved
                 </div>
               </div>
+
+              <div className="flex items-center gap-2 mb-3">
+                <Button
+                  variant={previewData.sheets[currentPreviewIndex].approved ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleSheetApproval(currentPreviewIndex)}
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  {previewData.sheets[currentPreviewIndex].approved ? 'Approved' : 'Approve This Sheet'}
+                </Button>
+                {previewData.sheets.length > 1 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={approveAllSheets}
+                  >
+                    Approve All Sheets
+                  </Button>
+                )}
+              </div>
+              
               <div className="overflow-auto max-h-96">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b">
-                      {previewData.headers.map((header, i) => (
+                      {previewData.sheets[currentPreviewIndex].headers.map((header, i) => (
                         <th key={i} className="text-left p-2 font-medium">
                           {header}
                         </th>
@@ -389,7 +496,7 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {previewData.rows.map((row, i) => (
+                    {previewData.sheets[currentPreviewIndex].rows.map((row, i) => (
                       <tr key={i} className="border-b hover:bg-muted/50">
                         {row.map((cell, j) => (
                           <td key={j} className="p-2">
@@ -400,6 +507,9 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="text-sm text-muted-foreground mt-2">
+                Showing first 10 of {previewData.sheets[currentPreviewIndex].totalRows} rows in this sheet
               </div>
             </div>
           )}
@@ -415,6 +525,7 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
                     <li>Navigate to the Reports or Exports section</li>
                     <li>Select "GPS Data Export" and choose the date range</li>
                     <li>Download the file and upload it here</li>
+                    <li>Preview and approve each sheet before processing</li>
                   </ol>
                 </div>
               </div>
@@ -426,10 +537,10 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
               size="lg" 
               className="gap-2"
               onClick={handleUpload}
-              disabled={selectedFiles.length === 0 || isUploading}
+              disabled={selectedFiles.length === 0 || isUploading || !dataDate || getApprovedCount() === 0}
             >
               <FileCheck size={18} />
-              {isUploading ? 'Uploading...' : 'Process Upload'}
+              {isUploading ? 'Uploading...' : `Process Upload (${getApprovedCount()} Approved Sheet${getApprovedCount() !== 1 ? 's' : ''})`}
             </Button>
           </div>
         </div>
