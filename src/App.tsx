@@ -49,6 +49,7 @@ import WCCPInvoiceLineDispute from "./pages/wccp/InvoiceLineDispute";
 import InvoicesList from "./pages/invoices/InvoicesList";
 import InvoiceLineDetails from "./pages/invoices/InvoiceLineDetails";
 import InvoiceLineDispute from "./pages/invoices/InvoiceLineDispute";
+import CCMInvoiceLineDetails from "./pages/ccm/InvoiceLineDetails";
 
 const queryClient = new QueryClient();
 
@@ -177,6 +178,11 @@ function App() {
               <Route path="/vendors/ccm" element={
                 <DashboardLayout>
                   <CCM />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/ccm/invoice-line/:lineId" element={
+                <DashboardLayout>
+                  <CCMInvoiceLineDetails />
                 </DashboardLayout>
               } />
               <Route path="/vendors/scspa" element={
