@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Filter, Download, Plus, FileText } from "lucide-react";
+import { Search, Filter, Download, Plus, FileText, AlertCircle } from "lucide-react";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface CCMInvoiceTrackerProps {
-  onViewDetail?: (record: any) => void;
+  onViewDetail: (record: any) => void;
 }
 
 const CCMInvoiceTracker: React.FC<CCMInvoiceTrackerProps> = ({ onViewDetail }) => {
@@ -92,15 +92,22 @@ const CCMInvoiceTracker: React.FC<CCMInvoiceTrackerProps> = ({ onViewDetail }) =
   };
 
   const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { variant: any, className: string }> = {
-      pending: { variant: "secondary", className: "bg-blue-100 text-blue-800 border-blue-200" },
-      paid: { variant: "outline", className: "bg-green-100 text-green-800 border-green-200" },
-      disputed: { variant: "destructive", className: "bg-red-100 text-red-800 border-red-200" },
-    };
-    const config = statusMap[status.toLowerCase()] || statusMap.pending;
+    return status?.toLowerCase() === 'paid' ? (
+      <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
+        Closed
+      </Badge>
+    ) : (
+      <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">
+        Open
+      </Badge>
+    );
+  };
+
+  const getDisputeBadge = (disputeStatus: string | null) => {
+    if (!disputeStatus) return null;
     return (
-      <Badge variant={config.variant} className={config.className}>
-        {status}
+      <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
+        {disputeStatus}
       </Badge>
     );
   };
@@ -143,7 +150,7 @@ const CCMInvoiceTracker: React.FC<CCMInvoiceTrackerProps> = ({ onViewDetail }) =
       <Card>
         <CardContent className="pt-6">
           <div className="grid gap-4 md:grid-cols-4">
-            <div className="relative col-span-2">
+            <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search invoice number, provider..."
@@ -158,15 +165,11 @@ const CCMInvoiceTracker: React.FC<CCMInvoiceTrackerProps> = ({ onViewDetail }) =
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="disputed">Disputed</SelectItem>
+                <SelectItem value="pending">Open</SelectItem>
+                <SelectItem value="paid">Closed</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" className="w-full">
-              <Filter className="h-4 w-4 mr-2" />
-              More Filters
-            </Button>
+            <div className="md:col-span-2"></div>
           </div>
         </CardContent>
       </Card>
@@ -199,7 +202,7 @@ const CCMInvoiceTracker: React.FC<CCMInvoiceTrackerProps> = ({ onViewDetail }) =
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="border-b bg-muted/50">
+              <thead className="border-b bg-gray-50/50">
                 <tr>
                   <th className="text-left p-3 w-12">
                     <Checkbox
@@ -207,34 +210,58 @@ const CCMInvoiceTracker: React.FC<CCMInvoiceTrackerProps> = ({ onViewDetail }) =
                       onCheckedChange={handleSelectAll}
                     />
                   </th>
-                  <th className="text-left p-3 text-sm font-medium">Invoice Number</th>
-                  <th className="text-left p-3 text-sm font-medium">Invoice Date</th>
-                  <th className="text-left p-3 text-sm font-medium">Provider</th>
-                  <th className="text-left p-3 text-sm font-medium">Total Amount</th>
-                  <th className="text-left p-3 text-sm font-medium">Status</th>
-                  <th className="text-left p-3 text-sm font-medium">Actions</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">View | Dispute</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Number</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Date</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Provider</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Total Amount</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Status</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Dispute Status</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Attachments</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedData.map((record, index) => {
                   const globalIndex = `${startIndex + index}`;
+                  const disputeStatus = record.reason_for_dispute ? 'Disputed' : null;
                   return (
-                    <tr key={globalIndex} className="border-b hover:bg-muted/50 transition-colors">
+                    <tr key={globalIndex} className="border-b hover:bg-gray-50/50 transition-colors">
                       <td className="p-3">
                         <Checkbox
                           checked={selectedItems.has(globalIndex)}
                           onCheckedChange={(checked) => handleSelectItem(globalIndex, checked as boolean)}
                         />
                       </td>
+                      <td className="p-3">
+                        <div className="flex items-center space-x-1 text-sm">
+                          <button 
+                            onClick={() => onViewDetail(record)}
+                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            View
+                          </button>
+                          <span className="text-gray-400">|</span>
+                          <button className="text-blue-600 hover:text-blue-800 hover:underline">
+                            Dispute
+                          </button>
+                        </div>
+                      </td>
                       <td className="p-3 font-medium text-sm">{record.invoice_number}</td>
                       <td className="p-3 text-sm">{formatDate(record.invoice_date)}</td>
                       <td className="p-3 text-sm">{record.provider}</td>
                       <td className="p-3 text-sm font-medium">{formatCurrency(record.total_amount_usd)}</td>
                       <td className="p-3">{getStatusBadge(record.status)}</td>
+                      <td className="p-3">{getDisputeBadge(disputeStatus)}</td>
                       <td className="p-3">
-                        <Button variant="ghost" size="sm">
-                          <FileText className="h-4 w-4" />
-                        </Button>
+                        {record.file_path && (
+                          <div className="flex items-center">
+                            {disputeStatus ? (
+                              <AlertCircle className="h-4 w-4 text-red-600" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-red-600" />
+                            )}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

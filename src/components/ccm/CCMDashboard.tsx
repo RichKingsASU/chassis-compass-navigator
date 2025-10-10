@@ -1,12 +1,22 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CCMFinancialPulse from './CCMFinancialPulse';
 import CCMInvoiceTracker from './CCMInvoiceTracker';
 import ImportantNotices from './dashboard/ImportantNotices';
 import ContactsAndResources from './dashboard/ContactsAndResources';
+import CCMDetailView from './CCMDetailView';
 
 const CCMDashboard = () => {
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
+
+  const handleViewDetail = (record: any) => {
+    setSelectedRecord(record);
+  };
+
+  if (selectedRecord) {
+    return <CCMDetailView record={selectedRecord} onBack={() => setSelectedRecord(null)} />;
+  }
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -33,7 +43,7 @@ const CCMDashboard = () => {
         </TabsContent>
         
         <TabsContent value="tracker" className="pt-4">
-          <CCMInvoiceTracker />
+          <CCMInvoiceTracker onViewDetail={handleViewDetail} />
         </TabsContent>
       </Tabs>
     </div>

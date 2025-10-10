@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Filter, Download, Plus, FileText } from "lucide-react";
+import { Search, Filter, Download, Plus, FileText, AlertCircle } from "lucide-react";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -93,16 +93,22 @@ const FLEXIVANInvoiceTracker: React.FC<FLEXIVANInvoiceTrackerProps> = ({ onViewD
 
   const getStatusBadge = (status: string) => {
     const normalizedStatus = status?.toLowerCase() || 'pending';
-    const statusMap: Record<string, { variant: any, className: string }> = {
-      pending: { variant: "secondary", className: "bg-blue-100 text-blue-800 border-blue-200" },
-      open: { variant: "secondary", className: "bg-blue-100 text-blue-800 border-blue-200" },
-      paid: { variant: "outline", className: "bg-green-100 text-green-800 border-green-200" },
-      disputed: { variant: "destructive", className: "bg-red-100 text-red-800 border-red-200" },
-    };
-    const config = statusMap[normalizedStatus] || statusMap.pending;
+    return normalizedStatus === 'paid' ? (
+      <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
+        Closed
+      </Badge>
+    ) : (
+      <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">
+        Open
+      </Badge>
+    );
+  };
+
+  const getDisputeBadge = (disputeStatus: string | null) => {
+    if (!disputeStatus) return null;
     return (
-      <Badge variant={config.variant} className={config.className}>
-        {status}
+      <Badge variant="destructive" className="bg-red-100 text-red-800 border-red-200">
+        {disputeStatus}
       </Badge>
     );
   };
@@ -202,7 +208,7 @@ const FLEXIVANInvoiceTracker: React.FC<FLEXIVANInvoiceTrackerProps> = ({ onViewD
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="border-b bg-muted/50">
+              <thead className="border-b bg-gray-50/50">
                 <tr>
                   <th className="text-left p-3 w-12">
                     <Checkbox
@@ -210,25 +216,42 @@ const FLEXIVANInvoiceTracker: React.FC<FLEXIVANInvoiceTrackerProps> = ({ onViewD
                       onCheckedChange={handleSelectAll}
                     />
                   </th>
-                  <th className="text-left p-3 text-sm font-medium">Invoice</th>
-                  <th className="text-left p-3 text-sm font-medium">Invoice Date</th>
-                  <th className="text-left p-3 text-sm font-medium">Type</th>
-                  <th className="text-left p-3 text-sm font-medium">Amount</th>
-                  <th className="text-left p-3 text-sm font-medium">Outstanding</th>
-                  <th className="text-left p-3 text-sm font-medium">Status</th>
-                  <th className="text-left p-3 text-sm font-medium">Actions</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">View | Dispute</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Number</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Date</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Type</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Total</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Outstanding Balance</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Status</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Dispute Status</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Attachments</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedData.map((record, index) => {
                   const globalIndex = `${startIndex + index}`;
+                  const disputeStatus = null; // No dispute field in flexivan_activity table
                   return (
-                    <tr key={globalIndex} className="border-b hover:bg-muted/50 transition-colors">
+                    <tr key={globalIndex} className="border-b hover:bg-gray-50/50 transition-colors">
                       <td className="p-3">
                         <Checkbox
                           checked={selectedItems.has(globalIndex)}
                           onCheckedChange={(checked) => handleSelectItem(globalIndex, checked as boolean)}
                         />
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center space-x-1 text-sm">
+                          <button 
+                            onClick={() => onViewDetail(record)}
+                            className="text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            View
+                          </button>
+                          <span className="text-gray-400">|</span>
+                          <button className="text-blue-600 hover:text-blue-800 hover:underline">
+                            Dispute
+                          </button>
+                        </div>
                       </td>
                       <td className="p-3 font-medium text-sm">{record.invoice || 'N/A'}</td>
                       <td className="p-3 text-sm">{formatDate(record.invoice_date)}</td>
@@ -236,10 +259,15 @@ const FLEXIVANInvoiceTracker: React.FC<FLEXIVANInvoiceTrackerProps> = ({ onViewD
                       <td className="p-3 text-sm font-medium">{formatCurrency(record.invoice_amount)}</td>
                       <td className="p-3 text-sm font-medium">{formatCurrency(record.outstanding_balance)}</td>
                       <td className="p-3">{getStatusBadge(record.status || 'Pending')}</td>
+                      <td className="p-3">{getDisputeBadge(disputeStatus)}</td>
                       <td className="p-3">
-                        <Button variant="ghost" size="sm">
-                          <FileText className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center">
+                          {disputeStatus ? (
+                            <AlertCircle className="h-4 w-4 text-red-600" />
+                          ) : (
+                            <FileText className="h-4 w-4 text-red-600" />
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

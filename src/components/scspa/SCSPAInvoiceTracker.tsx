@@ -7,36 +7,23 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Search, Filter, Download, Plus, FileText, AlertCircle } from "lucide-react";
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
-interface TRACInvoiceTrackerProps {
+interface SCSPAInvoiceTrackerProps {
   onViewDetail: (record: any) => void;
 }
 
-const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail }) => {
+const SCSPAInvoiceTracker: React.FC<SCSPAInvoiceTrackerProps> = ({ onViewDetail }) => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(50);
-  const { toast } = useToast();
 
-  const { data: invoiceData, isLoading } = useQuery({
-    queryKey: ['trac-invoices'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('trac_invoice')
-        .select('*')
-        .order('invoice_date', { ascending: false });
-      if (error) throw error;
-      return data || [];
-    }
-  });
+  // Mock data - replace with actual SCSPA data when available
+  const mockData: any[] = [];
 
-  const formatDate = (dateString: string | Date) => {
+  const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
     try {
       return new Date(dateString).toLocaleDateString('en-US', {
@@ -45,7 +32,7 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
         year: 'numeric'
       });
     } catch {
-      return 'N/A';
+      return dateString;
     }
   };
 
@@ -56,7 +43,7 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
   };
 
   // Filter data
-  const filteredData = (invoiceData || []).filter(record => {
+  const filteredData = mockData.filter(record => {
     const matchesSearch = !searchQuery || 
       Object.values(record).some(value => 
         value?.toString().toLowerCase().includes(searchQuery.toLowerCase())
@@ -92,13 +79,13 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
   };
 
   const getStatusBadge = (status: string) => {
-    return status?.toLowerCase() === 'paid' ? (
-      <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
-        Closed
-      </Badge>
-    ) : (
+    return status === 'Open' ? (
       <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">
         Open
+      </Badge>
+    ) : (
+      <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
+        Closed
       </Badge>
     );
   };
@@ -112,20 +99,6 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
     );
   };
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            {[...Array(10)].map((_, i) => (
-              <div key={i} className="h-12 bg-muted rounded"></div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header with Actions */}
@@ -135,7 +108,7 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
           <p className="text-muted-foreground">Search smarter, find faster</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => navigate('/vendors/trac/invoices/new')}>
+          <Button>
             <Plus className="h-4 w-4 mr-2" />
             New Invoice
           </Button>
@@ -165,8 +138,8 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Open</SelectItem>
-                <SelectItem value="paid">Closed</SelectItem>
+                <SelectItem value="Open">Open</SelectItem>
+                <SelectItem value="Closed">Closed</SelectItem>
               </SelectContent>
             </Select>
             <div className="md:col-span-2"></div>
@@ -214,7 +187,7 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
                   <th className="text-left p-3 text-sm font-medium text-gray-600">View | Dispute</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Number</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Date</th>
-                  <th className="text-left p-3 text-sm font-medium text-gray-600">Total Amount</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Total</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Status</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Dispute Status</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Attachments</th>
@@ -223,7 +196,6 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
               <tbody>
                 {paginatedData.map((record, index) => {
                   const globalIndex = `${startIndex + index}`;
-                  const disputeStatus = record.reason_for_dispute ? 'Disputed' : null;
                   return (
                     <tr key={globalIndex} className="border-b hover:bg-gray-50/50 transition-colors">
                       <td className="p-3">
@@ -235,7 +207,7 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
                       <td className="p-3">
                         <div className="flex items-center space-x-1 text-sm">
                           <button 
-                            onClick={() => navigate(`/vendors/trac/invoices/${record.id}/review`)}
+                            onClick={() => onViewDetail(record)}
                             className="text-blue-600 hover:text-blue-800 hover:underline"
                           >
                             View
@@ -246,15 +218,15 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
                           </button>
                         </div>
                       </td>
-                      <td className="p-3 font-medium text-sm">{record.invoice_number}</td>
-                      <td className="p-3 text-sm">{formatDate(record.invoice_date)}</td>
-                      <td className="p-3 text-sm font-medium">{formatCurrency(record.total_amount_usd)}</td>
-                      <td className="p-3">{getStatusBadge(record.status)}</td>
-                      <td className="p-3">{getDisputeBadge(disputeStatus)}</td>
+                      <td className="p-3 font-medium text-sm">{record.invoiceNumber}</td>
+                      <td className="p-3 text-sm">{formatDate(record.invoiceDate)}</td>
+                      <td className="p-3 text-sm font-medium">{formatCurrency(record.invoiceTotal)}</td>
+                      <td className="p-3">{getStatusBadge(record.invoiceStatus)}</td>
+                      <td className="p-3">{getDisputeBadge(record.disputeStatus)}</td>
                       <td className="p-3">
-                        {record.file_path && (
+                        {record.hasAttachment && (
                           <div className="flex items-center">
-                            {disputeStatus ? (
+                            {record.disputeStatus ? (
                               <AlertCircle className="h-4 w-4 text-red-600" />
                             ) : (
                               <FileText className="h-4 w-4 text-red-600" />
@@ -269,19 +241,11 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
             </table>
           </div>
           
-          {filteredData.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-muted-foreground">
-                No invoices found matching your criteria
-              </div>
-              <Button variant="outline" className="mt-4" onClick={() => {
-                setSearchQuery('');
-                setStatusFilter('all');
-              }}>
-                Clear Filters
-              </Button>
+          <div className="text-center py-12">
+            <div className="text-muted-foreground">
+              No invoice data available. SCSPA invoice integration is being configured.
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
@@ -318,4 +282,4 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
   );
 };
 
-export default TRACInvoiceTracker;
+export default SCSPAInvoiceTracker;
