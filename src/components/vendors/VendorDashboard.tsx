@@ -4,6 +4,7 @@ import VendorFinancialPulse from './VendorFinancialPulse';
 import VendorInvoiceTracker from './VendorInvoiceTracker';
 import ImportantNotices from './dashboard/ImportantNotices';
 import ContactsAndResources from './dashboard/ContactsAndResources';
+import VendorDetailView from './VendorDetailView';
 
 interface VendorDashboardProps {
   vendorName: string;
