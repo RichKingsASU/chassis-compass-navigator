@@ -252,7 +252,7 @@ const VendorValidation = () => {
     <div className="flex-1 space-y-6 p-4 md:p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Vendor Validation Dashboard</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Equipment Vendor Dashboard</h2>
           <p className="text-muted-foreground mt-1">
             Monitor invoice status across all vendors
           </p>

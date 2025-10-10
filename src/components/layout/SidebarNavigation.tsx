@@ -78,7 +78,7 @@ const SidebarNavigation = () => {
       ] 
     },
     { 
-      title: "Vendor Validation", 
+      title: "Equipment Vendor", 
       path: "/validation", 
       icon: FileCheck,
       subItems: [
