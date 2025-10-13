@@ -23,7 +23,7 @@ serve(async (req) => {
 
     // Download PDF from storage
     const { data: pdfData, error: pdfError } = await supabase.storage
-      .from("invoice-files")
+      .from("trac-invoices")
       .download(pdf_path);
 
     if (pdfError) {

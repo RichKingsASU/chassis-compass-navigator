@@ -91,7 +91,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ vendor = 'CCM' }) => {
         
         // Upload file to Supabase storage
         const { data: uploadedFile, error: uploadError } = await supabase.storage
-          .from('invoices')
+          .from('ccm-invoices')
           .upload(filePath, file, {
             cacheControl: '3600',
             upsert: false

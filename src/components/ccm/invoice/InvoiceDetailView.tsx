@@ -109,7 +109,7 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
 
     try {
       const { data, error } = await supabase.storage
-        .from('invoices')
+        .from('ccm-invoices')
         .download(invoice.file_path);
 
       if (error) throw error;
