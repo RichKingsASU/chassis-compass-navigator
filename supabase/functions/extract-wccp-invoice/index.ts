@@ -61,102 +61,54 @@ serve(async (req) => {
     console.log(`Parsed ${jsonData.length} rows from Excel`);
     console.log('First 10 rows (cleaned):', JSON.stringify(jsonData.slice(0, 10), null, 2));
 
-    // Extract invoice summary (customize based on WCCP format)
+    // Extract invoice summary from table structure
     let invoiceId = '';
     let billingDate = '';
     let dueDate = '';
     let totalAmount = 0;
 
-    // Look for invoice header information in first 30 rows
-    for (let i = 0; i < Math.min(30, jsonData.length); i++) {
-      const row = jsonData[i];
-      
-      // Check each cell in the row
-      for (let j = 0; j < row.length; j++) {
-        const cell = String(row[j]).trim();
-        const cellLower = cell.toLowerCase();
-        
-        // Look for Invoice # label and check adjacent cells
-        if (cellLower.includes('invoice #') || cellLower === 'invoice #:') {
-          // Check next cell in same row
-          if (j + 1 < row.length && row[j + 1]) {
-            const nextCell = String(row[j + 1]).trim();
-            if (nextCell && nextCell.match(/^\d+$/)) {
-              invoiceId = nextCell;
-            }
-          }
-          // Check same cell after the colon
-          const colonSplit = cell.split(':');
-          if (colonSplit.length > 1 && colonSplit[1].trim()) {
-            const value = colonSplit[1].trim();
-            if (value.match(/^\d+$/)) {
-              invoiceId = value;
-            }
-          }
-          // Check next row, same column
-          if (i + 1 < jsonData.length && jsonData[i + 1][j]) {
-            const belowCell = String(jsonData[i + 1][j]).trim();
-            if (belowCell && belowCell.match(/^\d+$/)) {
-              invoiceId = belowCell;
-            }
+    // Find header row and create column map
+    const headerRow = jsonData[0] || [];
+    const columnMap: { [key: string]: number } = {};
+    headerRow.forEach((header, index) => {
+      const cleanHeader = String(header).toLowerCase().trim();
+      columnMap[cleanHeader] = index;
+    });
+
+    console.log('Column map:', columnMap);
+
+    // Extract invoice ID from first data row (usually row 2)
+    const firstDataRow = jsonData.find((row, idx) => idx > 1 && row.length > 5);
+    if (firstDataRow && columnMap['invoice'] !== undefined) {
+      invoiceId = String(firstDataRow[columnMap['invoice']] || '').trim();
+    }
+
+    // Sum up Total column to get amount due
+    const totalColIndex = columnMap['total'];
+    if (totalColIndex !== undefined) {
+      for (let i = 2; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        if (row.length > totalColIndex) {
+          const totalCell = String(row[totalColIndex] || '');
+          const amount = parseFloat(totalCell.replace(/[$,]/g, ''));
+          if (!isNaN(amount)) {
+            totalAmount += amount;
           }
         }
-        
-        // Look for Amount Due label
-        if (cellLower.includes('amount due') || cellLower === 'amount due:') {
-          // Check next cell
-          if (j + 1 < row.length && row[j + 1]) {
-            const nextCell = String(row[j + 1]).trim();
-            const amountMatch = nextCell.match(/\$?[\d,]+\.?\d*/);
-            if (amountMatch) {
-              totalAmount = parseFloat(amountMatch[0].replace(/[$,]/g, ''));
-            }
-          }
-          // Check same cell after colon
-          const colonSplit = cell.split(':');
-          if (colonSplit.length > 1 && colonSplit[1].trim()) {
-            const amountMatch = colonSplit[1].trim().match(/\$?[\d,]+\.?\d*/);
-            if (amountMatch) {
-              totalAmount = parseFloat(amountMatch[0].replace(/[$,]/g, ''));
-            }
-          }
-          // Check next row
-          if (i + 1 < jsonData.length && jsonData[i + 1][j]) {
-            const belowCell = String(jsonData[i + 1][j]).trim();
-            const amountMatch = belowCell.match(/\$?[\d,]+\.?\d*/);
-            if (amountMatch) {
-              totalAmount = parseFloat(amountMatch[0].replace(/[$,]/g, ''));
-            }
-          }
-        }
-        
-        // Look for Due Date / Date Due label
-        if (cellLower.includes('date due') || cellLower.includes('due date') || cellLower === 'date due:') {
-          // Check next cell
-          if (j + 1 < row.length && row[j + 1]) {
-            const nextCell = String(row[j + 1]).trim();
-            const dateMatch = nextCell.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
-            if (dateMatch) {
-              dueDate = dateMatch[0];
-            }
-          }
-          // Check same cell after colon
-          const colonSplit = cell.split(':');
-          if (colonSplit.length > 1 && colonSplit[1].trim()) {
-            const dateMatch = colonSplit[1].trim().match(/\d{1,2}\/\d{1,2}\/\d{4}/);
-            if (dateMatch) {
-              dueDate = dateMatch[0];
-            }
-          }
-          // Check next row
-          if (i + 1 < jsonData.length && jsonData[i + 1][j]) {
-            const belowCell = String(jsonData[i + 1][j]).trim();
-            const dateMatch = belowCell.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
-            if (dateMatch) {
-              dueDate = dateMatch[0];
-            }
-          }
-        }
+      }
+    }
+
+    // Look for due date in Bill To column or calculate from data
+    const billToColIndex = columnMap['bill to'];
+    if (billToColIndex !== undefined && firstDataRow) {
+      const billToDate = String(firstDataRow[billToColIndex] || '');
+      const dateMatch = billToDate.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+      if (dateMatch) {
+        // Use the Bill To date as a reference, add 30 days for due date
+        const billTo = new Date(dateMatch[0]);
+        const due = new Date(billTo);
+        due.setDate(due.getDate() + 30);
+        dueDate = `${(due.getMonth() + 1).toString().padStart(2, '0')}/${due.getDate().toString().padStart(2, '0')}/${due.getFullYear()}`;
       }
     }
 
