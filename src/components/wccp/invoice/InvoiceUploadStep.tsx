@@ -88,8 +88,26 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
     let excelFile = uploadedFiles.excel;
 
     files.forEach((file) => {
-      // First file goes to PDF slot, second to Excel slot
-      if (!pdfFile) {
+      const fileName = file.name.toLowerCase();
+      const fileType = file.type;
+      
+      // Detect PDF files
+      if (fileType === 'application/pdf' || fileName.endsWith('.pdf')) {
+        pdfFile = file;
+      }
+      // Detect Excel/CSV files
+      else if (
+        fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        fileType === 'application/vnd.ms-excel' ||
+        fileType === 'text/csv' ||
+        fileName.endsWith('.xlsx') ||
+        fileName.endsWith('.xls') ||
+        fileName.endsWith('.csv')
+      ) {
+        excelFile = file;
+      }
+      // If type can't be determined, assign in order
+      else if (!pdfFile) {
         pdfFile = file;
       } else if (!excelFile) {
         excelFile = file;
