@@ -88,14 +88,10 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
     let excelFile = uploadedFiles.excel;
 
     files.forEach((file) => {
-      if (file.type === 'application/pdf') {
+      // First file goes to PDF slot, second to Excel slot
+      if (!pdfFile) {
         pdfFile = file;
-      } else if (
-        file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
-        file.type === 'application/vnd.ms-excel' ||
-        file.name.endsWith('.xlsx') ||
-        file.name.endsWith('.xls')
-      ) {
+      } else if (!excelFile) {
         excelFile = file;
       }
     });
@@ -117,7 +113,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
     if (!uploadedFiles.pdf || !uploadedFiles.excel) {
       toast({
         title: 'Missing Files',
-        description: 'Please upload both PDF and Excel files.',
+        description: 'Please upload exactly two files.',
         variant: 'destructive',
       });
       return;
@@ -204,7 +200,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
         <p className="text-lg font-semibold mb-2">Drop your files here</p>
         <p className="text-sm text-muted-foreground mb-4">
-          Upload exactly two files: PDF and Excel
+          Upload exactly two files (any format)
         </p>
         <label htmlFor="file-input">
           <Button variant="outline" asChild>
@@ -216,7 +212,6 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
           type="file"
           className="hidden"
           multiple
-          accept=".pdf,.xlsx,.xls"
           onChange={handleFileInput}
         />
       </div>
@@ -298,8 +293,8 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       <div className="mt-6 p-4 bg-muted/50 rounded-lg">
         <p className="text-sm font-semibold mb-2">What files are accepted?</p>
         <ul className="text-sm text-muted-foreground space-y-1">
-          <li>• PDF: Vendor invoice with summary details</li>
-          <li>• Excel: Line-item details (.xlsx or .xls)</li>
+          <li>• Any file format is accepted</li>
+          <li>• Upload exactly two files</li>
           <li>• Maximum file size: 20MB per file</li>
         </ul>
       </div>
