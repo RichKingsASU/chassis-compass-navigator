@@ -209,17 +209,20 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
     }
 
     setIsUploading(true);
-    const bucketName = `gps-${providerName.toLowerCase().replace(/\s+/g, '-')}`;
+    const bucketName = 'gps-uploads';
 
     try {
       for (const file of selectedFiles) {
-        const fileName = `${Date.now()}-${file.name}`;
+        const fileName = `${providerName}/${Date.now()}-${file.name}`;
         const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
         
         // Upload file to storage
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from(bucketName)
-          .upload(fileName, file);
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
         if (uploadError) throw uploadError;
 
