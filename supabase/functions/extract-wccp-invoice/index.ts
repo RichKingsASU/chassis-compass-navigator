@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs";
+import { getDocument } from "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,6 +30,24 @@ serve(async (req) => {
       console.error("PDF download error:", pdfError);
       throw new Error(`Failed to download PDF: ${pdfError.message}`);
     }
+
+    // Extract text from PDF
+    const pdfBuffer = await pdfData.arrayBuffer();
+    const uint8Array = new Uint8Array(pdfBuffer);
+    
+    // Parse PDF to extract text
+    const loadingTask = getDocument({ data: uint8Array });
+    const pdfDoc = await loadingTask.promise;
+    
+    let pdfText = '';
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+      const page = await pdfDoc.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map((item: any) => item.str).join(' ');
+      pdfText += pageText + '\n';
+    }
+    
+    console.log('Extracted PDF text:', pdfText.substring(0, 500));
 
     // Download Excel from storage
     const { data: xlsxData, error: xlsxError } = await supabase.storage
@@ -61,58 +80,31 @@ serve(async (req) => {
     console.log(`Parsed ${jsonData.length} rows from Excel`);
     console.log('First 10 rows (cleaned):', JSON.stringify(jsonData.slice(0, 10), null, 2));
 
-    // Extract invoice summary from table structure
+    // Extract invoice summary from PDF text
     let invoiceId = '';
     let billingDate = '';
     let dueDate = '';
     let totalAmount = 0;
 
-    // Find header row and create column map
-    const headerRow = jsonData[0] || [];
-    const columnMap: { [key: string]: number } = {};
-    headerRow.forEach((header, index) => {
-      const cleanHeader = String(header).toLowerCase().trim();
-      columnMap[cleanHeader] = index;
-    });
-
-    console.log('Column map:', columnMap);
-
-    // Extract invoice ID from first data row (usually row 2)
-    const firstDataRow = jsonData.find((row, idx) => idx > 1 && row.length > 5);
-    if (firstDataRow && columnMap['invoice'] !== undefined) {
-      invoiceId = String(firstDataRow[columnMap['invoice']] || '').trim();
+    // Extract Invoice # from PDF
+    const invoiceMatch = pdfText.match(/Invoice\s*#?\s*:?\s*(\d+)/i);
+    if (invoiceMatch) {
+      invoiceId = invoiceMatch[1];
     }
 
-    // Sum up Total column to get amount due
-    const totalColIndex = columnMap['total'];
-    if (totalColIndex !== undefined) {
-      for (let i = 2; i < jsonData.length; i++) {
-        const row = jsonData[i];
-        if (row.length > totalColIndex) {
-          const totalCell = String(row[totalColIndex] || '');
-          const amount = parseFloat(totalCell.replace(/[$,]/g, ''));
-          if (!isNaN(amount)) {
-            totalAmount += amount;
-          }
-        }
-      }
+    // Extract Amount Due from PDF
+    const amountMatch = pdfText.match(/Amount\s+Due\s*:?\s*\$?([\d,]+\.?\d*)/i);
+    if (amountMatch) {
+      totalAmount = parseFloat(amountMatch[1].replace(/,/g, ''));
     }
 
-    // Look for due date in Bill To column or calculate from data
-    const billToColIndex = columnMap['bill to'];
-    if (billToColIndex !== undefined && firstDataRow) {
-      const billToDate = String(firstDataRow[billToColIndex] || '');
-      const dateMatch = billToDate.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
-      if (dateMatch) {
-        // Use the Bill To date as a reference, add 30 days for due date
-        const billTo = new Date(dateMatch[0]);
-        const due = new Date(billTo);
-        due.setDate(due.getDate() + 30);
-        dueDate = `${(due.getMonth() + 1).toString().padStart(2, '0')}/${due.getDate().toString().padStart(2, '0')}/${due.getFullYear()}`;
-      }
+    // Extract Date Due from PDF
+    const dueDateMatch = pdfText.match(/Date\s+Due\s*:?\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+    if (dueDateMatch) {
+      dueDate = dueDateMatch[1];
     }
 
-    console.log('Extracted header:', { invoiceId, dueDate, totalAmount });
+    console.log('Extracted from PDF:', { invoiceId, totalAmount, dueDate });
 
     // Calculate missing dates
     let finalBillingDate = billingDate;
