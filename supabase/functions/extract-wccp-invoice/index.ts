@@ -40,7 +40,7 @@ serve(async (req) => {
       throw new Error(`Failed to download Excel: ${xlsxError.message}`);
     }
 
-    // Parse Excel file
+    // Parse Excel/CSV file
     const arrayBuffer = await xlsxData.arrayBuffer();
     const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
     const firstSheetName = workbook.SheetNames[0];
@@ -48,6 +48,7 @@ serve(async (req) => {
     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
 
     console.log(`Parsed ${jsonData.length} rows from Excel`);
+    console.log('First 10 rows:', JSON.stringify(jsonData.slice(0, 10), null, 2));
 
     // Extract invoice summary (customize based on WCCP format)
     let invoiceId = '';
