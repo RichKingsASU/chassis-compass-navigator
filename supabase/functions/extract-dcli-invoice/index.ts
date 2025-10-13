@@ -26,13 +26,13 @@ serve(async (req) => {
 
     // Download files from storage
     const { data: _pdfData, error: pdfError } = await supabase.storage
-      .from("invoices")
+      .from("dcli-invoices")
       .download(pdf_path);
 
     if (pdfError) throw new Error(`PDF download failed: ${pdfError.message}`);
 
     const { data: xlsxData, error: xlsxError } = await supabase.storage
-      .from("invoices")
+      .from("dcli-invoices")
       .download(xlsx_path);
 
     if (xlsxError) throw new Error(`Excel download failed: ${xlsxError.message}`);
