@@ -45,10 +45,21 @@ serve(async (req) => {
     const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+    const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
+
+    // Clean null bytes from UTF-16 encoded data
+    const jsonData = rawData.map(row => 
+      row.map(cell => {
+        if (typeof cell === 'string') {
+          // Remove null bytes and trim
+          return cell.replace(/\u0000/g, '').trim();
+        }
+        return cell;
+      })
+    );
 
     console.log(`Parsed ${jsonData.length} rows from Excel`);
-    console.log('First 10 rows:', JSON.stringify(jsonData.slice(0, 10), null, 2));
+    console.log('First 10 rows (cleaned):', JSON.stringify(jsonData.slice(0, 10), null, 2));
 
     // Extract invoice summary (customize based on WCCP format)
     let invoiceId = '';
