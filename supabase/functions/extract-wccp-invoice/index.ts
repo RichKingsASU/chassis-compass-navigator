@@ -78,6 +78,31 @@ serve(async (req) => {
       }
     }
 
+    // Calculate missing dates
+    let finalBillingDate = billingDate;
+    let finalDueDate = dueDate;
+
+    if (!billingDate && dueDate) {
+      // Calculate billing date as 30 days before due date
+      const dueDateObj = new Date(dueDate);
+      const billingDateObj = new Date(dueDateObj);
+      billingDateObj.setDate(billingDateObj.getDate() - 30);
+      finalBillingDate = billingDateObj.toISOString().split('T')[0];
+    } else if (billingDate && !dueDate) {
+      // Calculate due date as 30 days after billing date
+      const billingDateObj = new Date(billingDate);
+      const dueDateObj = new Date(billingDateObj);
+      dueDateObj.setDate(dueDateObj.getDate() + 30);
+      finalDueDate = dueDateObj.toISOString().split('T')[0];
+    } else if (!billingDate && !dueDate) {
+      // Use defaults
+      const today = new Date();
+      finalBillingDate = today.toISOString().split('T')[0];
+      const defaultDue = new Date(today);
+      defaultDue.setDate(defaultDue.getDate() + 30);
+      finalDueDate = defaultDue.toISOString().split('T')[0];
+    }
+
     // Extract line items (customize based on WCCP format)
     const lineItems = [];
     let foundDataStart = false;
@@ -140,8 +165,8 @@ serve(async (req) => {
     const extractedData = {
       invoice: {
         summary_invoice_id: invoiceId || 'WCCP-' + Date.now(),
-        billing_date: billingDate || new Date().toISOString().split('T')[0],
-        due_date: dueDate || new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
+        billing_date: finalBillingDate,
+        due_date: finalDueDate,
         billing_terms: 'Net 30',
         vendor: 'WCCP',
         currency_code: 'USD',
