@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs";
-import { getDocument } from "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm";
+import pdf from "npm:pdf-parse@1.1.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -31,21 +31,10 @@ serve(async (req) => {
       throw new Error(`Failed to download PDF: ${pdfError.message}`);
     }
 
-    // Extract text from PDF
+    // Extract text from PDF using pdf-parse
     const pdfBuffer = await pdfData.arrayBuffer();
-    const uint8Array = new Uint8Array(pdfBuffer);
-    
-    // Parse PDF to extract text
-    const loadingTask = getDocument({ data: uint8Array });
-    const pdfDoc = await loadingTask.promise;
-    
-    let pdfText = '';
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-      const page = await pdfDoc.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map((item: any) => item.str).join(' ');
-      pdfText += pageText + '\n';
-    }
+    const pdfParsed = await pdf(Buffer.from(pdfBuffer));
+    const pdfText = pdfParsed.text;
     
     console.log('Extracted PDF text:', pdfText.substring(0, 500));
 
@@ -189,6 +178,34 @@ serve(async (req) => {
     }
 
     console.log(`Extracted ${lineItems.length} line items, line item total: $${lineItemTotal}`);
+
+    // Enrich line items with MCL data
+    const enrichedLineItems = [];
+    for (const item of lineItems) {
+      const chassisNorm = item.chassis ? String(item.chassis).trim().toUpperCase().replace(/[^A-Z0-9]/g, '') : null;
+      
+      let mclData = null;
+      if (chassisNorm) {
+        // Look up chassis in mcl_master_chassis_list
+        const { data: mclMatch, error: mclError } = await supabase
+          .from('mcl_master_chassis_list')
+          .select('*')
+          .eq('forrest_chz', chassisNorm)
+          .maybeSingle();
+        
+        if (!mclError && mclMatch) {
+          mclData = mclMatch;
+        }
+      }
+
+      enrichedLineItems.push({
+        ...item,
+        mcl_data: mclData,
+        chassis_normalized: chassisNorm
+      });
+    }
+
+    console.log('Enriched line items with MCL data:', enrichedLineItems.filter(i => i.mcl_data).length, 'matches out of', enrichedLineItems.length);
     
     // Use the header total if available, otherwise use sum of line items
     const finalTotal = totalAmount > 0 ? totalAmount : lineItemTotal;
@@ -204,14 +221,15 @@ serve(async (req) => {
         amount_due: finalTotal,
         status: 'pending',
       },
-      line_items: lineItems,
+      line_items: enrichedLineItems,
       attachments: [
         { name: pdf_path.split('/').pop(), path: pdf_path },
         { name: xlsx_path.split('/').pop(), path: xlsx_path },
       ],
-      warnings: lineItems.length === 0 
+      warnings: enrichedLineItems.length === 0 
         ? ['No line items found. Please verify the Excel format.']
         : [],
+      mcl_matches: enrichedLineItems.filter(item => item.mcl_data !== null).length,
       source_hash: crypto.randomUUID(),
       excel_headers: jsonData[0] || [],
     };
