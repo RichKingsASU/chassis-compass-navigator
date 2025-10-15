@@ -9,15 +9,11 @@ import InvoiceSummaryCard from '@/components/ccm/invoice/InvoiceSummaryCard';
 import InvoiceReviewStep from '@/components/ccm/invoice/InvoiceReviewStep';
 
 export interface InvoiceData {
-  summary_invoice_id: string;
-  billing_date: string;
-  due_date: string;
-  billing_terms: string;
-  vendor: string;
-  currency_code: string;
-  amount_due: number;
+  invoice_number: string;
+  invoice_date: string;
+  provider: string;
+  total_amount_usd: number;
   status: string;
-  account_code?: string;
 }
 
 export interface LineItem {

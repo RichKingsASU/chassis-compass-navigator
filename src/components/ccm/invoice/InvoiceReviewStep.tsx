@@ -37,10 +37,11 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
   }, []);
 
   const handleInvoiceFieldChange = (field: string, value: any) => {
-    setInvoice((prev) => ({ ...prev, [field]: value }));
+    const updatedInvoice = { ...invoice, [field]: value };
+    setInvoice(updatedInvoice);
     setExtractedData({
       ...extractedData,
-      invoice: { ...invoice, [field]: value },
+      invoice: updatedInvoice,
     });
   };
 
@@ -60,11 +61,11 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('ccm_invoice')
         .insert({
-          invoice_number: invoice.summary_invoice_id,
-          invoice_date: invoice.billing_date,
-          provider: 'CCM',
-          total_amount_usd: invoice.amount_due,
-          status: 'pending',
+          invoice_number: invoice.invoice_number,
+          invoice_date: invoice.invoice_date,
+          provider: invoice.provider,
+          total_amount_usd: invoice.total_amount_usd,
+          status: invoice.status,
         })
         .select()
         .single();
@@ -108,42 +109,25 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
         <h2 className="text-2xl font-bold mb-6">Invoice Header</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="summary_invoice_id">Invoice Number</Label>
+            <Label htmlFor="invoice_number">Invoice Number</Label>
             <Input
-              id="summary_invoice_id"
-              value={invoice.summary_invoice_id}
-              onChange={(e) => handleInvoiceFieldChange('summary_invoice_id', e.target.value)}
+              id="invoice_number"
+              value={invoice.invoice_number || ''}
+              onChange={(e) => handleInvoiceFieldChange('invoice_number', e.target.value)}
             />
           </div>
           <div>
-            <Label htmlFor="billing_date">Invoice Date</Label>
+            <Label htmlFor="invoice_date">Invoice Date</Label>
             <Input
-              id="billing_date"
+              id="invoice_date"
               type="date"
-              value={invoice.billing_date}
-              onChange={(e) => handleInvoiceFieldChange('billing_date', e.target.value)}
+              value={invoice.invoice_date || ''}
+              onChange={(e) => handleInvoiceFieldChange('invoice_date', e.target.value)}
             />
           </div>
           <div>
-            <Label htmlFor="due_date">Due Date</Label>
-            <Input
-              id="due_date"
-              type="date"
-              value={invoice.due_date}
-              onChange={(e) => handleInvoiceFieldChange('due_date', e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="billing_terms">Billing Terms</Label>
-            <Input
-              id="billing_terms"
-              value={invoice.billing_terms}
-              onChange={(e) => handleInvoiceFieldChange('billing_terms', e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="vendor">Vendor</Label>
-            <Select value={invoice.vendor || "CCM"} onValueChange={(v) => handleInvoiceFieldChange('vendor', v)}>
+            <Label htmlFor="provider">Provider</Label>
+            <Select value={invoice.provider || "CCM"} onValueChange={(v) => handleInvoiceFieldChange('provider', v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -153,35 +137,27 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
             </Select>
           </div>
           <div>
-            <Label htmlFor="amount_due">Amount Due</Label>
+            <Label htmlFor="total_amount_usd">Total Amount (USD)</Label>
             <Input
-              id="amount_due"
+              id="total_amount_usd"
               type="number"
               step="0.01"
-              value={Number(invoice.amount_due).toFixed(2)}
-              onChange={(e) => handleInvoiceFieldChange('amount_due', parseFloat(e.target.value))}
+              value={invoice.total_amount_usd || 0}
+              onChange={(e) => handleInvoiceFieldChange('total_amount_usd', parseFloat(e.target.value) || 0)}
             />
           </div>
           <div>
             <Label htmlFor="status">Status</Label>
-            <Select value={invoice.status || "Open"} onValueChange={(v) => handleInvoiceFieldChange('status', v)}>
+            <Select value={invoice.status || "pending"} onValueChange={(v) => handleInvoiceFieldChange('status', v)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Open">Open</SelectItem>
-                <SelectItem value="Closed">Closed</SelectItem>
-                <SelectItem value="Credit">Credit</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label htmlFor="currency_code">Currency</Label>
-            <Input
-              id="currency_code"
-              value={invoice.currency_code}
-              onChange={(e) => handleInvoiceFieldChange('currency_code', e.target.value)}
-            />
           </div>
         </div>
       </Card>
