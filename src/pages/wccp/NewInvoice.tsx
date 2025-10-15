@@ -9,6 +9,9 @@ import { ExtractedData } from '@/components/wccp/invoice/InvoiceUploadStep';
 
 const steps = [
   { id: 1, name: 'Upload', description: 'PDF + Excel' },
+  { id: 2, name: 'Review', description: 'Prefill & Edit' },
+  { id: 3, name: 'Validate', description: 'Match Data' },
+  { id: 4, name: 'Submit', description: 'Review & Submit' },
 ];
 
 const NewInvoice = () => {

@@ -3,50 +3,93 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
 import InvoiceUploadStep from '@/components/ccm/invoice/InvoiceUploadStep';
 import InvoiceSummaryCard from '@/components/ccm/invoice/InvoiceSummaryCard';
 
+export interface InvoiceData {
+  summary_invoice_id: string;
+  billing_date: string;
+  due_date: string;
+  billing_terms: string;
+  vendor: string;
+  currency_code: string;
+  amount_due: number;
+  status: string;
+  account_code?: string;
+}
+
+export interface LineItem {
+  invoice_status?: string;
+  row_data?: Record<string, any>;
+}
+
 export interface ExtractedData {
-  invoice: {
-    invoice_number: string;
-    invoice_date: string;
-    provider: string;
-    total_amount_usd: number;
-    status: string;
-  };
-  line_items: Array<{
-    row_number: number;
-    amount: number;
-    row_data: Record<string, any>;
-  }>;
-  excel_headers: string[];
-  attachments: Array<{ name: string; path: string; type: string }>;
+  invoice: InvoiceData;
+  line_items: LineItem[];
+  attachments: Array<{ name: string; path: string }>;
   warnings: string[];
   source_hash: string;
+  excel_headers?: string[];
 }
 
 const steps = [
   { id: 1, name: 'Upload', description: 'PDF + Excel' },
+  { id: 2, name: 'Review', description: 'Prefill & Edit' },
+  { id: 3, name: 'Validate', description: 'Match Data' },
+  { id: 4, name: 'Submit', description: 'Review & Submit' },
 ];
 
 const NewInvoice = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedFiles, setUploadedFiles] = useState<{ pdf: File | null; excel: File | null }>({
     pdf: null,
     excel: null,
   });
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const progressPercentage = (currentStep / steps.length) * 100;
 
   const handleBack = () => {
+    if (hasUnsavedChanges) {
+      const confirm = window.confirm('You have unsaved changes. Are you sure you want to leave?');
+      if (!confirm) return;
+    }
     navigate('/vendors/ccm');
   };
 
   const handleStepComplete = () => {
     if (currentStep < steps.length) {
       setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const handleStepBack = () => {
+    if (currentStep > 1 && currentStep !== 2) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    if (!extractedData) return;
+
+    try {
+      toast({
+        title: "Draft Saved",
+        description: "Your invoice has been saved as a draft.",
+      });
+
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save draft.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -99,7 +142,6 @@ const NewInvoice = () => {
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8 max-w-[1800px]">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Left: Form - Takes 3/4 of space */}
           <div className="lg:col-span-3">
             {currentStep === 1 && (
               <InvoiceUploadStep
@@ -108,6 +150,21 @@ const NewInvoice = () => {
                 onComplete={handleStepComplete}
                 setExtractedData={setExtractedData}
               />
+            )}
+            {currentStep === 2 && extractedData && (
+              <div className="text-center p-12 bg-muted rounded-lg">
+                <p className="text-muted-foreground">Review step - Coming soon</p>
+              </div>
+            )}
+            {currentStep === 3 && extractedData && (
+              <div className="text-center p-12 bg-muted rounded-lg">
+                <p className="text-muted-foreground">Validation step - Coming soon</p>
+              </div>
+            )}
+            {currentStep === 4 && extractedData && (
+              <div className="text-center p-12 bg-muted rounded-lg">
+                <p className="text-muted-foreground">Submit step - Coming soon</p>
+              </div>
             )}
           </div>
 

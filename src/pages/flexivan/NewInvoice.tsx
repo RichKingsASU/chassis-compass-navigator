@@ -6,27 +6,37 @@ import { Progress } from '@/components/ui/progress';
 import InvoiceUploadStep from '@/components/flexivan/invoice/InvoiceUploadStep';
 import InvoiceSummaryCard from '@/components/flexivan/invoice/InvoiceSummaryCard';
 
+export interface InvoiceData {
+  summary_invoice_id: string;
+  billing_date: string;
+  due_date: string;
+  billing_terms: string;
+  vendor: string;
+  currency_code: string;
+  amount_due: number;
+  status: string;
+  account_code?: string;
+}
+
+export interface LineItem {
+  invoice_status?: string;
+  row_data?: Record<string, any>;
+}
+
 export interface ExtractedData {
-  invoice: {
-    invoice_number: string;
-    invoice_date: string;
-    provider: string;
-    total_amount_usd: number;
-    status: string;
-  };
-  line_items: Array<{
-    row_number: number;
-    amount: number;
-    row_data: Record<string, any>;
-  }>;
-  excel_headers: string[];
-  attachments: Array<{ name: string; path: string; type: string }>;
+  invoice: InvoiceData;
+  line_items: LineItem[];
+  attachments: Array<{ name: string; path: string }>;
   warnings: string[];
   source_hash: string;
+  excel_headers?: string[];
 }
 
 const steps = [
   { id: 1, name: 'Upload', description: 'PDF + Excel' },
+  { id: 2, name: 'Review', description: 'Prefill & Edit' },
+  { id: 3, name: 'Validate', description: 'Match Data' },
+  { id: 4, name: 'Submit', description: 'Review & Submit' },
 ];
 
 const NewInvoice = () => {
@@ -37,10 +47,15 @@ const NewInvoice = () => {
     excel: null,
   });
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const progressPercentage = (currentStep / steps.length) * 100;
 
   const handleBack = () => {
+    if (hasUnsavedChanges) {
+      const confirm = window.confirm('You have unsaved changes. Are you sure you want to leave?');
+      if (!confirm) return;
+    }
     navigate('/vendors/flexivan');
   };
 
@@ -48,6 +63,16 @@ const NewInvoice = () => {
     if (currentStep < steps.length) {
       setCurrentStep(currentStep + 1);
     }
+  };
+
+  const handleStepBack = () => {
+    if (currentStep > 1 && currentStep !== 2) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSaveDraft = () => {
+    setHasUnsavedChanges(false);
   };
 
   return (
@@ -104,6 +129,21 @@ const NewInvoice = () => {
                 onComplete={handleStepComplete}
                 setExtractedData={setExtractedData}
               />
+            )}
+            {currentStep === 2 && extractedData && (
+              <div className="text-center p-12 bg-muted rounded-lg">
+                <p className="text-muted-foreground">Review step - Coming soon</p>
+              </div>
+            )}
+            {currentStep === 3 && extractedData && (
+              <div className="text-center p-12 bg-muted rounded-lg">
+                <p className="text-muted-foreground">Validation step - Coming soon</p>
+              </div>
+            )}
+            {currentStep === 4 && extractedData && (
+              <div className="text-center p-12 bg-muted rounded-lg">
+                <p className="text-muted-foreground">Submit step - Coming soon</p>
+              </div>
             )}
           </div>
 

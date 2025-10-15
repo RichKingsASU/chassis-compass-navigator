@@ -30,17 +30,17 @@ const InvoiceSummaryCard: React.FC<InvoiceSummaryCardProps> = ({ extractedData, 
 
       <div className="space-y-4">
         <div>
-          <div className="text-sm text-muted-foreground mb-1">Invoice Number</div>
-          <div className="font-semibold">{extractedData.invoice.invoice_number}</div>
+          <div className="text-sm text-muted-foreground mb-1">Invoice ID</div>
+          <div className="font-semibold">{extractedData.invoice.summary_invoice_id}</div>
         </div>
 
         <div>
           <div className="text-sm text-muted-foreground mb-1 flex items-center gap-1">
             <DollarSign className="w-3 h-3" />
-            Total Amount
+            Amount Due
           </div>
           <div className="text-2xl font-bold">
-            ${Number(extractedData.invoice.total_amount_usd).toLocaleString('en-US', {
+            ${Number(extractedData.invoice.amount_due).toLocaleString('en-US', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}

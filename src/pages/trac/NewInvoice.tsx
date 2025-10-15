@@ -43,17 +43,21 @@ const steps = [
 const NewInvoice = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedFiles, setUploadedFiles] = useState<{ pdf: File | null; excel: File | null }>({
     pdf: null,
     excel: null,
   });
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const progressPercentage = (currentStep / steps.length) * 100;
 
   const handleBack = () => {
+    if (hasUnsavedChanges) {
+      const confirm = window.confirm('You have unsaved changes. Are you sure you want to leave?');
+      if (!confirm) return;
+    }
     navigate('/vendors/trac');
   };
 
@@ -64,9 +68,13 @@ const NewInvoice = () => {
   };
 
   const handleStepBack = () => {
-    if (currentStep > 1) {
+    if (currentStep > 1 && currentStep !== 2) {
       setCurrentStep(currentStep - 1);
     }
+  };
+
+  const handleSaveDraft = () => {
+    setHasUnsavedChanges(false);
   };
 
   return (
