@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ExtractedData } from '@/pages/scspa/NewInvoice';
+import { Progress } from '@/components/ui/progress';
 
 interface InvoiceUploadStepProps {
   uploadedFiles: { pdf: File | null; excel: File | null };
@@ -23,6 +24,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [allFiles, setAllFiles] = useState<File[]>([]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -48,17 +50,20 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
   };
 
   const processFiles = (files: File[]) => {
+    setAllFiles(prev => [...prev, ...files]);
+    
     let pdfFile = uploadedFiles.pdf;
     let excelFile = uploadedFiles.excel;
 
     files.forEach((file) => {
-      if (file.type === 'application/pdf') {
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
         pdfFile = file;
       } else if (
         file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
         file.type === 'application/vnd.ms-excel' ||
         file.name.endsWith('.xlsx') ||
-        file.name.endsWith('.xls')
+        file.name.endsWith('.xls') ||
+        file.name.endsWith('.csv')
       ) {
         excelFile = file;
       }
@@ -67,8 +72,16 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
     setUploadedFiles({ pdf: pdfFile, excel: excelFile });
   };
 
-  const removeFile = (type: 'pdf' | 'excel') => {
-    setUploadedFiles((prev) => ({ ...prev, [type]: null }));
+  const removeFile = (index: number) => {
+    const fileToRemove = allFiles[index];
+    setAllFiles(prev => prev.filter((_, i) => i !== index));
+    
+    if (uploadedFiles.pdf === fileToRemove) {
+      setUploadedFiles(prev => ({ ...prev, pdf: null }));
+    }
+    if (uploadedFiles.excel === fileToRemove) {
+      setUploadedFiles(prev => ({ ...prev, excel: null }));
+    }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -77,11 +90,18 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
   };
 
+  const getFileIcon = (file: File) => {
+    const fileName = file.name.toLowerCase();
+    if (fileName.endsWith('.pdf')) return { Icon: FileText, color: 'text-red-500' };
+    if (fileName.match(/\.(xlsx|xls|csv)$/)) return { Icon: FileSpreadsheet, color: 'text-green-500' };
+    return { Icon: Upload, color: 'text-blue-500' };
+  };
+
   const handleContinue = async () => {
-    if (!uploadedFiles.pdf || !uploadedFiles.excel) {
+    if (allFiles.length === 0) {
       toast({
-        title: 'Missing Files',
-        description: 'Please upload both PDF and Excel files.',
+        title: 'No Files',
+        description: 'Please upload at least one file.',
         variant: 'destructive',
       });
       return;
@@ -91,24 +111,33 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
     setUploadProgress(10);
 
     try {
-      const tempUuid = crypto.randomUUID();
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const pdfFile = allFiles.find(f => f.name.toLowerCase().endsWith('.pdf'));
+      const excelFile = allFiles.find(f => f.name.toLowerCase().match(/\.(xlsx|xls|csv)$/));
 
-      const pdfPath = `vendor/scspa/invoices/${year}/${month}/${tempUuid}/${uploadedFiles.pdf.name}`;
+      if (!pdfFile || !excelFile) {
+        toast({
+          title: 'Missing Required Files',
+          description: 'Please upload at least one PDF and one Excel/CSV file.',
+          variant: 'destructive',
+        });
+        setIsUploading(false);
+        return;
+      }
+
+      const tempUuid = crypto.randomUUID();
+      const pdfPath = `scspa_invoices/${tempUuid}/${pdfFile.name}`;
       setUploadProgress(30);
       const { error: pdfError } = await supabase.storage
         .from('scspa-invoices')
-        .upload(pdfPath, uploadedFiles.pdf, { upsert: false });
+        .upload(pdfPath, pdfFile);
 
       if (pdfError) throw pdfError;
 
-      const excelPath = `vendor/scspa/invoices/${year}/${month}/${tempUuid}/${uploadedFiles.excel.name}`;
+      const excelPath = `scspa_invoices/${tempUuid}/${excelFile.name}`;
       setUploadProgress(50);
       const { error: excelError } = await supabase.storage
         .from('scspa-invoices')
-        .upload(excelPath, uploadedFiles.excel, { upsert: false });
+        .upload(excelPath, excelFile);
 
       if (excelError) throw excelError;
 
@@ -146,8 +175,6 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
     }
   };
 
-  const bothFilesUploaded = uploadedFiles.pdf && uploadedFiles.excel;
-
   return (
     <Card className="p-6">
       <h2 className="text-2xl font-bold mb-6">Upload Invoice Files</h2>
@@ -163,7 +190,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
         <p className="text-lg font-semibold mb-2">Drop your files here</p>
         <p className="text-sm text-muted-foreground mb-4">
-          Upload exactly two files: PDF and Excel
+          Upload any type of files - PDF, Excel, images, documents, etc.
         </p>
         <label htmlFor="file-input">
           <Button variant="outline" asChild>
@@ -175,56 +202,40 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
           type="file"
           className="hidden"
           multiple
-          accept=".pdf,.xlsx,.xls"
           onChange={handleFileInput}
         />
       </div>
 
-      <div className="mt-6 space-y-3">
-        {uploadedFiles.pdf && (
-          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-            <div className="flex items-center gap-3">
-              <FileText className="w-5 h-5 text-red-500" />
-              <div>
-                <p className="font-medium">{uploadedFiles.pdf.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatFileSize(uploadedFiles.pdf.size)} • PDF
-                </p>
+      {allFiles.length > 0 && (
+        <div className="mt-6 space-y-3">
+          <h4 className="font-semibold">Uploaded Files ({allFiles.length})</h4>
+          {allFiles.map((file, index) => {
+            const { Icon, color } = getFileIcon(file);
+            
+            return (
+              <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Icon className={`w-5 h-5 ${color}`} />
+                  <div>
+                    <p className="font-medium">{file.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatFileSize(file.size)}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeFile(index)}
+                  disabled={isUploading}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => removeFile('pdf')}
-              disabled={isUploading}
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        )}
-
-        {uploadedFiles.excel && (
-          <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-            <div className="flex items-center gap-3">
-              <FileSpreadsheet className="w-5 h-5 text-green-500" />
-              <div>
-                <p className="font-medium">{uploadedFiles.excel.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatFileSize(uploadedFiles.excel.size)} • Excel
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => removeFile('excel')}
-              disabled={isUploading}
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {isUploading && (
         <div className="mt-6">
@@ -232,29 +243,24 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
             <span>Uploading and extracting...</span>
             <span>{uploadProgress}%</span>
           </div>
-          <div className="w-full bg-muted rounded-full h-2">
-            <div
-              className="bg-primary h-2 rounded-full transition-all"
-              style={{ width: `${uploadProgress}%` }}
-            />
-          </div>
+          <Progress value={uploadProgress} />
         </div>
       )}
 
       <div className="mt-6 flex justify-end">
         <Button
           onClick={handleContinue}
-          disabled={!bothFilesUploaded || isUploading}
+          disabled={allFiles.length === 0 || isUploading}
         >
           Continue to Review
         </Button>
       </div>
 
       <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-        <p className="text-sm font-semibold mb-2">What files are accepted?</p>
+        <p className="text-sm font-semibold mb-2">File Upload</p>
         <ul className="text-sm text-muted-foreground space-y-1">
-          <li>• PDF: Vendor invoice with summary details</li>
-          <li>• Excel: Line-item details (.xlsx or .xls)</li>
+          <li>• Upload any file type (PDF, Excel, CSV, images, documents, etc.)</li>
+          <li>• Multiple files supported - drag and drop or browse</li>
           <li>• Maximum file size: 20MB per file</li>
         </ul>
       </div>
