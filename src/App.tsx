@@ -53,6 +53,9 @@ import InvoicesList from "./pages/invoices/InvoicesList";
 import InvoiceLineDetails from "./pages/invoices/InvoiceLineDetails";
 import InvoiceLineDispute from "./pages/invoices/InvoiceLineDispute";
 import CCMInvoiceLineDetails from "./pages/ccm/InvoiceLineDetails";
+import CCMNewInvoice from "./pages/ccm/NewInvoice";
+import FLEXIVANNewInvoice from "./pages/flexivan/NewInvoice";
+import SCSPANewInvoice from "./pages/scspa/NewInvoice";
 
 const queryClient = new QueryClient();
 
@@ -198,6 +201,11 @@ function App() {
                   <CCM />
                 </DashboardLayout>
               } />
+              <Route path="/vendors/ccm/invoices/new" element={
+                <DashboardLayout>
+                  <CCMNewInvoice />
+                </DashboardLayout>
+              } />
               <Route path="/vendors/ccm/invoice-line/:lineId" element={
                 <DashboardLayout>
                   <CCMInvoiceLineDetails />
@@ -206,6 +214,11 @@ function App() {
               <Route path="/vendors/scspa" element={
                 <DashboardLayout>
                   <SCSPA />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/scspa/invoices/new" element={
+                <DashboardLayout>
+                  <SCSPANewInvoice />
                 </DashboardLayout>
               } />
               <Route path="/vendors/wccp" element={
@@ -266,6 +279,11 @@ function App() {
               <Route path="/vendors/flexivan" element={
                 <DashboardLayout>
                   <FLEXIVAN />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/flexivan/invoices/new" element={
+                <DashboardLayout>
+                  <FLEXIVANNewInvoice />
                 </DashboardLayout>
               } />
               
