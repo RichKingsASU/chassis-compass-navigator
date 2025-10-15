@@ -94,27 +94,32 @@ serve(async (req) => {
 
           // Extract invoice number from Excel data
           let invoiceNumber = invoice_id; // Default to UUID
-          const invoiceNumberHeaders = ['Invoice #', 'Invoice Number', 'Invoice'];
+          const invoiceNumberHeaders = ['Invoice #', 'Invoice Number', 'Invoice', 'Invoice No'];
           
           // Try to find invoice number from first data row
           if (jsonData.length > 1) {
             const firstDataRow = jsonData[1] as unknown[];
+            
             for (const invHeader of invoiceNumberHeaders) {
-              const headerIndex = headers.findIndex(h => 
-                h && h.toLowerCase().trim() === invHeader.toLowerCase().trim()
-              );
+              const headerIndex = headers.findIndex(h => {
+                if (!h) return false;
+                const headerStr = String(h).trim().toLowerCase();
+                const searchStr = invHeader.toLowerCase();
+                return headerStr === searchStr || headerStr.includes(searchStr);
+              });
               
               if (headerIndex >= 0 && headerIndex < firstDataRow.length) {
                 const cell = firstDataRow[headerIndex];
                 if (cell && String(cell).trim()) {
                   invoiceNumber = String(cell).trim();
-                  console.log(`Found invoice number: ${invoiceNumber}`);
+                  console.log(`Found invoice number at column "${headers[headerIndex]}": ${invoiceNumber}`);
                   break;
                 }
               }
             }
           }
           
+          console.log(`Using invoice number: ${invoiceNumber}`);
           extractedData.invoice.invoice_number = invoiceNumber;
 
           // Extract line items from data rows
