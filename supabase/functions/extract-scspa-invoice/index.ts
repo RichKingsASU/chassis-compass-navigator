@@ -16,7 +16,7 @@ serve(async (req) => {
   try {
     const { pdf_path, excel_path, invoice_id } = await req.json();
 
-    console.log("Extracting TRAC invoice from:", { pdf_path, excel_path, invoice_id });
+    console.log("Extracting SCSPA invoice from:", { pdf_path, excel_path, invoice_id });
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -26,7 +26,7 @@ serve(async (req) => {
       invoice: {
         invoice_number: invoice_id,
         invoice_date: new Date().toISOString().split("T")[0],
-        provider: "TRAC",
+        provider: "SCSPA",
         total_amount_usd: 0,
         status: "pending",
       },
@@ -40,7 +40,7 @@ serve(async (req) => {
     if (pdf_path) {
       try {
         const { data: pdfData, error: pdfError } = await supabase.storage
-          .from("trac-invoices")
+          .from("scspa-invoices")
           .download(pdf_path);
 
         if (pdfError) {
@@ -63,7 +63,7 @@ serve(async (req) => {
     if (excel_path) {
       try {
         const { data: excelData, error: excelError } = await supabase.storage
-          .from("trac-invoices")
+          .from("scspa-invoices")
           .download(excel_path);
 
         if (excelError) {
@@ -161,7 +161,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error in extract-trac-invoice:", error);
+    console.error("Error in extract-scspa-invoice:", error);
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",

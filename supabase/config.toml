@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.extract-flexivan-invoice]
 verify_jwt = false
+
+[functions.extract-trac-invoice]
+verify_jwt = false
+
+[functions.extract-wccp-invoice]
+verify_jwt = false
+
+[functions.extract-scspa-invoice]
+verify_jwt = false

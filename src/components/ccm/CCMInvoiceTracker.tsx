@@ -10,8 +10,6 @@ import { Search, Filter, Download, Plus, FileText, AlertCircle } from "lucide-re
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import InvoiceUploadDialog from './invoice/components/InvoiceUploadDialog';
-import { useInvoiceUpload } from '@/hooks/useInvoiceUpload';
 
 interface CCMInvoiceTrackerProps {
   onViewDetail: (record: any) => void;
@@ -37,12 +35,6 @@ const CCMInvoiceTracker: React.FC<CCMInvoiceTrackerProps> = ({ onViewDetail }) =
       return data || [];
     }
   });
-
-  const { isUploading, openDialog, setOpenDialog, onSubmit } = useInvoiceUpload(
-    async () => { await refetch(); },
-    async () => {},
-    'pdf'
-  );
 
   const formatDate = (dateString: string | Date) => {
     if (!dateString) return 'N/A';
@@ -143,13 +135,7 @@ const CCMInvoiceTracker: React.FC<CCMInvoiceTrackerProps> = ({ onViewDetail }) =
           <p className="text-muted-foreground">Search smarter, find faster</p>
         </div>
         <div className="flex gap-2">
-          <InvoiceUploadDialog 
-            onSubmit={onSubmit}
-            isUploading={isUploading}
-            openDialog={openDialog}
-            setOpenDialog={setOpenDialog}
-          />
-          <Button onClick={() => setOpenDialog(true)}>
+          <Button onClick={() => navigate('/vendors/ccm/invoices/new')}>
             <Plus className="h-4 w-4 mr-2" />
             New Invoice
           </Button>
