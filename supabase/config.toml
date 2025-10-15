@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.extract-ccm-invoice]
 verify_jwt = false
+
+[functions.extract-flexivan-invoice]
+verify_jwt = false
