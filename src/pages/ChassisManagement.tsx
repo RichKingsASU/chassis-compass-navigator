@@ -61,14 +61,56 @@ const ChassisManagement = () => {
   const fetchChassisData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // Fetch from MCL master chassis list
+      const { data: mclData, error: mclError } = await supabase
+        .from('mcl_master_chassis_list')
+        .select('*')
+        .order('forrest_chz', { ascending: true });
+
+      if (mclError) {
+        console.error('Error fetching MCL data:', mclError);
+        toast({
+          title: "Warning",
+          description: "Failed to load MCL chassis data. Showing assets table only.",
+          variant: "destructive",
+        });
+      }
+
+      // Fetch from assets table
+      const { data: assetsData, error: assetsError } = await supabase
         .from('assets')
         .select('*')
         .order('identifier', { ascending: true });
 
-      if (error) throw error;
+      if (assetsError) throw assetsError;
 
-      setChassisData(data || []);
+      // Combine and enrich data
+      const enrichedData = (assetsData || []).map(asset => {
+        const mclMatch = (mclData || []).find(
+          mcl => mcl.forrest_chz === asset.identifier || 
+                 mcl.serial === asset.identifier
+        );
+        return {
+          ...asset,
+          mcl_data: mclMatch || null,
+        };
+      });
+
+      // Add MCL records that don't have matching assets
+      const mclOnlyData = (mclData || [])
+        .filter(mcl => !enrichedData.some(
+          asset => asset.identifier === mcl.forrest_chz || asset.identifier === mcl.serial
+        ))
+        .map(mcl => ({
+          id: `mcl-${mcl.id}`,
+          identifier: mcl.forrest_chz,
+          type: mcl.forrest_chassis_type,
+          asset_class: mcl.chassis_category,
+          mcl_data: mcl,
+        }));
+
+      setChassisData([...enrichedData, ...mclOnlyData]);
     } catch (error) {
       console.error('Error fetching chassis data:', error);
       toast({
@@ -309,10 +351,10 @@ const ChassisManagement = () => {
                   <TableHead>Chassis ID</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Asset Class</TableHead>
-                  <TableHead>Door Type</TableHead>
-                  <TableHead>Length</TableHead>
-                  <TableHead>Width</TableHead>
-                  <TableHead>Height</TableHead>
+                  <TableHead>Lessor</TableHead>
+                  <TableHead>Region</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Daily Rate</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -327,14 +369,20 @@ const ChassisManagement = () => {
                   filteredChassis.map((chassis) => (
                     <TableRow key={chassis.id}>
                       <TableCell className="font-medium">{chassis.identifier || 'N/A'}</TableCell>
-                      <TableCell>{chassis.type || 'N/A'}</TableCell>
+                      <TableCell>{chassis.type || chassis.mcl_data?.forrest_chassis_type || 'N/A'}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{chassis.asset_class || 'N/A'}</Badge>
+                        <Badge variant="outline">{chassis.asset_class || chassis.mcl_data?.chassis_category || 'N/A'}</Badge>
                       </TableCell>
-                      <TableCell>{chassis.door_type || 'N/A'}</TableCell>
-                      <TableCell>{chassis.length ? `${chassis.length}"` : 'N/A'}</TableCell>
-                      <TableCell>{chassis.width ? `${chassis.width}"` : 'N/A'}</TableCell>
-                      <TableCell>{chassis.height ? `${chassis.height}"` : 'N/A'}</TableCell>
+                      <TableCell>{chassis.mcl_data?.lessor || 'N/A'}</TableCell>
+                      <TableCell>{chassis.mcl_data?.region || 'N/A'}</TableCell>
+                      <TableCell>
+                        {chassis.mcl_data?.chassis_status ? (
+                          <Badge variant={chassis.mcl_data.chassis_status === 'Active' ? 'default' : 'secondary'}>
+                            {chassis.mcl_data.chassis_status}
+                          </Badge>
+                        ) : 'N/A'}
+                      </TableCell>
+                      <TableCell>{chassis.mcl_data?.daily_rate ? `$${chassis.mcl_data.daily_rate}` : 'N/A'}</TableCell>
                       <TableCell className="text-right">
                         <Button 
                           variant="ghost" 
