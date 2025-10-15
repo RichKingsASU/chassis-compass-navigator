@@ -118,35 +118,33 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       const year = now.getFullYear();
       const month = String(now.getMonth() + 1).padStart(2, '0');
 
-      // Find PDF and Excel files
+      // Find PDF and Excel files (optional - will use first found or null)
       const pdfFile = allFiles.find(f => f.name.toLowerCase().endsWith('.pdf'));
       const excelFile = allFiles.find(f => f.name.toLowerCase().match(/\.(xlsx|xls|csv)$/));
 
-      if (!pdfFile || !excelFile) {
-        toast({
-          title: 'Missing Required Files',
-          description: 'Please upload at least one PDF and one Excel/CSV file.',
-          variant: 'destructive',
-        });
-        setIsUploading(false);
-        return;
+      // Upload PDF if available
+      let pdfPath = null;
+      if (pdfFile) {
+        pdfPath = `vendor/ccm/invoices/${year}/${month}/${tempUuid}/${pdfFile.name}`;
+        setUploadProgress(30);
+        const { error: pdfError } = await supabase.storage
+          .from('ccm-invoices')
+          .upload(pdfPath, pdfFile, { upsert: false });
+
+        if (pdfError) throw pdfError;
       }
 
-      const pdfPath = `vendor/ccm/invoices/${year}/${month}/${tempUuid}/${pdfFile.name}`;
-      setUploadProgress(30);
-      const { error: pdfError } = await supabase.storage
-        .from('ccm-invoices')
-        .upload(pdfPath, pdfFile, { upsert: false });
+      // Upload Excel if available
+      let excelPath = null;
+      if (excelFile) {
+        excelPath = `vendor/ccm/invoices/${year}/${month}/${tempUuid}/${excelFile.name}`;
+        setUploadProgress(50);
+        const { error: excelError } = await supabase.storage
+          .from('ccm-invoices')
+          .upload(excelPath, excelFile, { upsert: false });
 
-      if (pdfError) throw pdfError;
-
-      const excelPath = `vendor/ccm/invoices/${year}/${month}/${tempUuid}/${excelFile.name}`;
-      setUploadProgress(50);
-      const { error: excelError } = await supabase.storage
-        .from('ccm-invoices')
-        .upload(excelPath, excelFile, { upsert: false });
-
-      if (excelError) throw excelError;
+        if (excelError) throw excelError;
+      }
 
       setUploadProgress(70);
 
