@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import InvoiceUploadStep from '@/components/scspa/invoice/InvoiceUploadStep';
 import InvoiceSummaryCard from '@/components/scspa/invoice/InvoiceSummaryCard';
+import InvoiceReviewStep from '@/components/scspa/invoice/InvoiceReviewStep';
 
 export interface ExtractedData {
   invoice: {
@@ -40,10 +41,15 @@ const NewInvoice = () => {
     excel: null,
   });
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const progressPercentage = (currentStep / steps.length) * 100;
 
   const handleBack = () => {
+    if (hasUnsavedChanges) {
+      const confirm = window.confirm('You have unsaved changes. Are you sure you want to leave?');
+      if (!confirm) return;
+    }
     navigate('/vendors/scspa');
   };
 
@@ -51,6 +57,16 @@ const NewInvoice = () => {
     if (currentStep < steps.length) {
       setCurrentStep(currentStep + 1);
     }
+  };
+
+  const handleStepBack = () => {
+    if (currentStep > 1 && currentStep !== 2) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSaveDraft = () => {
+    setHasUnsavedChanges(false);
   };
 
   return (
@@ -107,6 +123,26 @@ const NewInvoice = () => {
                 onComplete={handleStepComplete}
                 setExtractedData={setExtractedData}
               />
+            )}
+            {currentStep === 2 && extractedData && (
+              <InvoiceReviewStep
+                extractedData={extractedData}
+                setExtractedData={setExtractedData}
+                onComplete={handleStepComplete}
+                onBack={handleStepBack}
+                setHasUnsavedChanges={setHasUnsavedChanges}
+                onSaveDraft={handleSaveDraft}
+              />
+            )}
+            {currentStep === 3 && extractedData && (
+              <div className="text-center p-12 bg-muted rounded-lg">
+                <p className="text-muted-foreground">Validation step - Coming soon</p>
+              </div>
+            )}
+            {currentStep === 4 && extractedData && (
+              <div className="text-center p-12 bg-muted rounded-lg">
+                <p className="text-muted-foreground">Submit step - Coming soon</p>
+              </div>
             )}
           </div>
 

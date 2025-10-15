@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import InvoiceUploadStep from '@/components/trac/invoice/InvoiceUploadStep';
 import InvoiceSummaryCard from '@/components/trac/invoice/InvoiceSummaryCard';
+import InvoiceReviewStep from '@/components/trac/invoice/InvoiceReviewStep';
 
 export interface InvoiceData {
   summary_invoice_id: string;
@@ -136,10 +137,15 @@ const NewInvoice = () => {
                 setExtractedData={setExtractedData}
               />
             )}
-            {currentStep === 2 && (
-              <div className="text-center p-12 bg-muted rounded-lg">
-                <p className="text-muted-foreground">Review step - Coming soon</p>
-              </div>
+            {currentStep === 2 && extractedData && (
+              <InvoiceReviewStep
+                extractedData={extractedData}
+                setExtractedData={setExtractedData}
+                onComplete={handleStepComplete}
+                onBack={handleStepBack}
+                setHasUnsavedChanges={setHasUnsavedChanges}
+                onSaveDraft={handleSaveDraft}
+              />
             )}
             {currentStep === 3 && (
               <div className="text-center p-12 bg-muted rounded-lg">

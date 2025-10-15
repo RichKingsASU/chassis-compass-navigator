@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import InvoiceUploadStep from '@/components/flexivan/invoice/InvoiceUploadStep';
 import InvoiceSummaryCard from '@/components/flexivan/invoice/InvoiceSummaryCard';
+import InvoiceReviewStep from '@/components/flexivan/invoice/InvoiceReviewStep';
 
 export interface InvoiceData {
   summary_invoice_id: string;
@@ -131,9 +132,14 @@ const NewInvoice = () => {
               />
             )}
             {currentStep === 2 && extractedData && (
-              <div className="text-center p-12 bg-muted rounded-lg">
-                <p className="text-muted-foreground">Review step - Coming soon</p>
-              </div>
+              <InvoiceReviewStep
+                extractedData={extractedData}
+                setExtractedData={setExtractedData}
+                onComplete={handleStepComplete}
+                onBack={handleStepBack}
+                setHasUnsavedChanges={setHasUnsavedChanges}
+                onSaveDraft={handleSaveDraft}
+              />
             )}
             {currentStep === 3 && extractedData && (
               <div className="text-center p-12 bg-muted rounded-lg">
