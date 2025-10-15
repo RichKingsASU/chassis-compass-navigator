@@ -65,6 +65,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         file.type === 'application/vnd.ms-excel' ||
         file.name.endsWith('.xlsx') ||
         file.name.endsWith('.xls') ||
+        file.name.endsWith('.xlsb') ||
         file.name.endsWith('.csv')
       ) {
         excelFile = file;
@@ -95,7 +96,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
   const getFileIcon = (file: File) => {
     const fileName = file.name.toLowerCase();
     if (fileName.endsWith('.pdf')) return { Icon: FileText, color: 'text-red-500' };
-    if (fileName.match(/\.(xlsx|xls|csv)$/)) return { Icon: FileSpreadsheet, color: 'text-green-500' };
+    if (fileName.match(/\.(xlsx|xls|xlsb|csv)$/)) return { Icon: FileSpreadsheet, color: 'text-green-500' };
     return { Icon: Upload, color: 'text-blue-500' };
   };
 
@@ -120,7 +121,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       // Find PDF and Excel files (optional - will use first found or null)
       const pdfFile = allFiles.find(f => f.name.toLowerCase().endsWith('.pdf'));
-      const excelFile = allFiles.find(f => f.name.toLowerCase().match(/\.(xlsx|xls|csv)$/));
+      const excelFile = allFiles.find(f => f.name.toLowerCase().match(/\.(xlsx|xls|xlsb|csv)$/));
 
       // Upload PDF if available
       let pdfPath = null;
