@@ -115,36 +115,47 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
     try {
       const tempUuid = crypto.randomUUID();
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
 
       // Find PDF and Excel files (optional - will use first found or null)
       const pdfFile = allFiles.find(f => f.name.toLowerCase().endsWith('.pdf'));
       const excelFile = allFiles.find(f => f.name.toLowerCase().match(/\.(xlsx|xls|xlsb|csv)$/));
 
-      // Upload PDF if available
+      // Upload PDF if available using simpler path structure
       let pdfPath = null;
       if (pdfFile) {
-        pdfPath = `vendor/ccm/invoices/${year}/${month}/${tempUuid}/${pdfFile.name}`;
+        pdfPath = `ccm_invoices/${Date.now()}_${pdfFile.name}`;
         setUploadProgress(30);
+        
         const { error: pdfError } = await supabase.storage
           .from('ccm-invoices')
-          .upload(pdfPath, pdfFile, { upsert: false });
+          .upload(pdfPath, pdfFile, { 
+            cacheControl: '3600',
+            upsert: false 
+          });
 
-        if (pdfError) throw pdfError;
+        if (pdfError) {
+          console.error('PDF upload error:', pdfError);
+          throw new Error(`PDF upload failed: ${pdfError.message}`);
+        }
       }
 
-      // Upload Excel if available
+      // Upload Excel if available using simpler path structure
       let excelPath = null;
       if (excelFile) {
-        excelPath = `vendor/ccm/invoices/${year}/${month}/${tempUuid}/${excelFile.name}`;
+        excelPath = `ccm_invoices/${Date.now()}_${excelFile.name}`;
         setUploadProgress(50);
+        
         const { error: excelError } = await supabase.storage
           .from('ccm-invoices')
-          .upload(excelPath, excelFile, { upsert: false });
+          .upload(excelPath, excelFile, { 
+            cacheControl: '3600',
+            upsert: false 
+          });
 
-        if (excelError) throw excelError;
+        if (excelError) {
+          console.error('Excel upload error:', excelError);
+          throw new Error(`Excel upload failed: ${excelError.message}`);
+        }
       }
 
       setUploadProgress(70);
@@ -157,7 +168,10 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Extraction error:', error);
+        throw error;
+      }
 
       setUploadProgress(100);
       setExtractedData(data);
