@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import InvoiceUploadStep from '@/components/ccm/invoice/InvoiceUploadStep';
 import InvoiceSummaryCard from '@/components/ccm/invoice/InvoiceSummaryCard';
+import InvoiceReviewStep from '@/components/ccm/invoice/InvoiceReviewStep';
 
 export interface InvoiceData {
   summary_invoice_id: string;
@@ -152,9 +153,14 @@ const NewInvoice = () => {
               />
             )}
             {currentStep === 2 && extractedData && (
-              <div className="text-center p-12 bg-muted rounded-lg">
-                <p className="text-muted-foreground">Review step - Coming soon</p>
-              </div>
+              <InvoiceReviewStep
+                extractedData={extractedData}
+                setExtractedData={setExtractedData}
+                onComplete={handleStepComplete}
+                onBack={handleStepBack}
+                setHasUnsavedChanges={setHasUnsavedChanges}
+                onSaveDraft={handleSaveDraft}
+              />
             )}
             {currentStep === 3 && extractedData && (
               <div className="text-center p-12 bg-muted rounded-lg">
