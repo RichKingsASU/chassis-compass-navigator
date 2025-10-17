@@ -216,7 +216,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       setUploadProgress(70);
 
-      // Insert invoice header into database
+      // Insert invoice header into database as DRAFT
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('trac_invoice')
         .insert({
@@ -224,7 +224,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
           invoice_date: new Date().toISOString().split('T')[0],
           due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           total_amount_usd: totalAmount,
-          status: 'pending',
+          status: 'draft',
           provider: 'TRAC',
           file_name: uploadedFiles.pdf.name,
           file_type: 'pdf',

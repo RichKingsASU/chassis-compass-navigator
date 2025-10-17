@@ -55,8 +55,11 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
     return isNaN(numAmount) ? '$0.00' : `$${numAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
   };
 
-  // Filter data
+  // Filter data - exclude drafts
   const filteredData = (invoiceData || []).filter(record => {
+    // Don't show draft invoices in the main tracker
+    if (record.status === 'draft') return false;
+    
     const matchesSearch = !searchQuery || 
       Object.values(record).some(value => 
         value?.toString().toLowerCase().includes(searchQuery.toLowerCase())
