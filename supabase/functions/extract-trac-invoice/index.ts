@@ -148,11 +148,14 @@ serve(async (req) => {
             for (const pattern of invoiceDatePatterns) {
               const match = pdfText.match(pattern);
               if (match && match[1]) {
+                console.log("Found raw invoice date:", match[1]);
                 const parsed = parseDate(match[1]);
                 if (parsed) {
                   extractedData.invoice.invoice_date = parsed;
-                  console.log("Found invoice date:", match[1], "->", parsed);
+                  console.log("Parsed invoice date:", match[1], "->", parsed);
                   break;
+                } else {
+                  console.log("Failed to parse invoice date:", match[1]);
                 }
               }
             }
@@ -168,11 +171,14 @@ serve(async (req) => {
             for (const pattern of dueDatePatterns) {
               const match = pdfText.match(pattern);
               if (match && match[1]) {
+                console.log("Found raw due date:", match[1]);
                 const parsed = parseDate(match[1]);
                 if (parsed) {
                   extractedData.invoice.due_date = parsed;
-                  console.log("Found due date:", match[1], "->", parsed);
+                  console.log("Parsed due date:", match[1], "->", parsed);
                   break;
+                } else {
+                  console.log("Failed to parse due date:", match[1]);
                 }
               }
             }
