@@ -85,6 +85,30 @@ serve(async (req) => {
           console.log("Column headers:", headers);
           extractedData.excel_headers = headers;
 
+          // Try to extract invoice number from the first data row
+          let extractedInvoiceNumber = invoice_id;
+          const firstDataRow = jsonData.length > 1 ? (jsonData[1] as unknown[]) : [];
+          
+          const invoiceNumberHeaders = ['Invoice Number', 'Invoice #', 'Invoice No', 'Invoice', 'Inv #', 'Invoice ID'];
+          
+          for (const invHeader of invoiceNumberHeaders) {
+            const headerIndex = headers.findIndex(h => 
+              h && h.toLowerCase().includes(invHeader.toLowerCase())
+            );
+            
+            if (headerIndex >= 0 && headerIndex < firstDataRow.length) {
+              const cell = firstDataRow[headerIndex];
+              if (cell && String(cell).trim() !== '') {
+                extractedInvoiceNumber = String(cell).trim();
+                console.log(`Found invoice number in column "${headers[headerIndex]}": ${extractedInvoiceNumber}`);
+                break;
+              }
+            }
+          }
+
+          // Update the invoice number with the extracted value
+          extractedData.invoice.invoice_number = extractedInvoiceNumber;
+
           const lineItems: Array<Record<string, unknown>> = [];
           let totalAmount = 0;
 
