@@ -26,6 +26,7 @@ serve(async (req) => {
       invoice: {
         invoice_number: invoice_id,
         invoice_date: new Date().toISOString().split("T")[0],
+        due_date: null,
         provider: "TRAC",
         total_amount_usd: 0,
         status: "pending",
@@ -48,6 +49,63 @@ serve(async (req) => {
           extractedData.warnings.push(`PDF download failed: ${pdfError.message}`);
         } else {
           console.log("PDF downloaded successfully");
+          
+          // Try to extract due date from PDF using text search
+          try {
+            const pdfText = await pdfData.text();
+            console.log("PDF text length:", pdfText.length);
+            
+            // Look for "Due Date:" or similar patterns followed by a date
+            const dueDatePatterns = [
+              /Due\s+Date[:\s]+(\d{1,2}[-\/]\w{3}[-\/]\d{2,4})/i,
+              /Due\s+Date[:\s]+(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i,
+              /Payment\s+Due[:\s]+(\d{1,2}[-\/]\w{3}[-\/]\d{2,4})/i,
+              /Payment\s+Due[:\s]+(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i,
+            ];
+            
+            for (const pattern of dueDatePatterns) {
+              const match = pdfText.match(pattern);
+              if (match && match[1]) {
+                const dateStr = match[1];
+                console.log("Found potential due date:", dateStr);
+                
+                // Parse date in format like "04-OCT-25"
+                const dateParts = dateStr.split(/[-\/]/);
+                if (dateParts.length === 3) {
+                  let day = dateParts[0];
+                  let month = dateParts[1];
+                  let year = dateParts[2];
+                  
+                  // Handle month names
+                  const monthMap: Record<string, string> = {
+                    'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
+                    'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
+                    'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+                  };
+                  
+                  if (isNaN(Number(month))) {
+                    month = monthMap[month.toLowerCase()] || month;
+                  }
+                  
+                  // Handle 2-digit year
+                  if (year.length === 2) {
+                    year = '20' + year;
+                  }
+                  
+                  // Ensure proper formatting
+                  day = day.padStart(2, '0');
+                  month = month.padStart(2, '0');
+                  
+                  extractedData.invoice.due_date = `${year}-${month}-${day}`;
+                  console.log("Parsed due date:", extractedData.invoice.due_date);
+                  break;
+                }
+              }
+            }
+          } catch (textError) {
+            console.error("Error extracting text from PDF:", textError);
+          }
+          
           extractedData.attachments.push({
             name: pdf_path.split("/").pop(),
             path: pdf_path,

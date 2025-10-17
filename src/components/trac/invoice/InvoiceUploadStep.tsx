@@ -190,6 +190,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       // Extract invoice number from Excel data (INVOICE column)
       setUploadProgress(65);
       let invoiceNumber = `TRAC-${Date.now()}`; // Default fallback
+      let dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // Default: 30 days from now
       
       // Try to get invoice number from the first row's INVOICE column
       if (parsedData.data.length > 0) {
@@ -199,9 +200,24 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         if (excelInvoiceNumber) {
           invoiceNumber = String(excelInvoiceNumber);
           console.log("Extracted invoice number from Excel:", invoiceNumber);
-        } else {
-          console.warn("Could not find invoice number in Excel data, using generated one:", invoiceNumber);
         }
+      }
+
+      // Try to extract due date from PDF
+      try {
+        const { data: extractResult, error: extractError } = await supabase.functions.invoke(
+          'extract-trac-invoice',
+          {
+            body: { pdf_path: pdfData.path }
+          }
+        );
+
+        if (!extractError && extractResult?.invoice?.due_date) {
+          dueDate = extractResult.invoice.due_date;
+          console.log("Extracted due date from PDF:", dueDate);
+        }
+      } catch (extractErr) {
+        console.error("Error extracting due date:", extractErr);
       }
 
       setUploadProgress(70);
@@ -212,7 +228,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         .insert({
           invoice_number: invoiceNumber,
           invoice_date: new Date().toISOString().split('T')[0],
-          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          due_date: dueDate,
           total_amount_usd: totalAmount,
           status: 'draft',
           provider: 'TRAC',
