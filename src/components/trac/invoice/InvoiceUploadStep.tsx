@@ -190,6 +190,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       // Extract invoice number from Excel data (INVOICE column)
       setUploadProgress(65);
       let invoiceNumber = `TRAC-${Date.now()}`; // Default fallback
+      let invoiceDate = new Date().toISOString().split('T')[0]; // Default: today
       let dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // Default: 30 days from now
       
       // Try to get invoice number from the first row's INVOICE column
@@ -203,7 +204,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         }
       }
 
-      // Try to extract due date from PDF
+      // Try to extract invoice date and due date from PDF
       try {
         const { data: extractResult, error: extractError } = await supabase.functions.invoke(
           'extract-trac-invoice',
@@ -212,12 +213,18 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
           }
         );
 
-        if (!extractError && extractResult?.invoice?.due_date) {
-          dueDate = extractResult.invoice.due_date;
-          console.log("Extracted due date from PDF:", dueDate);
+        if (!extractError && extractResult?.invoice) {
+          if (extractResult.invoice.invoice_date) {
+            invoiceDate = extractResult.invoice.invoice_date;
+            console.log("Extracted invoice date from PDF:", invoiceDate);
+          }
+          if (extractResult.invoice.due_date) {
+            dueDate = extractResult.invoice.due_date;
+            console.log("Extracted due date from PDF:", dueDate);
+          }
         }
       } catch (extractErr) {
-        console.error("Error extracting due date:", extractErr);
+        console.error("Error extracting dates from PDF:", extractErr);
       }
 
       setUploadProgress(70);
@@ -227,7 +234,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         .from('trac_invoice')
         .insert({
           invoice_number: invoiceNumber,
-          invoice_date: new Date().toISOString().split('T')[0],
+          invoice_date: invoiceDate,
           due_date: dueDate,
           total_amount_usd: totalAmount,
           status: 'draft',
