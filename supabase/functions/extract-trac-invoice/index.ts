@@ -57,25 +57,65 @@ serve(async (req) => {
             
             // Helper function to parse date strings
             const parseDate = (dateStr: string): string | null => {
-              const dateParts = dateStr.split(/[-\/]/);
-              if (dateParts.length === 3) {
-                let day = dateParts[0];
-                let month = dateParts[1];
-                let year = dateParts[2];
+              try {
+                // Remove extra whitespace
+                const cleaned = dateStr.trim();
+                const dateParts = cleaned.split(/[-\/]/);
                 
-                // Handle month names
+                if (dateParts.length !== 3) return null;
+                
+                let day: string, month: string, year: string;
+                
+                // Month name mapping
                 const monthMap: Record<string, string> = {
-                  'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04',
-                  'may': '05', 'jun': '06', 'jul': '07', 'aug': '08',
-                  'sep': '09', 'oct': '10', 'nov': '11', 'dec': '12'
+                  'jan': '01', 'january': '01',
+                  'feb': '02', 'february': '02',
+                  'mar': '03', 'march': '03',
+                  'apr': '04', 'april': '04',
+                  'may': '05',
+                  'jun': '06', 'june': '06',
+                  'jul': '07', 'july': '07',
+                  'aug': '08', 'august': '08',
+                  'sep': '09', 'september': '09',
+                  'oct': '10', 'october': '10',
+                  'nov': '11', 'november': '11',
+                  'dec': '12', 'december': '12'
                 };
                 
-                if (isNaN(Number(month))) {
-                  month = monthMap[month.toLowerCase()] || month;
+                // Determine format: DD-MMM-YY or MM/DD/YYYY or YYYY-MM-DD
+                const firstPart = dateParts[0];
+                const secondPart = dateParts[1];
+                const thirdPart = dateParts[2];
+                
+                // Check if middle part is a month name (DD-MMM-YY format)
+                if (isNaN(Number(secondPart))) {
+                  day = firstPart;
+                  month = monthMap[secondPart.toLowerCase()] || secondPart;
+                  year = thirdPart;
+                }
+                // Check if first part is 4 digits (YYYY-MM-DD format)
+                else if (firstPart.length === 4) {
+                  year = firstPart;
+                  month = secondPart;
+                  day = thirdPart;
+                }
+                // Otherwise assume MM/DD/YYYY or DD/MM/YYYY (prefer MM/DD/YYYY for US)
+                else {
+                  // For ambiguous formats, check if first part > 12 to determine if it's DD
+                  if (Number(firstPart) > 12) {
+                    day = firstPart;
+                    month = secondPart;
+                  } else {
+                    month = firstPart;
+                    day = secondPart;
+                  }
+                  year = thirdPart;
                 }
                 
-                // Handle 2-digit year
+                // Handle 2-digit year (assume 20xx for values 00-99)
                 if (year.length === 2) {
+                  const yearNum = parseInt(year);
+                  // If year is less than current year's last 2 digits, assume next century
                   year = '20' + year;
                 }
                 
@@ -83,9 +123,20 @@ serve(async (req) => {
                 day = day.padStart(2, '0');
                 month = month.padStart(2, '0');
                 
+                // Validate the date components
+                const monthNum = parseInt(month);
+                const dayNum = parseInt(day);
+                
+                if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) {
+                  console.error(`Invalid date components: ${year}-${month}-${day}`);
+                  return null;
+                }
+                
                 return `${year}-${month}-${day}`;
+              } catch (error) {
+                console.error(`Error parsing date "${dateStr}":`, error);
+                return null;
               }
-              return null;
             };
             
             // Extract Invoice Date
