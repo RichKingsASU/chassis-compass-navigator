@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, Filter, Download, Plus, FileText, AlertCircle } from "lucide-react";
+import { Search, Filter, Download, Plus, FileText, AlertCircle, Trash2 } from "lucide-react";
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -110,6 +110,33 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
         {disputeStatus}
       </Badge>
     );
+  };
+
+  const handleDelete = async (invoiceId: string) => {
+    if (!confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('trac_invoice')
+        .delete()
+        .eq('id', invoiceId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Invoice deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete invoice",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
@@ -218,6 +245,7 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Status</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Dispute Status</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Attachments</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -261,6 +289,16 @@ const TRACInvoiceTracker: React.FC<TRACInvoiceTrackerProps> = ({ onViewDetail })
                             )}
                           </div>
                         )}
+                      </td>
+                      <td className="p-3">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(record.id)}
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </td>
                     </tr>
                   );
