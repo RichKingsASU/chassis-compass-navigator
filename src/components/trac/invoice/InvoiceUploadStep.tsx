@@ -187,31 +187,21 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         return sum + (isNaN(amount) ? 0 : amount);
       }, 0);
 
-      // Extract invoice number from PDF
+      // Extract invoice number from Excel data (INVOICE column)
       setUploadProgress(65);
       let invoiceNumber = `TRAC-${Date.now()}`; // Default fallback
       
-      try {
-        const { data: extractResult, error: extractError } = await supabase.functions.invoke(
-          'extract-trac-invoice',
-          {
-            body: { pdf_path: pdfData.path }
-          }
-        );
-
-        if (!extractError && extractResult?.success && extractResult?.invoice_number) {
-          invoiceNumber = extractResult.invoice_number;
-          console.log("Extracted invoice number from PDF:", invoiceNumber);
+      // Try to get invoice number from the first row's INVOICE column
+      if (parsedData.data.length > 0) {
+        const firstRow = parsedData.data[0];
+        const excelInvoiceNumber = firstRow['INVOICE'] || firstRow['Invoice'] || firstRow['Invoice Number'] || firstRow['INVOICE NUMBER'];
+        
+        if (excelInvoiceNumber) {
+          invoiceNumber = String(excelInvoiceNumber);
+          console.log("Extracted invoice number from Excel:", invoiceNumber);
         } else {
-          console.warn("Failed to extract invoice number, using generated one:", invoiceNumber);
-          toast({
-            title: "Note",
-            description: "Could not extract invoice number from PDF. Using generated number.",
-            variant: "default",
-          });
+          console.warn("Could not find invoice number in Excel data, using generated one:", invoiceNumber);
         }
-      } catch (extractErr) {
-        console.error("Error extracting invoice number:", extractErr);
       }
 
       setUploadProgress(70);
