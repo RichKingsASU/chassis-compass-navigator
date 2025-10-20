@@ -177,8 +177,29 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       if (error) throw error;
 
+      // Transform the response into ExtractedData format
+      const transformedData: ExtractedData = {
+        invoice: {
+          summary_invoice_id: data.invoice_id || 'WCCP-' + Date.now(),
+          billing_date: new Date().toISOString().split('T')[0],
+          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          billing_terms: 'Net 30',
+          vendor: 'WCCP',
+          currency_code: 'USD',
+          amount_due: data.totals?.header_total || 0,
+          status: 'pending',
+        },
+        line_items: [],
+        attachments: [
+          { name: uploadedFiles.pdf.name, path: pdfPath },
+          { name: uploadedFiles.excel.name, path: excelPath },
+        ],
+        warnings: [],
+        source_hash: crypto.randomUUID(),
+      };
+
       setUploadProgress(100);
-      setExtractedData(data);
+      setExtractedData(transformedData);
 
       toast({
         title: 'Files Uploaded',
