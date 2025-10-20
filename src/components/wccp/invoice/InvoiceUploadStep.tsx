@@ -214,6 +214,11 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       };
 
       console.log("Transformed data:", transformedData);
+      console.log("Line items transformed:", transformedData.line_items.length);
+      
+      if (transformedData.line_items.length === 0) {
+        console.warn("⚠️ No line items in transformed data - check edge function response");
+      }
 
       setUploadProgress(100);
       setExtractedData(transformedData);

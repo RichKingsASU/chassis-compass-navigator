@@ -65,49 +65,63 @@ serve(async (req) => {
     console.log(`Parsed ${jsonData.length} rows from Excel`);
     console.log('First 10 rows (cleaned):', JSON.stringify(jsonData.slice(0, 10), null, 2));
 
-    // Use AI to extract structured invoice data
-    const aiPrompt = `You are extracting invoice data from a PDF and CSV. Use the PDF for header information and CSV for ALL line items.
+    // Use AI to extract structured invoice data with explicit line items instruction
+    const aiPrompt = `You are performing invoice data extraction. 
 
-Extract and return EXACTLY this JSON structure:
+**CRITICAL TASK**: Extract ALL line items from the CSV data.
 
+**DATA PROVIDED**:
+1. PDF contains header information (invoice number, dates, total amount)
+2. CSV contains ALL line item rows with columns: Invoice, Chassis, Size, Type, Container, Bill From, Bill To, # of Days, Rate, Gate out Location, Line Out, Gate in Location, Line In, Tax, Surcharge Total, Total
+
+**YOUR TASK**:
+Extract EVERY non-empty row from the CSV into the Line_Items array. The CSV has ${jsonData.length - 1} data rows after the header.
+
+**REQUIRED JSON STRUCTURE**:
 {
-  "invoice_id": "string (invoice number from PDF or CSV - look for 'Invoice' or 'Invoice Number')",
-  "billing_date": "YYYY-MM-DD (invoice date if found, otherwise null)",
-  "due_date": "YYYY-MM-DD (payment due date - look for 'Date Due' or 'Due Date')",
-  "billing_terms": "string (e.g., 'Net 30')",
-  "total_amount": number (total amount due),
+  "invoice_id": "string",
+  "billing_date": "YYYY-MM-DD or null",
+  "due_date": "YYYY-MM-DD",
+  "billing_terms": "Net 30",
+  "total_amount": number,
   "line_items": [
     {
-      "chassis": "string (from 'Chassis' column)",
-      "container": "string (from 'Container' column)", 
-      "date_out": "YYYY-MM-DD (from 'Bill From' column, convert MM/DD/YYYY to YYYY-MM-DD)",
-      "date_in": "YYYY-MM-DD (from 'Bill To' column, convert MM/DD/YYYY to YYYY-MM-DD)",
-      "days": number (from '# of Days' column),
-      "rate": number (from 'Rate' column, remove $ sign),
-      "amount": number (from 'Total' column, remove $ sign)
+      "chassis": "from Chassis column",
+      "container": "from Container column",
+      "date_out": "convert Bill From (MM/DD/YYYY HH:MM) to YYYY-MM-DD",
+      "date_in": "convert Bill To (MM/DD/YYYY HH:MM) to YYYY-MM-DD",
+      "days": "from # of Days column as number",
+      "rate": "from Rate column, remove $ and convert to number",
+      "amount": "from Total column, remove $ and convert to number"
     }
   ]
 }
 
-PDF Text:
+**PDF TEXT** (extract due date):
 ${pdfText.substring(0, 3000)}
 
-CSV Headers (row 0):
+**CSV HEADER ROW**:
 ${JSON.stringify(jsonData[0])}
 
-CSV ALL Data Rows (extract EVERY non-empty row):
-${JSON.stringify(jsonData.slice(1))}
+**CSV DATA ROWS** (Process EVERY row where Chassis is not empty):
+${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
 
-CRITICAL EXTRACTION RULES:
-1. Extract ALL rows from CSV where chassis/container is not empty
-2. Convert dates from "MM/DD/YYYY HH:MM" format to "YYYY-MM-DD" 
-3. Extract numeric values from strings like "$33.00" → 33.00
-4. For due_date: Look for "Date Due: MM/DD/YYYY" in PDF
-5. If no invoice_date found in PDF, set billing_date to null (we'll calculate it)
-6. Skip empty rows in CSV
-7. Return ONLY valid JSON with no markdown formatting`;
+**EXTRACTION RULES**:
+1. Process EVERY row from the CSV where column index 1 (Chassis) is not empty
+2. Skip completely empty rows
+3. Convert "09/02/2025 00:00" format to "2025-09-02"
+4. Convert "$33.00" to 33.00 (number)
+5. Extract due_date from PDF text (look for "Date Due")
+6. Return invoice_id from first data row in CSV (column 0)
+7. If billing_date not found in PDF, set to null
+8. Return ONLY valid JSON with NO markdown backticks
 
-    // Call Lovable AI
+**VERIFICATION**: Your response must include ${jsonData.filter(row => row && row.length > 0 && row[1]).length} items in line_items array.`;
+
+    // Call Lovable AI with explicit line items extraction
+    console.log("Calling AI with CSV data containing", jsonData.length - 1, "rows");
+    console.log("Non-empty chassis rows:", jsonData.filter(row => row && row.length > 0 && row[1]).length);
+    
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -119,7 +133,7 @@ CRITICAL EXTRACTION RULES:
         messages: [
           { 
             role: "system", 
-            content: "You are an invoice data extraction assistant. Extract structured data from invoices and return valid JSON only. Always extract ALL line items from the CSV data provided." 
+            content: "You are an expert invoice data extraction assistant. You MUST extract ALL line items from CSV data. Never skip rows. Return only valid JSON with no markdown." 
           },
           { role: "user", content: aiPrompt }
         ],
@@ -135,14 +149,31 @@ CRITICAL EXTRACTION RULES:
     const aiData = await aiResponse.json();
     const extractedText = aiData.choices[0].message.content;
     
+    // Log the raw AI response for debugging
+    console.log("=== RAW AI RESPONSE ===");
+    console.log(extractedText.substring(0, 1000));
+    console.log("=== END RAW RESPONSE ===");
+    
     // Parse AI response
     let extractedData;
     try {
       // Remove markdown code blocks if present
-      const jsonMatch = extractedText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || [null, extractedText];
-      extractedData = JSON.parse(jsonMatch[1]);
-      console.log("Successfully parsed AI response");
-      console.log("Extracted line items count:", extractedData.line_items?.length || 0);
+      let jsonText = extractedText;
+      const jsonMatch = extractedText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[1];
+        console.log("Removed markdown code blocks");
+      }
+      
+      extractedData = JSON.parse(jsonText);
+      console.log("✅ Successfully parsed AI response");
+      console.log("📊 Extracted line items count:", extractedData.line_items?.length || 0);
+      
+      if (extractedData.line_items && extractedData.line_items.length > 0) {
+        console.log("✅ First line item:", JSON.stringify(extractedData.line_items[0], null, 2));
+      } else {
+        console.warn("⚠️ WARNING: No line items extracted!");
+      }
     } catch (e) {
       console.error("Failed to parse AI response:", extractedText);
       console.error("Parse error:", e);
@@ -171,18 +202,15 @@ CRITICAL EXTRACTION RULES:
       console.log("Calculated billing_date from due_date:", extractedData.billing_date);
     }
 
-    console.log("AI extracted data:", JSON.stringify(extractedData, null, 2));
-    console.log("Line items extracted:", extractedData.line_items?.length || 0);
-
-    // Calculate totals and validate
-    const lineItemsTotal = extractedData.line_items?.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0) || 0;
-    const headerTotal = extractedData.total_amount || lineItemsTotal;
-    
-    console.log("Total calculations - Header:", headerTotal, "Line items sum:", lineItemsTotal);
-    
-    // Determine status based on total match
-    const totalsMatch = Math.abs(headerTotal - lineItemsTotal) < 0.01;
-    const status = totalsMatch ? 'VALIDATED (Gemini)' : 'ERROR: Total Mismatch';
+    console.log("=== FINAL EXTRACTION SUMMARY ===");
+    console.log("Invoice ID:", extractedData.invoice_id);
+    console.log("Billing Date:", extractedData.billing_date);
+    console.log("Due Date:", extractedData.due_date);
+    console.log("Line Items Count:", extractedData.line_items?.length || 0);
+    console.log("Header Total:", headerTotal);
+    console.log("Line Items Sum:", lineItemsTotal);
+    console.log("Status:", status);
+    console.log("=== END SUMMARY ===");
 
     const response = {
       ok: true,
@@ -199,7 +227,12 @@ CRITICAL EXTRACTION RULES:
       },
       line_items: extractedData.line_items || [],
       line_items_count: extractedData.line_items?.length || 0,
-      warnings: (extractedData.line_items?.length || 0) === 0 ? ['No line items found'] : []
+      warnings: (extractedData.line_items?.length || 0) === 0 ? ['No line items found - check extraction logs'] : [],
+      debug: {
+        csv_rows_provided: jsonData.length - 1,
+        non_empty_chassis_rows: jsonData.filter(row => row && row.length > 0 && row[1]).length,
+        extracted_count: extractedData.line_items?.length || 0
+      }
     };
 
     console.log("Final response - Line items:", response.line_items_count);
