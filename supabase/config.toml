@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.extract-scspa-invoice]
 verify_jwt = false
+
+[functions.extract_invoice_data]
+verify_jwt = false

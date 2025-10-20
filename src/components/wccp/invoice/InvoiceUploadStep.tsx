@@ -168,12 +168,10 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       setUploadProgress(70);
 
       // Call extraction edge function
-      const { data, error } = await supabase.functions.invoke('extract-wccp-invoice', {
+      const { data, error } = await supabase.functions.invoke('extract_invoice_data', {
         body: {
-          pdf_path: pdfPath,
-          xlsx_path: excelPath,
-          tenant_id: 'default',
-          uploader_user_id: 'current_user',
+          pdfPath: pdfPath,
+          csvPath: excelPath,
         },
       });
 
