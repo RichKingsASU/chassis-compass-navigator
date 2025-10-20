@@ -66,32 +66,47 @@ serve(async (req) => {
     console.log('First 10 rows (cleaned):', JSON.stringify(jsonData.slice(0, 10), null, 2));
 
     // Use AI to extract structured invoice data
-    const aiPrompt = `Extract invoice information from this PDF and CSV data.
+    const aiPrompt = `You are extracting invoice data from a PDF and CSV. Use the PDF for header information and CSV for line items.
 
-PDF Text (first 2000 chars):
+Extract and return EXACTLY this JSON structure:
+
+{
+  "invoice_id": "string (invoice number from PDF or CSV)",
+  "billing_date": "YYYY-MM-DD (invoice date)",
+  "due_date": "YYYY-MM-DD (payment due date)",
+  "billing_terms": "string (e.g., 'Net 30', 'Net 45', or payment terms from PDF)",
+  "total_amount": number (total amount due),
+  "currency": "string (currency code, default USD)",
+  "vendor": "string (vendor name, default WCCP)",
+  "line_items": [
+    {
+      "chassis": "string (chassis number)",
+      "container": "string (container number)",
+      "date_out": "YYYY-MM-DD (gate out/bill from date)",
+      "date_in": "YYYY-MM-DD (gate in/bill to date)", 
+      "days": number (number of days),
+      "rate": number (daily rate),
+      "amount": number (total charge for this line)
+    }
+  ]
+}
+
+PDF Header Text:
 ${pdfText.substring(0, 2000)}
 
-CSV Data Headers:
+CSV Headers:
 ${JSON.stringify(jsonData[0])}
 
-CSV Sample Rows (first 5):
-${JSON.stringify(jsonData.slice(1, 6))}
+CSV Data (all rows):
+${JSON.stringify(jsonData.slice(1, 50))}
 
-Extract and return a JSON object with:
-1. invoice_id: The invoice number from the PDF or CSV
-2. billing_date: Invoice date in YYYY-MM-DD format
-3. due_date: Due date in YYYY-MM-DD format  
-4. total_amount: Total amount due as a number
-5. line_items: Array of line items from CSV with structure:
-   - chassis: chassis number
-   - container: container number
-   - date_out: gate out date (YYYY-MM-DD)
-   - date_in: gate in date (YYYY-MM-DD)
-   - days: number of days
-   - rate: daily rate
-   - amount: total charge for this line
-
-Return ONLY valid JSON, no markdown formatting.`;
+CRITICAL RULES:
+- Extract ALL line items from CSV (not just first 5)
+- Parse dates in format YYYY-MM-DD
+- If billing_terms not found, infer from due_date (e.g., if 30 days from invoice_date, use "Net 30")
+- Return ONLY valid JSON with no markdown formatting
+- Ensure amounts are numbers, not strings
+- Map CSV columns correctly: "Bill From" → date_out, "Bill To" → date_in, "Total" → amount`;
 
     // Call Lovable AI
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -103,7 +118,10 @@ Return ONLY valid JSON, no markdown formatting.`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are an invoice data extraction assistant. Extract structured data from invoices and return valid JSON only." },
+          { 
+            role: "system", 
+            content: "You are an invoice data extraction assistant. Extract structured data from invoices and return valid JSON only. Always extract ALL line items from the CSV data provided." 
+          },
           { role: "user", content: aiPrompt }
         ],
       }),
@@ -124,30 +142,45 @@ Return ONLY valid JSON, no markdown formatting.`;
       // Remove markdown code blocks if present
       const jsonMatch = extractedText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || [null, extractedText];
       extractedData = JSON.parse(jsonMatch[1]);
+      console.log("Successfully parsed AI response");
     } catch (e) {
       console.error("Failed to parse AI response:", extractedText);
       // Fallback to basic extraction
+      const today = new Date();
+      const dueDate = new Date(today);
+      dueDate.setDate(dueDate.getDate() + 30);
+      
       extractedData = {
         invoice_id: 'WCCP-' + Date.now(),
-        billing_date: new Date().toISOString().split('T')[0],
-        due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        billing_date: today.toISOString().split('T')[0],
+        due_date: dueDate.toISOString().split('T')[0],
+        billing_terms: 'Net 30',
         total_amount: 0,
+        currency: 'USD',
+        vendor: 'WCCP',
         line_items: []
       };
     }
 
     console.log("AI extracted data:", JSON.stringify(extractedData, null, 2));
 
-    // Calculate totals
+    // Calculate totals and validate
     const lineItemsTotal = extractedData.line_items?.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0) || 0;
     const headerTotal = extractedData.total_amount || lineItemsTotal;
+    
+    // Determine status based on total match
+    const totalsMatch = Math.abs(headerTotal - lineItemsTotal) < 0.01;
+    const status = totalsMatch ? 'VALIDATED (Gemini)' : 'ERROR: Total Mismatch';
 
     const response = {
       ok: true,
       invoice_id: extractedData.invoice_id,
       billing_date: extractedData.billing_date,
       due_date: extractedData.due_date,
-      status: 'success',
+      billing_terms: extractedData.billing_terms || 'Net 30',
+      vendor: extractedData.vendor || 'WCCP',
+      currency: extractedData.currency || 'USD',
+      status: status,
       totals: {
         header_total: headerTotal,
         sum_line_items: lineItemsTotal

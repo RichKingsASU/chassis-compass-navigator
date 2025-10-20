@@ -183,11 +183,11 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
           summary_invoice_id: data.invoice_id || 'WCCP-' + Date.now(),
           billing_date: data.billing_date || new Date().toISOString().split('T')[0],
           due_date: data.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          billing_terms: 'Net 30',
-          vendor: 'WCCP',
-          currency_code: 'USD',
+          billing_terms: data.billing_terms || 'Net 30',
+          vendor: data.vendor || 'WCCP',
+          currency_code: data.currency || 'USD',
           amount_due: data.totals?.header_total || 0,
-          status: 'pending',
+          status: data.status || 'pending',
         },
         line_items: (data.line_items || []).map((item: any, idx: number) => ({
           invoice_type: 'USAGE',
@@ -202,6 +202,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
           remaining_balance: parseFloat(item.amount) || 0,
           dispute_status: null,
           attachment_count: 0,
+          row_data: item,
         })),
         attachments: [
           { name: uploadedFiles.pdf.name, path: pdfPath },
@@ -209,7 +210,10 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         ],
         warnings: data.warnings || [],
         source_hash: crypto.randomUUID(),
+        excel_headers: data.excel_headers || [],
       };
+
+      console.log("Transformed data:", transformedData);
 
       setUploadProgress(100);
       setExtractedData(transformedData);
