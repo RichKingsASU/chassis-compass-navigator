@@ -221,6 +221,15 @@ ${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
       extractedData.billing_date = billingDate.toISOString().split('T')[0];
     }
 
+
+    // Calculate totals and validate
+    const lineItemsTotal = extractedData.line_items?.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0) || 0;
+    const headerTotal = extractedData.total_amount || lineItemsTotal;
+    
+    // Determine status based on total match
+    const totalsMatch = Math.abs(headerTotal - lineItemsTotal) < 0.01;
+    const status = totalsMatch ? 'VALIDATED (Gemini)' : 'ERROR: Total Mismatch';
+
     console.log("=== FINAL EXTRACTION SUMMARY ===");
     console.log("Invoice ID:", extractedData.invoice_id);
     console.log("Billing Date:", extractedData.billing_date);
