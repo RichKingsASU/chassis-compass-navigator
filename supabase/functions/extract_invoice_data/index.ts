@@ -66,47 +66,46 @@ serve(async (req) => {
     console.log('First 10 rows (cleaned):', JSON.stringify(jsonData.slice(0, 10), null, 2));
 
     // Use AI to extract structured invoice data
-    const aiPrompt = `You are extracting invoice data from a PDF and CSV. Use the PDF for header information and CSV for line items.
+    const aiPrompt = `You are extracting invoice data from a PDF and CSV. Use the PDF for header information and CSV for ALL line items.
 
 Extract and return EXACTLY this JSON structure:
 
 {
-  "invoice_id": "string (invoice number from PDF or CSV)",
-  "billing_date": "YYYY-MM-DD (invoice date)",
-  "due_date": "YYYY-MM-DD (payment due date)",
-  "billing_terms": "string (e.g., 'Net 30', 'Net 45', or payment terms from PDF)",
+  "invoice_id": "string (invoice number from PDF or CSV - look for 'Invoice' or 'Invoice Number')",
+  "billing_date": "YYYY-MM-DD (invoice date if found, otherwise null)",
+  "due_date": "YYYY-MM-DD (payment due date - look for 'Date Due' or 'Due Date')",
+  "billing_terms": "string (e.g., 'Net 30')",
   "total_amount": number (total amount due),
-  "currency": "string (currency code, default USD)",
-  "vendor": "string (vendor name, default WCCP)",
   "line_items": [
     {
-      "chassis": "string (chassis number)",
-      "container": "string (container number)",
-      "date_out": "YYYY-MM-DD (gate out/bill from date)",
-      "date_in": "YYYY-MM-DD (gate in/bill to date)", 
-      "days": number (number of days),
-      "rate": number (daily rate),
-      "amount": number (total charge for this line)
+      "chassis": "string (from 'Chassis' column)",
+      "container": "string (from 'Container' column)", 
+      "date_out": "YYYY-MM-DD (from 'Bill From' column, convert MM/DD/YYYY to YYYY-MM-DD)",
+      "date_in": "YYYY-MM-DD (from 'Bill To' column, convert MM/DD/YYYY to YYYY-MM-DD)",
+      "days": number (from '# of Days' column),
+      "rate": number (from 'Rate' column, remove $ sign),
+      "amount": number (from 'Total' column, remove $ sign)
     }
   ]
 }
 
-PDF Header Text:
-${pdfText.substring(0, 2000)}
+PDF Text:
+${pdfText.substring(0, 3000)}
 
-CSV Headers:
+CSV Headers (row 0):
 ${JSON.stringify(jsonData[0])}
 
-CSV Data (all rows):
-${JSON.stringify(jsonData.slice(1, 50))}
+CSV ALL Data Rows (extract EVERY non-empty row):
+${JSON.stringify(jsonData.slice(1))}
 
-CRITICAL RULES:
-- Extract ALL line items from CSV (not just first 5)
-- Parse dates in format YYYY-MM-DD
-- If billing_terms not found, infer from due_date (e.g., if 30 days from invoice_date, use "Net 30")
-- Return ONLY valid JSON with no markdown formatting
-- Ensure amounts are numbers, not strings
-- Map CSV columns correctly: "Bill From" → date_out, "Bill To" → date_in, "Total" → amount`;
+CRITICAL EXTRACTION RULES:
+1. Extract ALL rows from CSV where chassis/container is not empty
+2. Convert dates from "MM/DD/YYYY HH:MM" format to "YYYY-MM-DD" 
+3. Extract numeric values from strings like "$33.00" → 33.00
+4. For due_date: Look for "Date Due: MM/DD/YYYY" in PDF
+5. If no invoice_date found in PDF, set billing_date to null (we'll calculate it)
+6. Skip empty rows in CSV
+7. Return ONLY valid JSON with no markdown formatting`;
 
     // Call Lovable AI
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -143,30 +142,43 @@ CRITICAL RULES:
       const jsonMatch = extractedText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || [null, extractedText];
       extractedData = JSON.parse(jsonMatch[1]);
       console.log("Successfully parsed AI response");
+      console.log("Extracted line items count:", extractedData.line_items?.length || 0);
     } catch (e) {
       console.error("Failed to parse AI response:", extractedText);
-      // Fallback to basic extraction
+      console.error("Parse error:", e);
+      
+      // Fallback: try to extract basic data ourselves
       const today = new Date();
       const dueDate = new Date(today);
       dueDate.setDate(dueDate.getDate() + 30);
       
       extractedData = {
         invoice_id: 'WCCP-' + Date.now(),
-        billing_date: today.toISOString().split('T')[0],
+        billing_date: null,
         due_date: dueDate.toISOString().split('T')[0],
         billing_terms: 'Net 30',
         total_amount: 0,
-        currency: 'USD',
-        vendor: 'WCCP',
         line_items: []
       };
     }
 
+    // If billing_date is null or missing, calculate as due_date - 30 days
+    if (!extractedData.billing_date && extractedData.due_date) {
+      const dueDate = new Date(extractedData.due_date);
+      const billingDate = new Date(dueDate);
+      billingDate.setDate(billingDate.getDate() - 30);
+      extractedData.billing_date = billingDate.toISOString().split('T')[0];
+      console.log("Calculated billing_date from due_date:", extractedData.billing_date);
+    }
+
     console.log("AI extracted data:", JSON.stringify(extractedData, null, 2));
+    console.log("Line items extracted:", extractedData.line_items?.length || 0);
 
     // Calculate totals and validate
     const lineItemsTotal = extractedData.line_items?.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0) || 0;
     const headerTotal = extractedData.total_amount || lineItemsTotal;
+    
+    console.log("Total calculations - Header:", headerTotal, "Line items sum:", lineItemsTotal);
     
     // Determine status based on total match
     const totalsMatch = Math.abs(headerTotal - lineItemsTotal) < 0.01;
@@ -178,17 +190,19 @@ CRITICAL RULES:
       billing_date: extractedData.billing_date,
       due_date: extractedData.due_date,
       billing_terms: extractedData.billing_terms || 'Net 30',
-      vendor: extractedData.vendor || 'WCCP',
-      currency: extractedData.currency || 'USD',
+      vendor: 'WCCP',
+      currency: 'USD',
       status: status,
       totals: {
         header_total: headerTotal,
         sum_line_items: lineItemsTotal
       },
       line_items: extractedData.line_items || [],
-      warnings: lineItemsTotal === 0 ? ['No line items found'] : []
+      line_items_count: extractedData.line_items?.length || 0,
+      warnings: (extractedData.line_items?.length || 0) === 0 ? ['No line items found'] : []
     };
 
+    console.log("Final response - Line items:", response.line_items_count);
     console.log("Returning response:", JSON.stringify(response, null, 2));
 
     return new Response(
