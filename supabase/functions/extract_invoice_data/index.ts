@@ -202,6 +202,25 @@ ${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
       console.log("Calculated billing_date from due_date:", extractedData.billing_date);
     }
 
+    // If due_date is still null, set default dates
+    if (!extractedData.due_date) {
+      console.warn("⚠️ Due date not found in extraction, using defaults");
+      const today = new Date();
+      extractedData.billing_date = extractedData.billing_date || today.toISOString().split('T')[0];
+      
+      const dueDate = new Date(today);
+      dueDate.setDate(dueDate.getDate() + 30);
+      extractedData.due_date = dueDate.toISOString().split('T')[0];
+    }
+    
+    // If billing_date is still null, calculate from due_date
+    if (!extractedData.billing_date && extractedData.due_date) {
+      const dueDate = new Date(extractedData.due_date);
+      const billingDate = new Date(dueDate);
+      billingDate.setDate(billingDate.getDate() - 30);
+      extractedData.billing_date = billingDate.toISOString().split('T')[0];
+    }
+
     console.log("=== FINAL EXTRACTION SUMMARY ===");
     console.log("Invoice ID:", extractedData.invoice_id);
     console.log("Billing Date:", extractedData.billing_date);

@@ -177,12 +177,31 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       if (error) throw error;
 
+      // Check if edge function returned an error
+      if (error) {
+        console.error("Edge function error:", error);
+        throw new Error(`Extraction failed: ${error.message}`);
+      }
+
+      if (!data || !data.ok) {
+        console.error("Edge function returned error:", data);
+        throw new Error(data?.error || 'Invoice extraction failed');
+      }
+
+      console.log("Edge function response:", data);
+
+      // Ensure we have required dates
+      const today = new Date().toISOString().split('T')[0];
+      const defaultDue = new Date();
+      defaultDue.setDate(defaultDue.getDate() + 30);
+      const defaultDueDate = defaultDue.toISOString().split('T')[0];
+
       // Transform the response into ExtractedData format
       const transformedData: ExtractedData = {
         invoice: {
           summary_invoice_id: data.invoice_id || 'WCCP-' + Date.now(),
-          billing_date: data.billing_date || new Date().toISOString().split('T')[0],
-          due_date: data.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          billing_date: data.billing_date || today,
+          due_date: data.due_date || defaultDueDate,
           billing_terms: data.billing_terms || 'Net 30',
           vendor: data.vendor || 'WCCP',
           currency_code: data.currency || 'USD',
