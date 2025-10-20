@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs";
-import { getDocument } from "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,21 +31,7 @@ serve(async (req) => {
     }
 
     // Extract text from PDF
-    const pdfBuffer = await pdfData.arrayBuffer();
-    const uint8Array = new Uint8Array(pdfBuffer);
-    
-    // Parse PDF to extract text
-    const loadingTask = getDocument({ data: uint8Array });
-    const pdfDoc = await loadingTask.promise;
-    
-    let pdfText = '';
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-      const page = await pdfDoc.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map((item: any) => item.str).join(' ');
-      pdfText += pageText + '\n';
-    }
-    
+    const pdfText = await pdfData.text();
     console.log('Extracted PDF text:', pdfText.substring(0, 500));
 
     // Download Excel from storage
