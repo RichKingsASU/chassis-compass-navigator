@@ -181,20 +181,33 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       const transformedData: ExtractedData = {
         invoice: {
           summary_invoice_id: data.invoice_id || 'WCCP-' + Date.now(),
-          billing_date: new Date().toISOString().split('T')[0],
-          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          billing_date: data.billing_date || new Date().toISOString().split('T')[0],
+          due_date: data.due_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           billing_terms: 'Net 30',
           vendor: 'WCCP',
           currency_code: 'USD',
           amount_due: data.totals?.header_total || 0,
           status: 'pending',
         },
-        line_items: [],
+        line_items: (data.line_items || []).map((item: any, idx: number) => ({
+          invoice_type: 'USAGE',
+          line_invoice_number: `${data.invoice_id}-${idx + 1}`,
+          invoice_status: 'Pending',
+          chassis: item.chassis || '',
+          container_out: item.container || '',
+          date_out: item.date_out || '',
+          container_in: item.container || '',
+          date_in: item.date_in || '',
+          invoice_total: parseFloat(item.amount) || 0,
+          remaining_balance: parseFloat(item.amount) || 0,
+          dispute_status: null,
+          attachment_count: 0,
+        })),
         attachments: [
           { name: uploadedFiles.pdf.name, path: pdfPath },
           { name: uploadedFiles.excel.name, path: excelPath },
         ],
-        warnings: [],
+        warnings: data.warnings || [],
         source_hash: crypto.randomUUID(),
       };
 
