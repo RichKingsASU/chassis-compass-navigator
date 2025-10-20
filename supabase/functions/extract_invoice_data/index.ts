@@ -22,31 +22,68 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Download PDF from storage
+    console.log("Downloading PDF from bucket 'wccp-invoices', path:", pdfPath);
     const { data: pdfData, error: pdfError } = await supabase.storage
       .from("wccp-invoices")
       .download(pdfPath);
 
     if (pdfError) {
       console.error("PDF download error:", pdfError);
-      throw new Error(`Failed to download PDF: ${pdfError.message}`);
+      return new Response(
+        JSON.stringify({ 
+          ok: false, 
+          error: `Failed to download PDF: ${pdfError.message}` 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
     }
 
     // Extract text from PDF
     const pdfText = await pdfData.text();
-    console.log('Extracted PDF text:', pdfText.substring(0, 500));
+    console.log('PDF download successful, text length:', pdfText.length);
+    console.log('Extracted PDF text preview:', pdfText.substring(0, 500));
 
     // Download CSV from storage
+    console.log("Downloading CSV from bucket 'wccp-invoices', path:", csvPath);
     const { data: csvData, error: csvError } = await supabase.storage
       .from("wccp-invoices")
       .download(csvPath);
 
     if (csvError) {
       console.error("CSV download error:", csvError);
-      throw new Error(`Failed to download CSV: ${csvError.message}`);
+      return new Response(
+        JSON.stringify({ 
+          ok: false, 
+          error: `Failed to download CSV: ${csvError.message}` 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
     }
 
     // Parse Excel/CSV file
     const arrayBuffer = await csvData.arrayBuffer();
+    console.log('CSV file size (bytes):', arrayBuffer.byteLength);
+    
+    if (arrayBuffer.byteLength === 0) {
+      console.error("CSV file is empty!");
+      return new Response(
+        JSON.stringify({ 
+          ok: false, 
+          error: 'CSV file is empty or could not be read' 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        }
+      );
+    }
+    
     const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
     const firstSheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[firstSheetName];
@@ -62,7 +99,7 @@ serve(async (req) => {
       })
     );
 
-    console.log(`Parsed ${jsonData.length} rows from Excel`);
+    console.log(`✅ Parsed ${jsonData.length} rows from Excel`);
     console.log('First 10 rows (cleaned):', JSON.stringify(jsonData.slice(0, 10), null, 2));
 
     // Use AI to extract structured invoice data with explicit line items instruction
@@ -142,8 +179,17 @@ ${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
-      console.error("AI extraction error:", errorText);
-      throw new Error(`AI extraction failed: ${errorText}`);
+      console.error("AI extraction error:", aiResponse.status, errorText);
+      return new Response(
+        JSON.stringify({ 
+          ok: false, 
+          error: `AI extraction failed: ${errorText}` 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
     }
 
     const aiData = await aiResponse.json();
@@ -274,11 +320,14 @@ ${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
       }
     );
   } catch (error) {
-    console.error('Error processing invoice:', error);
+    console.error('❌ Error processing invoice:', error);
+    console.error('Error stack:', error.stack);
     return new Response(
       JSON.stringify({ 
         ok: false,
-        error: error.message 
+        error: error.message || 'Unknown error during invoice processing',
+        error_type: error.name,
+        stack: error.stack
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -179,16 +179,36 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       // Check if edge function returned an error
       if (error) {
-        console.error("Edge function error:", error);
+        console.error("Edge function invocation error:", error);
         throw new Error(`Extraction failed: ${error.message}`);
       }
 
+      console.log("Edge function response:", data);
+
       if (!data || !data.ok) {
-        console.error("Edge function returned error:", data);
-        throw new Error(data?.error || 'Invoice extraction failed');
+        console.error("Edge function returned error response:", data);
+        throw new Error(data?.error || 'Invoice extraction failed - unknown error');
       }
 
-      console.log("Edge function response:", data);
+      // Validate that we have line items
+      if (!data.line_items || data.line_items.length === 0) {
+        toast({
+          title: 'No Line Items Found',
+          description: 'The invoice was processed but no line items were extracted. Please verify the CSV file format.',
+          variant: 'destructive',
+        });
+        throw new Error('No line items extracted from invoice');
+      }
+
+      // Validate totals
+      if (data.totals?.sum_line_items === 0) {
+        toast({
+          title: 'Invalid Invoice Data',
+          description: 'Line item totals sum to zero. Please check the invoice files.',
+          variant: 'destructive',
+        });
+        throw new Error('Invalid invoice totals');
+      }
 
       // Ensure we have required dates
       const today = new Date().toISOString().split('T')[0];
@@ -232,11 +252,19 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         excel_headers: data.excel_headers || [],
       };
 
-      console.log("Transformed data:", transformedData);
-      console.log("Line items transformed:", transformedData.line_items.length);
+      console.log("✅ Transformation complete:");
+      console.log("  - Invoice ID:", transformedData.invoice.summary_invoice_id);
+      console.log("  - Billing Date:", transformedData.invoice.billing_date);
+      console.log("  - Due Date:", transformedData.invoice.due_date);
+      console.log("  - Total Amount:", transformedData.invoice.amount_due);
+      console.log("  - Line Items:", transformedData.line_items.length);
+      console.log("  - Status:", transformedData.invoice.status);
       
       if (transformedData.line_items.length === 0) {
-        console.warn("⚠️ No line items in transformed data - check edge function response");
+        console.error("⚠️ CRITICAL: No line items in transformed data!");
+        console.error("Raw data.line_items:", data.line_items);
+      } else {
+        console.log("  - First line item:", transformedData.line_items[0]);
       }
 
       setUploadProgress(100);
