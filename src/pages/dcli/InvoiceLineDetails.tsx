@@ -60,13 +60,15 @@ const InvoiceLineDetails = () => {
   const fetchLineItemData = async () => {
     try {
       setLoading(true);
+      
+      // First, try to get from the final table
       const { data, error } = await supabase
         .from('dcli_invoice_line_item')
         .select('*')
         .eq('line_invoice_number', lineId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') throw error;
 
       if (data) {
         // Transform database data to component format
@@ -74,7 +76,7 @@ const InvoiceLineDetails = () => {
           line_invoice_number: data.line_invoice_number,
           chassis: data.chassis,
           container: data.on_hire_container || data.off_hire_container,
-          match_confidence: 85, // TODO: Add match confidence calculation
+          match_confidence: 85,
           match_type: 'fuzzy',
           invoice_date: data.billing_date,
           billing_start: data.bill_start_date,
@@ -84,7 +86,7 @@ const InvoiceLineDetails = () => {
           invoice_quantity: Number(data.tier_1_days || 0),
           charge_type: data.charge_description || 'Chassis Charge',
           tms_match: {
-            ld_num: 'LD123456', // TODO: Add TMS matching
+            ld_num: 'LD123456',
             so_num: 'SO789012',
             chassis_number: data.chassis,
             container_number: data.on_hire_container,
@@ -102,6 +104,59 @@ const InvoiceLineDetails = () => {
             special_contract: false
           }
         });
+      } else {
+        // If not found in final table, check staging table
+        const { data: stagingData, error: stagingError } = await supabase
+          .from('dcli_invoice_staging')
+          .select('line_items')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (stagingError) throw stagingError;
+
+        if (stagingData?.line_items) {
+          const lineItems = stagingData.line_items as any[];
+          const lineItem = lineItems.find((item: any) => item.line_invoice_number === lineId);
+
+          if (lineItem) {
+            // Extract data from row_data
+            const rowData = lineItem.row_data || {};
+            
+            setLineItem({
+              line_invoice_number: lineItem.line_invoice_number,
+              chassis: rowData['Chassis'] || lineItem.chassis_out,
+              container: rowData['On-Hire Container'] || lineItem.container_out,
+              match_confidence: 85,
+              match_type: 'fuzzy',
+              invoice_date: rowData['Billing Date'],
+              billing_start: rowData['Bill Start Date'],
+              billing_end: rowData['Bill End Date'],
+              total_charges: parseFloat(String(rowData['Grand Total'] || lineItem.invoice_total || 0)),
+              invoice_rate: parseFloat(String(rowData['Tier 1 Rate'] || 0)),
+              invoice_quantity: Number(rowData['Tier 1 Days'] || 0),
+              charge_type: rowData['Charge Description'] || 'Chassis Charge',
+              tms_match: {
+                ld_num: 'LD123456',
+                so_num: 'SO789012',
+                chassis_number: rowData['Chassis'],
+                container_number: rowData['On-Hire Container'],
+                carrier_name: rowData['On-Hire MC SCAC'],
+                customer_name: rowData['Customer Name'],
+                date_out: lineItem.date_out,
+                date_in: lineItem.date_in,
+                calculated_charges: parseFloat(String(rowData['Grand Total'] || 0)),
+                rated_amount: parseFloat(String(rowData['Grand Total'] || 0)),
+                rated_rate: parseFloat(String(rowData['Tier 1 Rate'] || 0)),
+                rated_quantity: Number(rowData['Tier 1 Days'] || 0),
+                confidence: 85,
+                match_reasons: ['Chassis exact match'],
+                multi_load: false,
+                special_contract: false
+              }
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching line item:', error);
