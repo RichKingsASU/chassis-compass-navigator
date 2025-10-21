@@ -101,21 +101,27 @@ serve(async (req) => {
 
     console.log(`✅ Parsed ${jsonData.length} rows from Excel`);
     console.log('First 10 rows (cleaned):', JSON.stringify(jsonData.slice(0, 10), null, 2));
+    
+    // Filter to only rows with chassis data (column index 1)
+    const dataRows = jsonData.filter(row => row && row.length > 1 && row[1] && row[1].toString().trim() !== '');
+    console.log(`📋 Filtered to ${dataRows.length} data rows with chassis`);
+    console.log('All chassis numbers:', dataRows.map(r => r[1]).join(', '));
+
 
     // Use AI to extract structured invoice data with explicit validation
     const aiPrompt = `You are an expert invoice data extraction engine.
 
-**TASK**: Extract ALL line items from the CSV and validate against the invoice header.
+**TASK**: Extract ALL ${dataRows.length} line items from the CSV data.
 
 **INPUT DOCUMENTS**:
-1. PDF Invoice Header - Contains invoice metadata (invoice number, dates, total amount)
-2. CSV Line Items - Contains ${jsonData.length - 1} rows of detailed transaction data
+1. PDF Invoice Header - May contain invoice metadata
+2. CSV Line Items - Contains ${dataRows.length} rows of transaction data (already filtered, no empty rows)
 
 **REQUIRED OUTPUT SCHEMA**:
 {
   "invoice_id": "string from CSV column 0",
   "billing_date": "YYYY-MM-DD or null",
-  "due_date": "YYYY-MM-DD (CRITICAL: see rule 5 below)",
+  "due_date": "YYYY-MM-DD (see rule 5)",
   "billing_terms": "Net 30",
   "total_amount": number,
   "validation_status": "VALIDATED or TOTAL_MISMATCH",
@@ -133,45 +139,32 @@ serve(async (req) => {
 }
 
 **CSV STRUCTURE**:
-Header Row: ${JSON.stringify(jsonData[0])}
+Header: ${JSON.stringify(jsonData[0])}
 
-Data Rows (${jsonData.filter(row => row && row.length > 0 && row[1]).length} items):
-${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
+**ALL DATA ROWS** (you MUST extract all ${dataRows.length} items):
+${JSON.stringify(dataRows, null, 2)}
 
-**PDF HEADER TEXT** (first 3000 chars):
-${pdfText.substring(0, 3000)}
-
-**EXTRACTION RULES** (CRITICAL - FOLLOW EXACTLY):
-1. **Process ALL rows**: Extract EVERY row from CSV where column[1] (Chassis) is not empty
-2. **Skip empty rows**: Ignore rows where all fields are blank
-3. **Date conversion**: Convert "MM/DD/YYYY HH:MM" → "YYYY-MM-DD"
-   Example: "09/02/2025 00:00" → "2025-09-02"
-4. **Currency conversion**: Remove $ and convert to number
-   Example: "$33.00" → 33.00
-5. **DUE DATE EXTRACTION** (MOST IMPORTANT):
-   - First attempt: Search PDF text for "Date Due:" or "Due Date:"
-   - If PDF is unreadable (binary data): Find the LATEST date in CSV column[6] (Bill To)
-   - Add 30 days to the latest Bill To date
-   - Example: Latest Bill To = "09/30/2025" → due_date = "2025-10-30"
+**EXTRACTION RULES** (CRITICAL):
+1. Extract ALL ${dataRows.length} rows above into line_items array
+2. Date conversion: "09/02/2025 00:00" → "2025-09-02"
+3. Currency: "$33.00" → 33.00
+4. Chassis from column[1], Container from column[4]
+5. **DUE DATE**: Find latest "Bill To" date (column[6]) + 30 days
 6. **VALIDATION**: 
-   - Calculate: sum_line_items = sum of all line_items[].amount
-   - Compare: sum_line_items vs total_amount
-   - If match (within $0.01): validation_status = "VALIDATED"
-   - If mismatch: validation_status = "TOTAL_MISMATCH"
-7. **billing_date**: Set to null (will be calculated later)
-8. **Output format**: Return ONLY valid JSON. NO markdown backticks. NO prose.
+   - sum_line_items = sum of all amounts
+   - If sum matches total_amount: "VALIDATED"
+   - Otherwise: "TOTAL_MISMATCH"
+7. Return ONLY valid JSON, NO markdown
 
-**VERIFICATION CHECKLIST**:
-- Line items count must equal ${jsonData.filter(row => row && row.length > 0 && row[1]).length}
-- Each line item must have: chassis, container, date_out, date_in, days, rate, amount
-- validation_status must be set based on totals comparison
-- due_date must be calculated correctly
+**CRITICAL**: Your line_items array MUST contain exactly ${dataRows.length} items.
 
-Return the JSON now:`;
+Return JSON now:`;
 
     // Call Lovable AI with explicit line items extraction
-    console.log("Calling AI with CSV data containing", jsonData.length - 1, "rows");
-    console.log("Non-empty chassis rows:", jsonData.filter(row => row && row.length > 0 && row[1]).length);
+    console.log("Calling AI with CSV data:");
+    console.log("  - Total CSV rows:", jsonData.length);
+    console.log("  - Data rows with chassis:", dataRows.length);
+    console.log("  - Chassis list:", dataRows.map(r => r[1]).join(', '));
     
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -348,9 +341,11 @@ Return the JSON now:`;
       line_items_count: extractedData.line_items?.length || 0,
       warnings: [],
       debug: {
-        csv_rows_provided: jsonData.length - 1,
-        non_empty_chassis_rows: jsonData.filter(row => row && row.length > 0 && row[1]).length,
-        extracted_count: extractedData.line_items?.length || 0
+        csv_total_rows: jsonData.length,
+        csv_data_rows: dataRows.length,
+        extracted_count: extractedData.line_items?.length || 0,
+        all_chassis: dataRows.map(r => r[1]),
+        extracted_chassis: (extractedData.line_items || []).map((i: any) => i.chassis)
       }
     };
 
