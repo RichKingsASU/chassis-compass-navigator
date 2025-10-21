@@ -153,17 +153,38 @@ const ChassisManagement = () => {
     const available = byStatus['Available'] || 0;
     const maintenance = byStatus['Maintenance'] || 0;
     
-    // Count by type
-    const byType = chassisData.reduce((acc, c) => {
+    // Count by type with status breakdown
+    const byTypeWithStatus = chassisData.reduce((acc, c) => {
       const type = c.type || c.mcl_data?.forrest_chassis_type || 'Unknown';
-      acc[type] = (acc[type] || 0) + 1;
+      const status = c.mcl_data?.chassis_status || c.current_status || 'Unknown';
+      
+      if (!acc[type]) {
+        acc[type] = {
+          total: 0,
+          available: 0,
+          reserved: 0,
+          oos: 0,
+        };
+      }
+      
+      acc[type].total += 1;
+      
+      if (status === 'Available') {
+        acc[type].available += 1;
+      } else if (status === 'Reserved') {
+        acc[type].reserved += 1;
+      } else if (status === 'Out of Service') {
+        acc[type].oos += 1;
+      }
+      
       return acc;
-    }, {} as Record<string, number>);
+    }, {} as Record<string, { total: number; available: number; reserved: number; oos: number }>);
     
     // Sort types by count descending
-    const typeBreakdown = Object.entries(byType)
-      .sort(([,a], [,b]) => (b as number) - (a as number))
-      .slice(0, 6); // Top 6 types
+    type TypeStats = { total: number; available: number; reserved: number; oos: number };
+    const typeBreakdown = Object.entries(byTypeWithStatus)
+      .sort(([,a], [,b]) => (b as TypeStats).total - (a as TypeStats).total)
+      .slice(0, 6) as [string, TypeStats][]; // Top 6 types
 
     return {
       total,
@@ -176,6 +197,13 @@ const ChassisManagement = () => {
       byStatus,
     };
   }, [chassisData]);
+
+  const handleTypeClick = (type: string) => {
+    setSelectedFilters(prev => ({
+      ...prev,
+      chassisType: type
+    }));
+  };
 
   return (
     <div className="dashboard-layout">
@@ -215,19 +243,37 @@ const ChassisManagement = () => {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Chassis Type Breakdown</CardTitle>
+          <p className="text-sm text-muted-foreground">Click a type to filter the table</p>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {metrics.byType.map(([type, count]) => {
-              const countNum = count as number;
+            {metrics.byType.map(([type, stats]) => {
+              const isSelected = selectedFilters.chassisType === type;
               return (
-                <div key={type} className="p-4 border rounded-lg bg-muted/50">
-                  <div className="text-2xl font-bold">{countNum}</div>
-                  <div className="text-sm text-muted-foreground">{type}</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {((countNum / metrics.total) * 100).toFixed(1)}%
+                <button
+                  key={type}
+                  onClick={() => handleTypeClick(type)}
+                  className={`p-4 border rounded-lg bg-muted/50 text-left transition-all hover:shadow-md hover:scale-105 ${
+                    isSelected ? 'ring-2 ring-primary bg-primary/10' : ''
+                  }`}
+                >
+                  <div className="text-2xl font-bold">{stats.total}</div>
+                  <div className="text-sm font-medium mb-2">{type}</div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div className="flex justify-between">
+                      <span>Available:</span>
+                      <span className="font-medium text-green-600">{stats.available}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Reserved:</span>
+                      <span className="font-medium text-blue-600">{stats.reserved}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>OOS:</span>
+                      <span className="font-medium text-red-600">{stats.oos}</span>
+                    </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
