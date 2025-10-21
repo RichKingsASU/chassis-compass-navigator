@@ -266,14 +266,24 @@ const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName }) => {
                           {timeAgo}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {data.latitude?.toFixed(4)}°, {data.longitude?.toFixed(4)}°
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-muted-foreground" />
+                          <div className="space-y-0.5">
+                            <div className="text-sm">
+                              Lat: {typeof data.latitude === 'number' ? data.latitude.toFixed(6) : parseFloat(String(data.latitude || 0)).toFixed(6)}°
+                            </div>
+                            <div className="text-sm">
+                              Lon: {typeof data.longitude === 'number' ? data.longitude.toFixed(6) : parseFloat(String(data.longitude || 0)).toFixed(6)}°
+                            </div>
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        {data.speed !== null ? (
+                        {data.speed !== null && data.speed !== undefined ? (
                           <div className="flex items-center gap-2">
                             <Activity className="h-4 w-4 text-muted-foreground" />
-                            {data.speed.toFixed(1)} mph
+                            {typeof data.speed === 'number' ? data.speed.toFixed(1) : parseFloat(String(data.speed)).toFixed(1)} mph
                           </div>
                         ) : (
                           <span className="text-muted-foreground">-</span>
