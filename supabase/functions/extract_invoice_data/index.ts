@@ -100,7 +100,7 @@ serve(async (req) => {
     );
 
     console.log(`✅ Parsed ${jsonData.length} rows from Excel`);
-    console.log('First 10 rows (cleaned):', JSON.stringify(jsonData.slice(0, 10), null, 2));
+    console.log('First 3 rows (raw):', JSON.stringify(jsonData.slice(0, 3), null, 2));
     
     // Filter to only data rows with chassis (skip header row at index 0)
     const dataRows = jsonData.slice(1).filter(row => 
@@ -108,57 +108,62 @@ serve(async (req) => {
     );
     console.log(`📋 Filtered to ${dataRows.length} data rows with chassis`);
     console.log('All chassis numbers:', dataRows.map(r => r[1]).join(', '));
+    console.log('First data row example:', JSON.stringify(dataRows[0]));
+    console.log('All amounts from CSV:', dataRows.map(r => r[15]).join(', '));
 
 
     // Use AI to extract structured invoice data with explicit validation
     const aiPrompt = `You are an expert invoice data extraction engine.
 
-**TASK**: Extract ALL ${dataRows.length} line items from the CSV data.
+**CRITICAL TASK**: Extract ALL ${dataRows.length} line items from the CSV data below.
 
-**INPUT DOCUMENTS**:
-1. PDF Invoice Header - May contain invoice metadata
-2. CSV Line Items - Contains ${dataRows.length} rows of transaction data (already filtered, no empty rows)
+**CSV STRUCTURE**:
+- Header Row: ${JSON.stringify(jsonData[0])}
+- Column mapping:
+  [0]=Invoice, [1]=Chassis, [2]=Size, [3]=Type, [4]=Container, 
+  [5]=Bill From, [6]=Bill To, [7]=# of Days, [8]=Rate, 
+  [9]=Gate out Location, [10]=Line Out, [11]=Gate in Location, 
+  [12]=Line In, [13]=Tax, [14]=Surcharge Total, [15]=Total
 
-**REQUIRED OUTPUT SCHEMA**:
+**SAMPLE ROW FORMAT**:
+${JSON.stringify(dataRows[0])}
+- Maps to: chassis="${dataRows[0][1]}", container="${dataRows[0][4]}", amount="${dataRows[0][15]}"
+
+**ALL ${dataRows.length} DATA ROWS TO EXTRACT**:
+${JSON.stringify(dataRows, null, 2)}
+
+**REQUIRED OUTPUT JSON**:
 {
-  "invoice_id": "string from CSV column 0",
-  "billing_date": "YYYY-MM-DD or null",
-  "due_date": "YYYY-MM-DD (see rule 5)",
+  "invoice_id": "string (use column[0] from first data row)",
+  "billing_date": null,
+  "due_date": "YYYY-MM-DD (find latest date in column[6] + 30 days)",
   "billing_terms": "Net 30",
-  "total_amount": number,
+  "total_amount": number (sum of all column[15] values),
   "validation_status": "VALIDATED or TOTAL_MISMATCH",
   "line_items": [
     {
-      "chassis": "string",
-      "container": "string", 
-      "date_out": "YYYY-MM-DD",
-      "date_in": "YYYY-MM-DD",
-      "days": number,
-      "rate": number,
-      "amount": number
+      "chassis": "column[1]",
+      "container": "column[4]",
+      "date_out": "column[5] converted from MM/DD/YYYY to YYYY-MM-DD",
+      "date_in": "column[6] converted from MM/DD/YYYY to YYYY-MM-DD",
+      "days": "column[7] as number",
+      "rate": "column[8] remove $ convert to number",
+      "amount": "column[15] remove $ convert to number"
     }
+    // ... repeat for ALL ${dataRows.length} rows
   ]
 }
 
-**CSV STRUCTURE**:
-Header: ${JSON.stringify(jsonData[0])}
+**EXTRACTION RULES** (MUST FOLLOW):
+1. **Extract ALL ${dataRows.length} rows** - Do not skip any row
+2. **Handle missing fields**: If Quantity/Unit_Price is missing, set to null but include the row
+3. **Date conversion**: "09/02/2025 00:00" → "2025-09-02"
+4. **Currency**: Remove "$" and convert to number: "$33.00" → 33.00
+5. **Due date**: Find maximum date in column[6], then add 30 days
+6. **Validation**: If sum(amounts) equals total_amount, use "VALIDATED", else "TOTAL_MISMATCH"
+7. **Return ONLY valid JSON** - No markdown, no backticks, no explanations
 
-**ALL DATA ROWS** (you MUST extract all ${dataRows.length} items):
-${JSON.stringify(dataRows, null, 2)}
-
-**EXTRACTION RULES** (CRITICAL):
-1. Extract ALL ${dataRows.length} rows above into line_items array
-2. Date conversion: "09/02/2025 00:00" → "2025-09-02"
-3. Currency: "$33.00" → 33.00
-4. Chassis from column[1], Container from column[4]
-5. **DUE DATE**: Find latest "Bill To" date (column[6]) + 30 days
-6. **VALIDATION**: 
-   - sum_line_items = sum of all amounts
-   - If sum matches total_amount: "VALIDATED"
-   - Otherwise: "TOTAL_MISMATCH"
-7. Return ONLY valid JSON, NO markdown
-
-**CRITICAL**: Your line_items array MUST contain exactly ${dataRows.length} items.
+**VERIFICATION**: Your line_items array MUST have exactly ${dataRows.length} objects.
 
 Return JSON now:`;
 
@@ -222,15 +227,30 @@ Return JSON now:`;
       
       extractedData = JSON.parse(jsonText);
       console.log("✅ Successfully parsed AI response");
-      console.log("📊 Extracted line items count:", extractedData.line_items?.length || 0);
+      console.log("📊 AI extracted line items count:", extractedData.line_items?.length || 0);
+      console.log("📊 Expected line items count:", dataRows.length);
+      
+      // Log first 3 extracted items for debugging
+      if (extractedData.line_items && extractedData.line_items.length > 0) {
+        console.log("First 3 extracted items:", JSON.stringify(extractedData.line_items.slice(0, 3), null, 2));
+      }
       
       // Validate line items were extracted
       if (!extractedData.line_items || extractedData.line_items.length === 0) {
         console.error("⚠️ CRITICAL: No line items extracted from AI response!");
+        console.error("AI response preview:", extractedText.substring(0, 1000));
         throw new Error("AI extraction returned zero line items");
       }
       
-      console.log("✅ First line item:", JSON.stringify(extractedData.line_items[0], null, 2));
+      // Check if we got all expected items
+      if (extractedData.line_items.length < dataRows.length) {
+        console.warn(`⚠️ WARNING: Only extracted ${extractedData.line_items.length} of ${dataRows.length} expected items`);
+        console.warn("Missing chassis:", 
+          dataRows.map(r => r[1]).filter(c => 
+            !extractedData.line_items.some((item: any) => item.chassis === c)
+          )
+        );
+      }
       
       // Calculate and verify totals
       const lineItemsTotal = extractedData.line_items.reduce((sum: number, item: any) => 
@@ -239,8 +259,12 @@ Return JSON now:`;
       const headerTotal = extractedData.total_amount || 0;
       const totalsMatch = Math.abs(headerTotal - lineItemsTotal) < 0.01;
       
-      console.log("💰 Header Total:", headerTotal);
-      console.log("💰 Line Items Sum:", lineItemsTotal);
+      console.log("💰 Header Total from AI:", headerTotal);
+      console.log("💰 Calculated Line Items Sum:", lineItemsTotal);
+      console.log("💰 Expected CSV sum:", dataRows.reduce((sum, r) => {
+        const amt = r[15]?.toString().replace(/[$,]/g, '') || '0';
+        return sum + parseFloat(amt);
+      }, 0));
       console.log("✓ Totals Match:", totalsMatch);
       
       // Override validation status with our calculation
@@ -317,11 +341,19 @@ Return JSON now:`;
     console.log("Invoice ID:", extractedData.invoice_id);
     console.log("Billing Date:", extractedData.billing_date);
     console.log("Due Date:", extractedData.due_date);
-    console.log("Line Items Count:", extractedData.line_items?.length || 0);
+    console.log("Expected line items (from CSV):", dataRows.length);
+    console.log("Extracted line items (from AI):", extractedData.line_items?.length || 0);
     console.log("Header Total:", headerTotal);
     console.log("Line Items Sum:", lineItemsTotal);
     console.log("Validation Status:", validationStatus);
     console.log("Final Status:", status);
+    
+    // Detailed comparison
+    if (extractedData.line_items?.length !== dataRows.length) {
+      console.error("❌ MISMATCH: Expected", dataRows.length, "but got", extractedData.line_items?.length);
+      console.error("CSV chassis:", dataRows.map(r => r[1]));
+      console.error("Extracted chassis:", (extractedData.line_items || []).map((i: any) => i.chassis));
+    }
     console.log("=== END SUMMARY ===");
 
     const response = {
@@ -337,7 +369,11 @@ Return JSON now:`;
       totals: {
         header_total: headerTotal,
         sum_line_items: lineItemsTotal,
-        difference: Math.abs(headerTotal - lineItemsTotal)
+        difference: Math.abs(headerTotal - lineItemsTotal),
+        csv_expected_sum: dataRows.reduce((sum, r) => {
+          const amt = r[15]?.toString().replace(/[$,]/g, '') || '0';
+          return sum + parseFloat(amt);
+        }, 0)
       },
       line_items: extractedData.line_items || [],
       line_items_count: extractedData.line_items?.length || 0,
