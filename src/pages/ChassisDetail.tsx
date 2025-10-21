@@ -140,14 +140,48 @@ const ChassisDetail = () => {
     try {
       setLoading(true);
 
-      // Fetch asset details
-      const { data: assetData, error: assetError } = await supabase
-        .from('assets')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // Check if ID is a UUID or MCL-only ID
+      const isMclOnly = id?.startsWith('mcl-');
+      let assetData: Asset | null = null;
 
-      if (assetError) throw assetError;
+      if (isMclOnly) {
+        // Extract the MCL ID and fetch from mcl_master_chassis_list
+        const mclId = parseInt(id.replace('mcl-', ''), 10);
+        const { data: mclData, error: mclError } = await supabase
+          .from('mcl_master_chassis_list')
+          .select('*')
+          .eq('id', mclId)
+          .single();
+
+        if (mclError) throw mclError;
+        
+        // Convert MCL data to Asset format
+        assetData = {
+          id: id,
+          identifier: mclData.forrest_chz,
+          type: mclData.forrest_chassis_type,
+          asset_class: mclData.chassis_category,
+          length: 0,
+          width: 0,
+          height: 0,
+          current_status: mclData.chassis_status || 'Active',
+          vin: mclData.serial || '',
+          make: '',
+          model: '',
+          updated_at: new Date().toISOString()
+        };
+      } else {
+        // Fetch asset details for UUID
+        const { data, error: assetError } = await supabase
+          .from('assets')
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (assetError) throw assetError;
+        assetData = data;
+      }
+
       setAsset(assetData);
 
       // Fetch location history (GPS)
