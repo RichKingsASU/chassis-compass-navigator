@@ -47,32 +47,32 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({
   const runValidation = async () => {
     setIsValidating(true);
     try {
+      // Helper to convert date field if it's an Excel serial number
+      const convertDateField = (value: any): any => {
+        if (typeof value === 'number' && value > 40000 && value < 50000) {
+          return excelDateToJSDate(value);
+        }
+        if (typeof value === 'string' && value.includes('T')) {
+          return value.split('T')[0]; // Return just the date part
+        }
+        return value;
+      };
+
       // Convert Excel dates in line items to proper date strings
       const convertedLineItems = extractedData.line_items.map((item) => {
         const rowData = item.row_data as any;
         
-        // Helper to convert date field if it's an Excel serial number
-        const convertDateField = (value: any): string | null => {
-          if (typeof value === 'number' && value > 40000 && value < 50000) {
-            return excelDateToJSDate(value);
-          }
-          if (typeof value === 'string') {
-            return value.split('T')[0]; // Return just the date part
-          }
-          return null;
-        };
+        if (!rowData) return item;
+
+        // Convert all fields in row_data that might be dates
+        const convertedRowData: any = {};
+        for (const [key, value] of Object.entries(rowData)) {
+          convertedRowData[key] = convertDateField(value);
+        }
 
         return {
           ...item,
-          row_data: {
-            ...rowData,
-            'Bill Start Date': convertDateField(rowData?.['Bill Start Date']),
-            'Bill End Date': convertDateField(rowData?.['Bill End Date']),
-            'On-Hire Date': convertDateField(rowData?.['On-Hire Date']),
-            'Off-Hire Date': convertDateField(rowData?.['Off-Hire Date']),
-            'Billing Date': convertDateField(rowData?.['Billing Date']),
-            'Due Date': convertDateField(rowData?.['Due Date']),
-          }
+          row_data: convertedRowData
         };
       });
 
