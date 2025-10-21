@@ -140,46 +140,65 @@ const ChassisDetail = () => {
     try {
       setLoading(true);
 
-      // Check if ID is a UUID or MCL-only ID
-      const isMclOnly = id?.startsWith('mcl-');
       let assetData: Asset | null = null;
+      const decodedId = decodeURIComponent(id || '');
 
-      if (isMclOnly) {
-        // Extract the MCL ID and fetch from mcl_master_chassis_list
-        const mclId = parseInt(id.replace('mcl-', ''), 10);
+      // Try to fetch from assets table first (by UUID or identifier)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedId);
+      
+      if (isUuid) {
+        // Look up by UUID
+        const { data, error } = await supabase
+          .from('assets')
+          .select('*')
+          .eq('id', decodedId)
+          .single();
+
+        if (!error && data) {
+          assetData = data;
+        }
+      } else {
+        // Look up by identifier in assets table
+        const { data, error } = await supabase
+          .from('assets')
+          .select('*')
+          .eq('identifier', decodedId)
+          .maybeSingle();
+
+        if (!error && data) {
+          assetData = data;
+        }
+      }
+
+      // If not found in assets, try MCL master chassis list
+      if (!assetData) {
         const { data: mclData, error: mclError } = await supabase
           .from('mcl_master_chassis_list')
           .select('*')
-          .eq('id', mclId)
-          .single();
+          .eq('forrest_chz', decodedId)
+          .maybeSingle();
 
-        if (mclError) throw mclError;
-        
-        // Convert MCL data to Asset format
-        assetData = {
-          id: id,
-          identifier: mclData.forrest_chz,
-          type: mclData.forrest_chassis_type,
-          asset_class: mclData.chassis_category,
-          length: 0,
-          width: 0,
-          height: 0,
-          current_status: mclData.chassis_status || 'Active',
-          vin: mclData.serial || '',
-          make: '',
-          model: '',
-          updated_at: new Date().toISOString()
-        };
-      } else {
-        // Fetch asset details for UUID
-        const { data, error: assetError } = await supabase
-          .from('assets')
-          .select('*')
-          .eq('id', id)
-          .single();
+        if (!mclError && mclData) {
+          // Convert MCL data to Asset format
+          assetData = {
+            id: `mcl-${mclData.id}`,
+            identifier: mclData.forrest_chz,
+            type: mclData.forrest_chassis_type,
+            asset_class: mclData.chassis_category,
+            length: 0,
+            width: 0,
+            height: 0,
+            current_status: mclData.chassis_status || 'Active',
+            vin: mclData.serial || '',
+            make: '',
+            model: '',
+            updated_at: new Date().toISOString()
+          };
+        }
+      }
 
-        if (assetError) throw assetError;
-        assetData = data;
+      if (!assetData) {
+        throw new Error('Chassis not found');
       }
 
       setAsset(assetData);

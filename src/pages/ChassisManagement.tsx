@@ -388,7 +388,7 @@ const ChassisManagement = () => {
                           variant="ghost" 
                           size="sm" 
                           className="gap-2"
-                          onClick={() => navigate(`/chassis/${chassis.id}`)}
+                          onClick={() => navigate(`/chassis/${encodeURIComponent(chassis.identifier || chassis.id)}`)}
                         >
                           <Eye className="h-4 w-4" />
                           View
