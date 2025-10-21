@@ -1160,6 +1160,102 @@ export type Database = {
         }
         Relationships: []
       }
+      invoices_header: {
+        Row: {
+          created_at: string | null
+          currency: string | null
+          due_date: string | null
+          gemini_raw: Json | null
+          id: string
+          invoice_date: string | null
+          invoice_id: string
+          source_csv_path: string
+          source_pdf_path: string
+          status: string | null
+          total_amount_due: number | null
+          vendor: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          gemini_raw?: Json | null
+          id?: string
+          invoice_date?: string | null
+          invoice_id: string
+          source_csv_path: string
+          source_pdf_path: string
+          status?: string | null
+          total_amount_due?: number | null
+          vendor?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          gemini_raw?: Json | null
+          id?: string
+          invoice_date?: string | null
+          invoice_id?: string
+          source_csv_path?: string
+          source_pdf_path?: string
+          status?: string | null
+          total_amount_due?: number | null
+          vendor?: string | null
+        }
+        Relationships: []
+      }
+      invoices_line_items: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          extra: Json | null
+          id: string
+          invoice_id: string
+          line_no: number | null
+          quantity: number | null
+          total_charge: number | null
+          unit_price: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          extra?: Json | null
+          id?: string
+          invoice_id: string
+          line_no?: number | null
+          quantity?: number | null
+          total_charge?: number | null
+          unit_price?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          extra?: Json | null
+          id?: string
+          invoice_id?: string
+          line_no?: number | null
+          quantity?: number | null
+          total_charge?: number | null
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices_header"
+            referencedColumns: ["invoice_id"]
+          },
+          {
+            foreignKeyName: "invoices_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "v_invoice_totals"
+            referencedColumns: ["invoice_id"]
+          },
+        ]
+      }
       mcl_forrest_ltl_owned: {
         Row: {
           anytrek_unit: number | null
@@ -3111,6 +3207,14 @@ export type Database = {
           last_seen: string | null
           org_id: string | null
           samples: number | null
+        }
+        Relationships: []
+      }
+      v_invoice_totals: {
+        Row: {
+          invoice_id: string | null
+          sum_line_total: number | null
+          total_amount_due: number | null
         }
         Relationships: []
       }
