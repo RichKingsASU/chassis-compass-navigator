@@ -49,6 +49,12 @@ interface TMSData {
   created_date: string;
   mbl: string;
   so_num: string;
+  ld_num: string;
+  pickup_actual_date: string;
+  delivery_actual_date: string;
+  customer_name: string;
+  carrier_name: string;
+  miles: string;
 }
 
 interface Repair {
@@ -524,35 +530,103 @@ const ChassisDetail = () => {
           <TabsContent value="tms">
             <Card>
               <CardHeader>
-                <CardTitle>TMS Load History</CardTitle>
+                <CardTitle>Usage History by Load/Shipment Order</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Chassis usage organized by LD/SO numbers with dates
+                </p>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {tmsData.length === 0 ? (
                     <div className="text-center text-muted-foreground py-8">
-                      No TMS data available for this chassis
+                      No TMS usage data available for this chassis
                     </div>
                   ) : (
                     tmsData.map((tms) => (
-                      <Card key={tms.id}>
-                        <CardContent className="pt-6">
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold">Load #{tms.mbl || tms.so_num || 'N/A'}</span>
-                                <Badge variant={tms.status === 'Completed' ? 'default' : 'secondary'}>
-                                  {tms.status || 'Unknown'}
-                                </Badge>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {tms.pickup_loc_name || 'N/A'} → {tms.delivery_loc_name || 'N/A'}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Container: {tms.container_number || 'N/A'}
+                      <Card key={tms.id} className="border-l-4 border-l-primary">
+                        <CardContent className="pt-4">
+                          <div className="space-y-3">
+                            {/* Header with LD/SO and Status */}
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-3">
+                                  <span className="font-bold text-lg">LD: {tms.ld_num || 'N/A'}</span>
+                                  <span className="text-muted-foreground">•</span>
+                                  <span className="font-semibold">SO: {tms.so_num || 'N/A'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={tms.status === 'Delivered' ? 'default' : 'secondary'}>
+                                    {tms.status || 'Unknown'}
+                                  </Badge>
+                                  {tms.mbl && (
+                                    <span className="text-xs text-muted-foreground">MBL: {tms.mbl}</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                            <div className="text-right text-sm text-muted-foreground">
-                              {tms.created_date ? format(new Date(tms.created_date), 'PP') : 'N/A'}
+
+                            {/* Date Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-muted rounded-lg">
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground">Created</div>
+                                <div className="text-sm font-medium">
+                                  {tms.created_date ? format(new Date(tms.created_date), 'PP') : 'N/A'}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground">Pickup</div>
+                                <div className="text-sm font-medium">
+                                  {tms.pickup_actual_date ? format(new Date(tms.pickup_actual_date), 'PP') : 'N/A'}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground">Delivery</div>
+                                <div className="text-sm font-medium">
+                                  {tms.delivery_actual_date ? format(new Date(tms.delivery_actual_date), 'PP') : 'N/A'}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Route Information */}
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 text-sm">
+                                <MapPin className="h-4 w-4 text-green-600" />
+                                <span className="font-medium">Pickup:</span>
+                                <span className="text-muted-foreground">{tms.pickup_loc_name || 'N/A'}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm">
+                                <MapPin className="h-4 w-4 text-red-600" />
+                                <span className="font-medium">Delivery:</span>
+                                <span className="text-muted-foreground">{tms.delivery_loc_name || 'N/A'}</span>
+                              </div>
+                            </div>
+
+                            {/* Additional Details */}
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              {tms.container_number && (
+                                <div>
+                                  <span className="text-muted-foreground">Container:</span>
+                                  <span className="ml-1 font-medium">{tms.container_number}</span>
+                                </div>
+                              )}
+                              {tms.customer_name && (
+                                <div>
+                                  <span className="text-muted-foreground">Customer:</span>
+                                  <span className="ml-1 font-medium">{tms.customer_name}</span>
+                                </div>
+                              )}
+                              {tms.carrier_name && (
+                                <div>
+                                  <span className="text-muted-foreground">Carrier:</span>
+                                  <span className="ml-1 font-medium">{tms.carrier_name}</span>
+                                </div>
+                              )}
+                              {tms.miles && (
+                                <div>
+                                  <span className="text-muted-foreground">Miles:</span>
+                                  <span className="ml-1 font-medium">{tms.miles}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </CardContent>
