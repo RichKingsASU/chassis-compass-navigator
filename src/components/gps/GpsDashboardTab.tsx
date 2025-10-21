@@ -13,6 +13,7 @@ import { MapPin, Clock, Activity, Upload, Database } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import GpsMapView from './GpsMapView';
 
 interface GpsDataPoint {
   id: string;
@@ -166,6 +167,9 @@ const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName }) => {
 
   return (
     <div className="space-y-6">
+      {/* GPS Map View */}
+      <GpsMapView providerName={providerName} />
+      
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
