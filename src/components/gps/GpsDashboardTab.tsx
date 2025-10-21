@@ -23,6 +23,8 @@ interface GpsDataPoint {
   recorded_at: string;
   battery_level: number | null;
   provider: string;
+  chassis_id?: string;
+  asset_id?: string;
 }
 
 interface GpsUploadRecord {
@@ -63,7 +65,8 @@ const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName }) => {
     try {
       setLoading(true);
 
-      // Fetch recent GPS data for this provider
+      // Fetch recent GPS data with chassis mapping
+      // First get GPS data
       const { data: gpsDataResult, error: gpsError } = await supabase
         .from('gps_data')
         .select('*')
@@ -72,6 +75,34 @@ const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName }) => {
         .limit(50);
 
       if (gpsError) throw gpsError;
+
+      // Then enrich with chassis data via device mapping
+      const enrichedGpsData: GpsDataPoint[] = [];
+      
+      for (const gpsPoint of (gpsDataResult || [])) {
+        let chassisId = null;
+        let assetId = null;
+
+        if (gpsPoint.device_id) {
+          // Look up device mapping
+          const { data: mapping } = await supabase
+            .from('blackberry_device_map')
+            .select('asset_id, assets(identifier)')
+            .eq('external_device_id', gpsPoint.device_id)
+            .maybeSingle();
+
+          if (mapping) {
+            assetId = mapping.asset_id;
+            chassisId = (mapping.assets as any)?.identifier || null;
+          }
+        }
+
+        enrichedGpsData.push({
+          ...gpsPoint,
+          chassis_id: chassisId,
+          asset_id: assetId
+        });
+      }
 
       // Fetch recent uploads for this provider
       const { data: uploadsResult, error: uploadsError } = await supabase
@@ -83,7 +114,7 @@ const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName }) => {
 
       if (uploadsError) throw uploadsError;
 
-      setGpsData(gpsDataResult || []);
+      setGpsData(enrichedGpsData);
       setUploads(uploadsResult || []);
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
@@ -97,8 +128,10 @@ const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName }) => {
     }
   };
 
-  // Get unique devices
+  // Get unique devices and chassis
   const uniqueDevices = [...new Set(gpsData.map(d => d.device_id))].filter(Boolean);
+  const mappedChassis = gpsData.filter(d => d.chassis_id).length;
+  const unmappedDevices = uniqueDevices.length - [...new Set(gpsData.filter(d => d.chassis_id).map(d => d.device_id))].length;
   
   // Calculate statistics
   const totalDataPoints = gpsData.length;
@@ -198,6 +231,7 @@ const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName }) => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Chassis ID</TableHead>
                   <TableHead>Device ID</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Last Update</TableHead>
@@ -217,7 +251,14 @@ const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName }) => {
 
                   return (
                     <TableRow key={data.id}>
-                      <TableCell className="font-medium">{data.device_id || 'Unknown'}</TableCell>
+                      <TableCell className="font-medium">
+                        {data.chassis_id || (
+                          <span className="text-muted-foreground italic">Not Mapped</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {data.device_id || 'Unknown'}
+                      </TableCell>
                       <TableCell>{getStatusBadge(minutesAgo)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
