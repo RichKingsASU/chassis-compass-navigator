@@ -7,13 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, MapPin, Truck, Hammer, DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Lock } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, Hammer, DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, subDays } from 'date-fns';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import FinancialsTab from '@/components/chassis/FinancialsTab';
 import { ChassisMapView } from '@/components/chassis/ChassisMapView';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Asset {
   id: string;
@@ -55,6 +56,21 @@ interface TMSData {
   customer_name: string;
   carrier_name: string;
   miles: string;
+  // Carrier charges
+  carrier_rate_charge: string | number;
+  carrier_total_rate_linehaul: string | number;
+  carrier_total_rate_fuel: string | number;
+  carrier_total_rate_detention: string | number;
+  carrier_total_accessorials_rate: string | number;
+  carrier_invoice_charge: string | number;
+  carrier_total_rate_other: string | number;
+  // Customer charges
+  cust_rate_charge: string | number;
+  cust_total_rate_linehaul: string | number;
+  cust_total_rate_fuel: string | number;
+  cust_total_rate_detention: string | number;
+  customer_total_accessorials_rate: string | number;
+  cust_invoice_charge: string | number;
 }
 
 interface Repair {
@@ -78,6 +94,54 @@ const ChassisDetail = () => {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [selectedMarker, setSelectedMarker] = useState<number | null>(null);
   const [mapsApiKey, setMapsApiKey] = useState<string | null>(null);
+  const [expandedCharges, setExpandedCharges] = useState<Set<string>>(new Set());
+
+  // Helper functions for charge parsing and formatting
+  const parseCharge = (value: string | number | null | undefined): number => {
+    if (!value) return 0;
+    if (typeof value === 'number') return value;
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const formatCurrency = (value: string | number | null | undefined): string => {
+    const num = parseCharge(value);
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(num);
+  };
+
+  const toggleCharges = (tmsId: string) => {
+    setExpandedCharges(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tmsId)) {
+        newSet.delete(tmsId);
+      } else {
+        newSet.add(tmsId);
+      }
+      return newSet;
+    });
+  };
+
+  // Calculate summary KPIs
+  const summaryKPIs = React.useMemo(() => {
+    const totalRevenue = tmsData.reduce((sum, tms) => sum + parseCharge(tms.cust_invoice_charge), 0);
+    const totalCost = tmsData.reduce((sum, tms) => sum + parseCharge(tms.carrier_invoice_charge), 0);
+    const totalMargin = totalRevenue - totalCost;
+    const avgMarginPct = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
+    const loadCount = tmsData.length;
+
+    return {
+      totalRevenue,
+      totalCost,
+      totalMargin,
+      avgMarginPct,
+      loadCount
+    };
+  }, [tmsData]);
 
   // Fetch Google Maps API key from Supabase edge function
   useEffect(() => {
@@ -527,12 +591,58 @@ const ChassisDetail = () => {
           </TabsContent>
 
           {/* TMS Tab */}
-          <TabsContent value="tms">
+          <TabsContent value="tms" className="space-y-4">
+            {/* Summary KPIs */}
+            {tmsData.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm text-muted-foreground">Total Revenue</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {formatCurrency(summaryKPIs.totalRevenue)}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm text-muted-foreground">Total Costs</div>
+                    <div className="text-2xl font-bold text-orange-600">
+                      {formatCurrency(summaryKPIs.totalCost)}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm text-muted-foreground">Total Margin</div>
+                    <div className={`text-2xl font-bold ${summaryKPIs.totalMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatCurrency(summaryKPIs.totalMargin)}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm text-muted-foreground">Avg Margin %</div>
+                    <div className={`text-2xl font-bold ${summaryKPIs.avgMarginPct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {summaryKPIs.avgMarginPct.toFixed(1)}%
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="text-sm text-muted-foreground">Number of Loads</div>
+                    <div className="text-2xl font-bold">
+                      {summaryKPIs.loadCount}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle>Usage History by Load/Shipment Order</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Chassis usage organized by LD/SO numbers with dates
+                  Chassis usage organized by LD/SO numbers with dates and charge breakdowns
                 </p>
               </CardHeader>
               <CardContent>
@@ -542,96 +652,221 @@ const ChassisDetail = () => {
                       No TMS usage data available for this chassis
                     </div>
                   ) : (
-                    tmsData.map((tms) => (
-                      <Card key={tms.id} className="border-l-4 border-l-primary">
-                        <CardContent className="pt-4">
-                          <div className="space-y-3">
-                            {/* Header with LD/SO and Status */}
-                            <div className="flex items-start justify-between">
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-3">
-                                  <span className="font-bold text-lg">LD: {tms.ld_num || 'N/A'}</span>
-                                  <span className="text-muted-foreground">•</span>
-                                  <span className="font-semibold">SO: {tms.so_num || 'N/A'}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant={tms.status === 'Delivered' ? 'default' : 'secondary'}>
-                                    {tms.status || 'Unknown'}
-                                  </Badge>
-                                  {tms.mbl && (
-                                    <span className="text-xs text-muted-foreground">MBL: {tms.mbl}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
+                    tmsData.map((tms) => {
+                      const revenue = parseCharge(tms.cust_invoice_charge);
+                      const cost = parseCharge(tms.carrier_invoice_charge);
+                      const margin = revenue - cost;
+                      const marginPct = revenue > 0 ? (margin / revenue) * 100 : 0;
+                      const isExpanded = expandedCharges.has(tms.id);
 
-                            {/* Date Information */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-muted rounded-lg">
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground">Created</div>
-                                <div className="text-sm font-medium">
-                                  {tms.created_date ? format(new Date(tms.created_date), 'PP') : 'N/A'}
+                      return (
+                        <Card key={tms.id} className="border-l-4 border-l-primary">
+                          <CardContent className="pt-4">
+                            <div className="space-y-3">
+                              {/* Header with LD/SO and Status */}
+                              <div className="flex items-start justify-between">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-bold text-lg">LD: {tms.ld_num || 'N/A'}</span>
+                                    <span className="text-muted-foreground">•</span>
+                                    <span className="font-semibold">SO: {tms.so_num || 'N/A'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={tms.status === 'Delivered' ? 'default' : 'secondary'}>
+                                      {tms.status || 'Unknown'}
+                                    </Badge>
+                                    {tms.mbl && (
+                                      <span className="text-xs text-muted-foreground">MBL: {tms.mbl}</span>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground">Pickup</div>
-                                <div className="text-sm font-medium">
-                                  {tms.pickup_actual_date ? format(new Date(tms.pickup_actual_date), 'PP') : 'N/A'}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-xs font-medium text-muted-foreground">Delivery</div>
-                                <div className="text-sm font-medium">
-                                  {tms.delivery_actual_date ? format(new Date(tms.delivery_actual_date), 'PP') : 'N/A'}
-                                </div>
-                              </div>
-                            </div>
 
-                            {/* Route Information */}
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-sm">
-                                <MapPin className="h-4 w-4 text-green-600" />
-                                <span className="font-medium">Pickup:</span>
-                                <span className="text-muted-foreground">{tms.pickup_loc_name || 'N/A'}</span>
+                              {/* Date Information */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-muted rounded-lg">
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground">Created</div>
+                                  <div className="text-sm font-medium">
+                                    {tms.created_date ? format(new Date(tms.created_date), 'PP') : 'N/A'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground">Pickup</div>
+                                  <div className="text-sm font-medium">
+                                    {tms.pickup_actual_date ? format(new Date(tms.pickup_actual_date), 'PP') : 'N/A'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="text-xs font-medium text-muted-foreground">Delivery</div>
+                                  <div className="text-sm font-medium">
+                                    {tms.delivery_actual_date ? format(new Date(tms.delivery_actual_date), 'PP') : 'N/A'}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2 text-sm">
-                                <MapPin className="h-4 w-4 text-red-600" />
-                                <span className="font-medium">Delivery:</span>
-                                <span className="text-muted-foreground">{tms.delivery_loc_name || 'N/A'}</span>
-                              </div>
-                            </div>
 
-                            {/* Additional Details */}
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              {tms.container_number && (
-                                <div>
-                                  <span className="text-muted-foreground">Container:</span>
-                                  <span className="ml-1 font-medium">{tms.container_number}</span>
+                              {/* Route Information */}
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-sm">
+                                  <MapPin className="h-4 w-4 text-green-600" />
+                                  <span className="font-medium">Pickup:</span>
+                                  <span className="text-muted-foreground">{tms.pickup_loc_name || 'N/A'}</span>
                                 </div>
-                              )}
-                              {tms.customer_name && (
-                                <div>
-                                  <span className="text-muted-foreground">Customer:</span>
-                                  <span className="ml-1 font-medium">{tms.customer_name}</span>
+                                <div className="flex items-center gap-2 text-sm">
+                                  <MapPin className="h-4 w-4 text-red-600" />
+                                  <span className="font-medium">Delivery:</span>
+                                  <span className="text-muted-foreground">{tms.delivery_loc_name || 'N/A'}</span>
                                 </div>
-                              )}
-                              {tms.carrier_name && (
-                                <div>
-                                  <span className="text-muted-foreground">Carrier:</span>
-                                  <span className="ml-1 font-medium">{tms.carrier_name}</span>
-                                </div>
-                              )}
-                              {tms.miles && (
-                                <div>
-                                  <span className="text-muted-foreground">Miles:</span>
-                                  <span className="ml-1 font-medium">{tms.miles}</span>
-                                </div>
-                              )}
+                              </div>
+
+                              {/* Additional Details */}
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                {tms.container_number && (
+                                  <div>
+                                    <span className="text-muted-foreground">Container:</span>
+                                    <span className="ml-1 font-medium">{tms.container_number}</span>
+                                  </div>
+                                )}
+                                {tms.customer_name && (
+                                  <div>
+                                    <span className="text-muted-foreground">Customer:</span>
+                                    <span className="ml-1 font-medium">{tms.customer_name}</span>
+                                  </div>
+                                )}
+                                {tms.carrier_name && (
+                                  <div>
+                                    <span className="text-muted-foreground">Carrier:</span>
+                                    <span className="ml-1 font-medium">{tms.carrier_name}</span>
+                                  </div>
+                                )}
+                                {tms.miles && (
+                                  <div>
+                                    <span className="text-muted-foreground">Miles:</span>
+                                    <span className="ml-1 font-medium">{tms.miles}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Charges Collapsible Section */}
+                              <Collapsible open={isExpanded} onOpenChange={() => toggleCharges(tms.id)}>
+                                <CollapsibleTrigger asChild>
+                                  <Button variant="outline" className="w-full mt-2" size="sm">
+                                    <DollarSign className="h-4 w-4 mr-2" />
+                                    {isExpanded ? 'Hide' : 'View'} Charges & Margin
+                                    {isExpanded ? <ChevronUp className="h-4 w-4 ml-2" /> : <ChevronDown className="h-4 w-4 ml-2" />}
+                                  </Button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="mt-3">
+                                  <div className="space-y-3">
+                                    {/* Charge Breakdown Grid */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      {/* Carrier Charges */}
+                                      <Card className="bg-muted/50">
+                                        <CardHeader className="pb-3">
+                                          <CardTitle className="text-sm font-semibold">Carrier Charges (Cost)</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2 text-sm">
+                                          {parseCharge(tms.carrier_total_rate_linehaul) > 0 && (
+                                            <div className="flex justify-between">
+                                              <span className="text-muted-foreground">Linehaul:</span>
+                                              <span className="font-medium">{formatCurrency(tms.carrier_total_rate_linehaul)}</span>
+                                            </div>
+                                          )}
+                                          {parseCharge(tms.carrier_total_rate_fuel) > 0 && (
+                                            <div className="flex justify-between">
+                                              <span className="text-muted-foreground">Fuel Surcharge:</span>
+                                              <span className="font-medium">{formatCurrency(tms.carrier_total_rate_fuel)}</span>
+                                            </div>
+                                          )}
+                                          {parseCharge(tms.carrier_total_rate_detention) > 0 && (
+                                            <div className="flex justify-between">
+                                              <span className="text-muted-foreground">Detention:</span>
+                                              <span className="font-medium">{formatCurrency(tms.carrier_total_rate_detention)}</span>
+                                            </div>
+                                          )}
+                                          {parseCharge(tms.carrier_total_accessorials_rate) > 0 && (
+                                            <div className="flex justify-between">
+                                              <span className="text-muted-foreground">Accessorials:</span>
+                                              <span className="font-medium">{formatCurrency(tms.carrier_total_accessorials_rate)}</span>
+                                            </div>
+                                          )}
+                                          {parseCharge(tms.carrier_total_rate_other) > 0 && (
+                                            <div className="flex justify-between">
+                                              <span className="text-muted-foreground">Other:</span>
+                                              <span className="font-medium">{formatCurrency(tms.carrier_total_rate_other)}</span>
+                                            </div>
+                                          )}
+                                          <div className="border-t pt-2 flex justify-between font-semibold">
+                                            <span>Invoice Total:</span>
+                                            <span className="text-orange-600">{formatCurrency(tms.carrier_invoice_charge)}</span>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+
+                                      {/* Customer Charges */}
+                                      <Card className="bg-muted/50">
+                                        <CardHeader className="pb-3">
+                                          <CardTitle className="text-sm font-semibold">Customer Charges (Revenue)</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-2 text-sm">
+                                          {parseCharge(tms.cust_total_rate_linehaul) > 0 && (
+                                            <div className="flex justify-between">
+                                              <span className="text-muted-foreground">Linehaul:</span>
+                                              <span className="font-medium">{formatCurrency(tms.cust_total_rate_linehaul)}</span>
+                                            </div>
+                                          )}
+                                          {parseCharge(tms.cust_total_rate_fuel) > 0 && (
+                                            <div className="flex justify-between">
+                                              <span className="text-muted-foreground">Fuel Surcharge:</span>
+                                              <span className="font-medium">{formatCurrency(tms.cust_total_rate_fuel)}</span>
+                                            </div>
+                                          )}
+                                          {parseCharge(tms.cust_total_rate_detention) > 0 && (
+                                            <div className="flex justify-between">
+                                              <span className="text-muted-foreground">Detention:</span>
+                                              <span className="font-medium">{formatCurrency(tms.cust_total_rate_detention)}</span>
+                                            </div>
+                                          )}
+                                          {parseCharge(tms.customer_total_accessorials_rate) > 0 && (
+                                            <div className="flex justify-between">
+                                              <span className="text-muted-foreground">Accessorials:</span>
+                                              <span className="font-medium">{formatCurrency(tms.customer_total_accessorials_rate)}</span>
+                                            </div>
+                                          )}
+                                          <div className="border-t pt-2 flex justify-between font-semibold">
+                                            <span>Invoice Total:</span>
+                                            <span className="text-green-600">{formatCurrency(tms.cust_invoice_charge)}</span>
+                                          </div>
+                                        </CardContent>
+                                      </Card>
+                                    </div>
+
+                                    {/* Margin Summary */}
+                                    <Card className={`border-2 ${margin >= 0 ? 'border-green-500 bg-green-50/50' : 'border-red-500 bg-red-50/50'}`}>
+                                      <CardContent className="pt-4">
+                                        <div className="flex items-center justify-between">
+                                          <div>
+                                            <div className="text-sm text-muted-foreground">Gross Margin</div>
+                                            <div className={`text-2xl font-bold ${margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                              {formatCurrency(margin)}
+                                            </div>
+                                          </div>
+                                          <div className="text-right">
+                                            <div className="text-sm text-muted-foreground">Margin %</div>
+                                            <div className={`text-2xl font-bold ${marginPct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                              {marginPct.toFixed(1)}%
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
+                          </CardContent>
+                        </Card>
+                      );
+                    })
                   )}
                 </div>
               </CardContent>
