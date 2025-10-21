@@ -76,10 +76,27 @@ const ChassisDetail = () => {
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [selectedMarker, setSelectedMarker] = useState<number | null>(null);
+  const [mapsApiKey, setMapsApiKey] = useState<string>('');
+
+  // Fetch Google Maps API key from Supabase edge function
+  useEffect(() => {
+    const fetchMapsKey = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('get-maps-key');
+        if (error) throw error;
+        if (data?.apiKey) {
+          setMapsApiKey(data.apiKey);
+        }
+      } catch (error) {
+        console.error('Error fetching Maps API key:', error);
+      }
+    };
+    fetchMapsKey();
+  }, []);
 
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+    googleMapsApiKey: mapsApiKey
   });
 
   useEffect(() => {
