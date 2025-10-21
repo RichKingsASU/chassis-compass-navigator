@@ -87,7 +87,7 @@ const ChassisDetail = () => {
           {
             method: 'GET',
             headers: {
-              'Authorization': `Bearer ${supabase.auth.getSession}`,
+              'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1Y3ZrbXNhYXBwcGhzdnVhYm9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3Mzg1OTcsImV4cCI6MjA3MzMxNDU5N30.zGnrRCzrWbFY-tvXjsb6nf9nVmRhqlEAcdtilRaJPxQ',
               'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1Y3ZrbXNhYXBwcGhzdnVhYm9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3Mzg1OTcsImV4cCI6MjA3MzMxNDU5N30.zGnrRCzrWbFY-tvXjsb6nf9nVmRhqlEAcdtilRaJPxQ'
             }
           }
