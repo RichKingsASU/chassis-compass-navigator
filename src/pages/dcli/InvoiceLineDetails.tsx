@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle, AlertCircle, XCircle, AlertTriangle, FileText, 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 // Validation Categories Configuration
 type ValidationStatus = 'pass' | 'fail' | 'warning' | 'info';
@@ -49,40 +50,86 @@ const InvoiceLineDetails = () => {
   const { lineId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
-  // Mock data - replace with actual data fetching
-  const lineItem = {
-    line_invoice_number: lineId || '',
-    chassis: 'TEMU1234567',
-    container: 'MSCU9876543',
-    match_confidence: 85,
-    match_type: 'fuzzy',
-    invoice_date: '2024-01-15',
-    billing_start: '2024-01-10',
-    billing_end: '2024-01-20',
-    total_charges: 450.00,
-    invoice_rate: 45.00,
-    invoice_quantity: 10,
-    charge_type: 'Chassis Charge',
-    tms_match: {
-      ld_num: 'LD123456',
-      so_num: 'SO789012',
-      chassis_number: 'TEMU1234567',
-      container_number: 'MSCU9876540', // Different from invoice
-      carrier_name: 'ABC Trucking',
-      customer_name: 'XYZ Logistics',
-      date_out: '2024-01-10',
-      date_in: '2024-01-20',
-      calculated_charges: 420.00,
-      rated_amount: 420.00,
-      rated_rate: 42.00,
-      rated_quantity: 10,
-      confidence: 85,
-      match_reasons: ['Chassis exact match', 'Container partial match'],
-      multi_load: false,
-      special_contract: false
+  const [lineItem, setLineItem] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchLineItemData();
+  }, [lineId]);
+
+  const fetchLineItemData = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('dcli_invoice_line_item')
+        .select('*')
+        .eq('line_invoice_number', lineId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        // Transform database data to component format
+        setLineItem({
+          line_invoice_number: data.line_invoice_number,
+          chassis: data.chassis,
+          container: data.on_hire_container || data.off_hire_container,
+          match_confidence: 85, // TODO: Add match confidence calculation
+          match_type: 'fuzzy',
+          invoice_date: data.billing_date,
+          billing_start: data.bill_start_date,
+          billing_end: data.bill_end_date,
+          total_charges: parseFloat(String(data.grand_total || 0)),
+          invoice_rate: parseFloat(String(data.tier_1_rate || 0)),
+          invoice_quantity: Number(data.tier_1_days || 0),
+          charge_type: data.charge_description || 'Chassis Charge',
+          tms_match: {
+            ld_num: 'LD123456', // TODO: Add TMS matching
+            so_num: 'SO789012',
+            chassis_number: data.chassis,
+            container_number: data.on_hire_container,
+            carrier_name: 'ABC Trucking',
+            customer_name: data.customer_name,
+            date_out: data.on_hire_date,
+            date_in: data.off_hire_date,
+            calculated_charges: parseFloat(String(data.grand_total || 0)),
+            rated_amount: parseFloat(String(data.grand_total || 0)),
+            rated_rate: parseFloat(String(data.tier_1_rate || 0)),
+            rated_quantity: Number(data.tier_1_days || 0),
+            confidence: 85,
+            match_reasons: ['Chassis exact match'],
+            multi_load: false,
+            special_contract: false
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching line item:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load invoice line details',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center">Loading invoice line details...</div>
+      </div>
+    );
+  }
+
+  if (!lineItem) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center">Invoice line not found</div>
+      </div>
+    );
+  }
 
   const isExactMatch = lineItem.match_confidence === 100;
 
