@@ -1082,6 +1082,7 @@ export type Database = {
           row_count: number | null
           status: string
           updated_at: string | null
+          uploaded_by: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1095,6 +1096,7 @@ export type Database = {
           row_count?: number | null
           status?: string
           updated_at?: string | null
+          uploaded_by?: string | null
         }
         Update: {
           created_at?: string | null
@@ -1108,6 +1110,7 @@ export type Database = {
           row_count?: number | null
           status?: string
           updated_at?: string | null
+          uploaded_by?: string | null
         }
         Relationships: []
       }
