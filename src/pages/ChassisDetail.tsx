@@ -1,17 +1,19 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow } from '@react-google-maps/api';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, MapPin, Calendar, Truck, Package } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowLeft, MapPin, Truck, Hammer, DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Lock } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import FinancialsTab from '@/components/chassis/FinancialsTab';
 
 interface Asset {
   id: string;
@@ -21,6 +23,11 @@ interface Asset {
   length: number;
   width: number;
   height: number;
+  current_status: string;
+  vin: string;
+  make: string;
+  model: string;
+  updated_at: string;
 }
 
 interface LocationHistory {
@@ -33,7 +40,8 @@ interface LocationHistory {
 }
 
 interface TMSData {
-  chassis_number: string;
+  id: string;
+  chassis_norm: string;
   container_number: string;
   pickup_loc_name: string;
   delivery_loc_name: string;
@@ -43,29 +51,73 @@ interface TMSData {
   so_num: string;
 }
 
+interface Repair {
+  id: string;
+  timestamp_utc: string;
+  cost_usd: number;
+  description: string;
+  repair_status: string;
+}
+
+const mapContainerStyle = {
+  width: '100%',
+  height: '400px'
+};
+
 const ChassisDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
   
   const [asset, setAsset] = useState<Asset | null>(null);
   const [locationHistory, setLocationHistory] = useState<LocationHistory[]>([]);
   const [tmsData, setTMSData] = useState<TMSData[]>([]);
+  const [repairs, setRepairs] = useState<Repair[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [selectedMarker, setSelectedMarker] = useState<number | null>(null);
+
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+  });
 
   useEffect(() => {
     if (id) {
       fetchChassisData();
+      subscribeToChanges();
     }
+
+    return () => {
+      // Cleanup subscription on unmount
+    };
   }, [id]);
 
-  useEffect(() => {
-    if (locationHistory.length > 0 && mapContainer.current && !map.current) {
-      initializeMap();
-    }
-  }, [locationHistory]);
+  const subscribeToChanges = () => {
+    const channel = supabase
+      .channel('chassis-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'assets',
+          filter: `id=eq.${id}`
+        },
+        (payload) => {
+          setAsset(payload.new as Asset);
+          toast({
+            title: "Status Updated",
+            description: "Chassis status has been updated",
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
 
   const fetchChassisData = async () => {
     try {
@@ -81,7 +133,7 @@ const ChassisDetail = () => {
       if (assetError) throw assetError;
       setAsset(assetData);
 
-      // Fetch location history
+      // Fetch location history (GPS)
       const { data: locationsData, error: locationsError } = await supabase
         .from('asset_locations')
         .select('*')
@@ -92,7 +144,7 @@ const ChassisDetail = () => {
       if (locationsError) throw locationsError;
       setLocationHistory(locationsData || []);
 
-      // Fetch TMS data (matching by chassis identifier)
+      // Fetch TMS data
       if (assetData?.identifier) {
         const { data: tmsDataResult, error: tmsError } = await supabase
           .from('mg_tms')
@@ -104,6 +156,16 @@ const ChassisDetail = () => {
         if (tmsError) console.error('TMS error:', tmsError);
         setTMSData(tmsDataResult || []);
       }
+
+      // Fetch repairs
+      const { data: repairsData, error: repairsError } = await supabase
+        .from('repairs')
+        .select('*')
+        .eq('chassis_id', id)
+        .order('timestamp_utc', { ascending: false });
+
+      if (repairsError) console.error('Repairs error:', repairsError);
+      setRepairs(repairsData || []);
 
     } catch (error) {
       console.error('Error fetching chassis data:', error);
@@ -117,95 +179,82 @@ const ChassisDetail = () => {
     }
   };
 
-  const initializeMap = () => {
-    if (!mapContainer.current || locationHistory.length === 0) return;
+  const handleStatusChange = async (newStatus: string) => {
+    if (!asset) return;
 
-    // TODO: Replace with actual Mapbox token from Supabase secrets
-    mapboxgl.accessToken = 'pk.eyJ1IjoibG92YWJsZS1kZW1vIiwiYSI6ImNscHd5eTJtcDBiMGMyanBqaWY3NTJ5aGQifQ.8ZqDLLjKE6v6E9sKqKqLQQ';
+    setStatusUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({ 
+          current_status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', asset.id);
 
-    const coordinates = locationHistory
-      .filter(loc => loc.location?.coordinates)
-      .map(loc => ({
-        lng: loc.location.coordinates[0],
-        lat: loc.location.coordinates[1],
-        timestamp: loc.recorded_at
-      }));
+      if (error) throw error;
 
-    if (coordinates.length === 0) return;
-
-    // Calculate bounds
-    const bounds = coordinates.reduce((bounds, coord) => {
-      return bounds.extend([coord.lng, coord.lat]);
-    }, new mapboxgl.LngLatBounds(
-      [coordinates[0].lng, coordinates[0].lat],
-      [coordinates[0].lng, coordinates[0].lat]
-    ));
-
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      bounds: bounds,
-      fitBoundsOptions: { padding: 50 }
-    });
-
-    // Add navigation controls
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-    // Add markers for each location
-    coordinates.forEach((coord, index) => {
-      const el = document.createElement('div');
-      el.className = 'marker';
-      el.style.backgroundColor = index === 0 ? '#ef4444' : '#3b82f6';
-      el.style.width = '12px';
-      el.style.height = '12px';
-      el.style.borderRadius = '50%';
-      el.style.border = '2px solid white';
-
-      new mapboxgl.Marker(el)
-        .setLngLat([coord.lng, coord.lat])
-        .setPopup(
-          new mapboxgl.Popup({ offset: 25 })
-            .setHTML(`<div class="p-2"><strong>${format(new Date(coord.timestamp), 'PPpp')}</strong></div>`)
-        )
-        .addTo(map.current!);
-    });
-
-    // Draw route line
-    map.current.on('load', () => {
-      map.current?.addSource('route', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates: coordinates.map(c => [c.lng, c.lat]).reverse()
-          }
-        }
+      setAsset({ ...asset, current_status: newStatus });
+      toast({
+        title: "Status Updated",
+        description: `Chassis status changed to ${newStatus}`,
       });
-
-      map.current?.addLayer({
-        id: 'route',
-        type: 'line',
-        source: 'route',
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round'
-        },
-        paint: {
-          'line-color': '#3b82f6',
-          'line-width': 3,
-          'line-opacity': 0.6
-        }
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to update chassis status",
+        variant: "destructive"
       });
-    });
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'Active': return 'default';
+      case 'Available': return 'secondary';
+      case 'Out of Service': return 'destructive';
+      case 'Reserved': return 'outline';
+      case 'Maintenance': return 'secondary';
+      case 'Retired': return 'outline';
+      default: return 'default';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'Active': return <CheckCircle className="h-4 w-4" />;
+      case 'Available': return <CheckCircle className="h-4 w-4" />;
+      case 'Out of Service': return <XCircle className="h-4 w-4" />;
+      case 'Reserved': return <Lock className="h-4 w-4" />;
+      case 'Maintenance': return <AlertTriangle className="h-4 w-4" />;
+      case 'Retired': return <XCircle className="h-4 w-4" />;
+      default: return <Clock className="h-4 w-4" />;
+    }
+  };
+
+  const getRepairStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Completed': return <Badge className="bg-green-500">Completed</Badge>;
+      case 'In Progress': return <Badge className="bg-blue-500">In Progress</Badge>;
+      case 'Pending': return <Badge className="bg-amber-500">Pending</Badge>;
+      default: return <Badge>{status}</Badge>;
+    }
   };
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-lg">Loading chassis data...</div>
+        <div className="container mx-auto p-6 space-y-6">
+          <Skeleton className="h-12 w-96" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+            <Skeleton className="h-32" />
+          </div>
+          <Skeleton className="h-96" />
         </div>
       </DashboardLayout>
     );
@@ -222,38 +271,57 @@ const ChassisDetail = () => {
     );
   }
 
+  const coordinates = locationHistory
+    .filter(loc => loc.location?.coordinates)
+    .map(loc => ({
+      lat: loc.location.coordinates[1],
+      lng: loc.location.coordinates[0],
+      timestamp: loc.recorded_at,
+      address: loc.normalized_address
+    }));
+
+  const center = coordinates.length > 0 ? coordinates[0] : { lat: 0, lng: 0 };
+
   return (
     <DashboardLayout>
       <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Chassis {asset.identifier}</h1>
-            <p className="text-muted-foreground">{asset.type} - {asset.asset_class}</p>
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+              <ArrowLeft />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">Chassis Details: {asset.identifier}</h1>
+              <p className="text-muted-foreground">VIN: {asset.vin || 'N/A'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant={getStatusBadgeVariant(asset.current_status)} className="gap-1">
+              {getStatusIcon(asset.current_status)}
+              {asset.current_status}
+            </Badge>
+            <Select
+              value={asset.current_status}
+              onValueChange={handleStatusChange}
+              disabled={statusUpdating}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Change Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Active">Active</SelectItem>
+                <SelectItem value="Available">Available</SelectItem>
+                <SelectItem value="Out of Service">Out of Service</SelectItem>
+                <SelectItem value="Reserved">Reserved</SelectItem>
+                <SelectItem value="Maintenance">Maintenance</SelectItem>
+                <SelectItem value="Retired">Retired</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        {/* Map */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              Location History
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div ref={mapContainer} className="w-full h-[400px] rounded-lg" />
-            {locationHistory.length === 0 && (
-              <div className="text-center text-muted-foreground py-8">
-                No location history available
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Chassis Details */}
+        {/* Core Details Card */}
         <Card>
           <CardHeader>
             <CardTitle>Chassis Information</CardTitle>
@@ -261,51 +329,123 @@ const ChassisDetail = () => {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <div className="text-sm text-muted-foreground">Type</div>
-                <div className="font-medium">{asset.type || 'N/A'}</div>
+                <div className="text-sm text-muted-foreground">Make/Model</div>
+                <div className="font-medium">{asset.make || 'N/A'} {asset.model || ''}</div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Class</div>
-                <div className="font-medium">{asset.asset_class || 'N/A'}</div>
+                <div className="text-sm text-muted-foreground">Unit Number</div>
+                <div className="font-medium">{asset.identifier || 'N/A'}</div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Length</div>
-                <div className="font-medium">{asset.length ? `${asset.length} ft` : 'N/A'}</div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Dimensions</div>
+                <div className="text-sm text-muted-foreground">Last Updated</div>
                 <div className="font-medium">
-                  {asset.width && asset.height ? `${asset.width}x${asset.height}` : 'N/A'}
+                  {asset.updated_at ? format(new Date(asset.updated_at), 'PPp') : 'N/A'}
                 </div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Type/Class</div>
+                <div className="font-medium">{asset.type || 'N/A'} / {asset.asset_class || 'N/A'}</div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Data Tables */}
-        <Tabs defaultValue="locations" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="locations" className="gap-2">
+        {/* Tabs */}
+        <Tabs defaultValue="gps" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="gps" className="gap-2">
               <MapPin className="h-4 w-4" />
-              Location History ({locationHistory.length})
+              GPS
             </TabsTrigger>
             <TabsTrigger value="tms" className="gap-2">
               <Truck className="h-4 w-4" />
-              TMS Data ({tmsData.length})
+              TMS
+            </TabsTrigger>
+            <TabsTrigger value="repairs" className="gap-2">
+              <Hammer className="h-4 w-4" />
+              Repairs
+            </TabsTrigger>
+            <TabsTrigger value="financials" className="gap-2">
+              <DollarSign className="h-4 w-4" />
+              Financials
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="locations">
+          {/* GPS Tab */}
+          <TabsContent value="gps" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>GPS Location History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoaded && coordinates.length > 0 ? (
+                  <GoogleMap
+                    mapContainerStyle={mapContainerStyle}
+                    center={center}
+                    zoom={10}
+                  >
+                    {coordinates.map((coord, index) => (
+                      <Marker
+                        key={index}
+                        position={{ lat: coord.lat, lng: coord.lng }}
+                        onClick={() => setSelectedMarker(index)}
+                        icon={{
+                          path: google.maps.SymbolPath.CIRCLE,
+                          scale: 6,
+                          fillColor: index === 0 ? '#ef4444' : '#3b82f6',
+                          fillOpacity: 1,
+                          strokeColor: '#ffffff',
+                          strokeWeight: 2,
+                        }}
+                      />
+                    ))}
+                    {selectedMarker !== null && (
+                      <InfoWindow
+                        position={{
+                          lat: coordinates[selectedMarker].lat,
+                          lng: coordinates[selectedMarker].lng
+                        }}
+                        onCloseClick={() => setSelectedMarker(null)}
+                      >
+                        <div className="p-2">
+                          <p className="font-semibold">
+                            {coordinates[selectedMarker].address || 'Unknown Location'}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {format(new Date(coordinates[selectedMarker].timestamp), 'PPpp')}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {coordinates[selectedMarker].lat.toFixed(4)}, {coordinates[selectedMarker].lng.toFixed(4)}
+                          </p>
+                        </div>
+                      </InfoWindow>
+                    )}
+                    <Polyline
+                      path={coordinates.map(c => ({ lat: c.lat, lng: c.lng }))}
+                      options={{
+                        strokeColor: '#3b82f6',
+                        strokeOpacity: 0.6,
+                        strokeWeight: 3,
+                      }}
+                    />
+                  </GoogleMap>
+                ) : (
+                  <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+                    No GPS data available
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <Card>
               <CardContent className="pt-6">
-                <div className="overflow-auto max-h-[600px]">
+                <div className="overflow-auto max-h-[400px]">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Timestamp</TableHead>
                         <TableHead>Location</TableHead>
-                        <TableHead>Speed (mph)</TableHead>
-                        <TableHead>Altitude (m)</TableHead>
+                        <TableHead>Coordinates</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -315,18 +455,12 @@ const ChassisDetail = () => {
                             {format(new Date(location.recorded_at), 'PPpp')}
                           </TableCell>
                           <TableCell className="max-w-md">
-                            {location.normalized_address || 
-                              (location.location?.coordinates 
-                                ? `${location.location.coordinates[1].toFixed(4)}, ${location.location.coordinates[0].toFixed(4)}`
-                                : 'N/A')}
+                            {location.normalized_address || 'Unknown'}
                           </TableCell>
                           <TableCell>
-                            {location.velocity_cms 
-                              ? (location.velocity_cms * 0.0223694).toFixed(1)
+                            {location.location?.coordinates 
+                              ? `${location.location.coordinates[1].toFixed(4)}, ${location.location.coordinates[0].toFixed(4)}`
                               : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            {location.altitude_m?.toFixed(1) || 'N/A'}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -337,57 +471,92 @@ const ChassisDetail = () => {
             </Card>
           </TabsContent>
 
+          {/* TMS Tab */}
           <TabsContent value="tms">
             <Card>
-              <CardContent className="pt-6">
-                <div className="overflow-auto max-h-[600px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Container</TableHead>
-                        <TableHead>Pickup</TableHead>
-                        <TableHead>Delivery</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>BOL</TableHead>
-                        <TableHead>SO#</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {tmsData.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center text-muted-foreground">
-                            No TMS data available for this chassis
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        tmsData.map((tms, index) => (
-                          <TableRow key={index}>
-                            <TableCell>
+              <CardHeader>
+                <CardTitle>TMS Load History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {tmsData.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      No TMS data available for this chassis
+                    </div>
+                  ) : (
+                    tmsData.map((tms) => (
+                      <Card key={tms.id}>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold">Load #{tms.mbl || tms.so_num || 'N/A'}</span>
+                                <Badge variant={tms.status === 'Completed' ? 'default' : 'secondary'}>
+                                  {tms.status || 'Unknown'}
+                                </Badge>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {tms.pickup_loc_name || 'N/A'} → {tms.delivery_loc_name || 'N/A'}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Container: {tms.container_number || 'N/A'}
+                              </div>
+                            </div>
+                            <div className="text-right text-sm text-muted-foreground">
                               {tms.created_date ? format(new Date(tms.created_date), 'PP') : 'N/A'}
-                            </TableCell>
-                            <TableCell>{tms.container_number || 'N/A'}</TableCell>
-                            <TableCell className="max-w-xs truncate">
-                              {tms.pickup_loc_name || 'N/A'}
-                            </TableCell>
-                            <TableCell className="max-w-xs truncate">
-                              {tms.delivery_loc_name || 'N/A'}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={tms.status === 'Completed' ? 'default' : 'secondary'}>
-                                {tms.status || 'N/A'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{tms.mbl || 'N/A'}</TableCell>
-                            <TableCell>{tms.so_num || 'N/A'}</TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Repairs Tab */}
+          <TabsContent value="repairs">
+            <Card>
+              <CardHeader>
+                <CardTitle>Repair History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {repairs.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      No repair records found
+                    </div>
+                  ) : (
+                    repairs.map((repair) => (
+                      <Card key={repair.id}>
+                        <CardContent className="pt-6">
+                          <div className="flex items-start justify-between">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-lg">
+                                  ${repair.cost_usd.toFixed(2)}
+                                </span>
+                                {getRepairStatusBadge(repair.repair_status)}
+                              </div>
+                              <div className="text-sm">{repair.description}</div>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {format(new Date(repair.timestamp_utc), 'PPp')}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Financials Tab */}
+          <TabsContent value="financials">
+            <FinancialsTab chassisId={id!} />
           </TabsContent>
         </Tabs>
       </div>

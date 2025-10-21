@@ -92,43 +92,55 @@ export type Database = {
         Row: {
           asset_class: string | null
           created_at: string
+          current_status: string | null
           door_type: string | null
           height: number | null
           id: string
           identifier: string | null
           length: number | null
+          make: string | null
+          model: string | null
           org_id: string
           radar_asset_id: string | null
           type: string | null
           updated_at: string
+          vin: string | null
           width: number | null
         }
         Insert: {
           asset_class?: string | null
           created_at?: string
+          current_status?: string | null
           door_type?: string | null
           height?: number | null
           id?: string
           identifier?: string | null
           length?: number | null
+          make?: string | null
+          model?: string | null
           org_id: string
           radar_asset_id?: string | null
           type?: string | null
           updated_at?: string
+          vin?: string | null
           width?: number | null
         }
         Update: {
           asset_class?: string | null
           created_at?: string
+          current_status?: string | null
           door_type?: string | null
           height?: number | null
           id?: string
           identifier?: string | null
           length?: number | null
+          make?: string | null
+          model?: string | null
           org_id?: string
           radar_asset_id?: string | null
           type?: string | null
           updated_at?: string
+          vin?: string | null
           width?: number | null
         }
         Relationships: []
@@ -720,6 +732,50 @@ export type Database = {
           vendor?: string | null
         }
         Relationships: []
+      }
+      equipment_costs: {
+        Row: {
+          amount_usd: number
+          chassis_id: string
+          cost_date_utc: string
+          cost_type: string
+          created_at: string
+          description: string | null
+          id: string
+          period: string
+          updated_at: string
+        }
+        Insert: {
+          amount_usd: number
+          chassis_id: string
+          cost_date_utc: string
+          cost_type: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          period: string
+          updated_at?: string
+        }
+        Update: {
+          amount_usd?: number
+          chassis_id?: string
+          cost_date_utc?: string
+          cost_type?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          period?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_costs_chassis_id_fkey"
+            columns: ["chassis_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       feature_flags: {
         Row: {
@@ -2057,6 +2113,47 @@ export type Database = {
           },
         ]
       }
+      repairs: {
+        Row: {
+          chassis_id: string
+          cost_usd: number
+          created_at: string
+          description: string
+          id: string
+          repair_status: string
+          timestamp_utc: string
+          updated_at: string
+        }
+        Insert: {
+          chassis_id: string
+          cost_usd: number
+          created_at?: string
+          description: string
+          id?: string
+          repair_status?: string
+          timestamp_utc?: string
+          updated_at?: string
+        }
+        Update: {
+          chassis_id?: string
+          cost_usd?: number
+          created_at?: string
+          description?: string
+          id?: string
+          repair_status?: string
+          timestamp_utc?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "repairs_chassis_id_fkey"
+            columns: ["chassis_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scspa_activity: {
         Row: {
           bill_to_company: string | null
@@ -2185,6 +2282,50 @@ export type Database = {
           ts?: string
         }
         Relationships: []
+      }
+      tms_load_financials: {
+        Row: {
+          accessorials_usd: number
+          chassis_id: string
+          created_at: string
+          date_utc: string
+          fuel_surcharge_usd: number
+          id: string
+          revenue_usd: number
+          tms_load_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          accessorials_usd?: number
+          chassis_id: string
+          created_at?: string
+          date_utc: string
+          fuel_surcharge_usd?: number
+          id?: string
+          revenue_usd?: number
+          tms_load_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          accessorials_usd?: number
+          chassis_id?: string
+          created_at?: string
+          date_utc?: string
+          fuel_surcharge_usd?: number
+          id?: string
+          revenue_usd?: number
+          tms_load_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tms_load_financials_chassis_id_fkey"
+            columns: ["chassis_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       trac_activity: {
         Row: {
