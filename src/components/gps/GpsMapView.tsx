@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
+import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,21 +17,14 @@ interface GpsPoint {
   geocoded_address?: string | null;
 }
 
-const containerStyle = {
-  width: '100%',
-  height: '600px'
-};
-
 const GpsMapView: React.FC<GpsMapViewProps> = ({ providerName }) => {
   const [apiKey, setApiKey] = useState<string>('');
   const [gpsPoints, setGpsPoints] = useState<GpsPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const googleMapRef = useRef<google.maps.Map | null>(null);
   const { toast } = useToast();
-
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: apiKey
-  });
 
   useEffect(() => {
     fetchApiKey();
@@ -43,7 +35,10 @@ const GpsMapView: React.FC<GpsMapViewProps> = ({ providerName }) => {
     try {
       const { data, error } = await supabase.functions.invoke('get-maps-key');
       if (error) throw error;
-      setApiKey(data.apiKey);
+      
+      if (data?.apiKey) {
+        setApiKey(data.apiKey);
+      }
     } catch (error: any) {
       console.error('Error fetching Maps API key:', error);
       toast({
@@ -88,6 +83,64 @@ const GpsMapView: React.FC<GpsMapViewProps> = ({ providerName }) => {
     }
   };
 
+  // Load Google Maps script
+  useEffect(() => {
+    if (!apiKey || mapLoaded) return;
+
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      setMapLoaded(true);
+    };
+    script.onerror = () => {
+      toast({
+        title: "Error loading map",
+        description: "Failed to load Google Maps",
+        variant: "destructive"
+      });
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup if needed
+    };
+  }, [apiKey]);
+
+  // Initialize map
+  useEffect(() => {
+    if (!mapLoaded || !mapRef.current || googleMapRef.current || gpsPoints.length === 0) return;
+
+    const map = new google.maps.Map(mapRef.current, {
+      zoom: 12,
+      center: { lat: gpsPoints[0].latitude, lng: gpsPoints[0].longitude },
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true,
+    });
+
+    googleMapRef.current = map;
+
+    // Add markers for each GPS point
+    gpsPoints.forEach((point) => {
+      new google.maps.Marker({
+        position: { lat: point.latitude, lng: point.longitude },
+        map: map,
+        title: point.geocoded_address || `Device: ${point.device_id}`,
+      });
+    });
+
+    // Fit bounds to show all markers
+    if (gpsPoints.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      gpsPoints.forEach(point => {
+        bounds.extend({ lat: point.latitude, lng: point.longitude });
+      });
+      map.fitBounds(bounds);
+    }
+  }, [mapLoaded, gpsPoints]);
+
   if (loading || !apiKey) {
     return (
       <Card>
@@ -126,48 +179,6 @@ const GpsMapView: React.FC<GpsMapViewProps> = ({ providerName }) => {
     );
   }
 
-  if (loadError) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            GPS Map View
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-destructive">
-            Error loading Google Maps
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!isLoaded) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            GPS Map View
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-[600px]">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Calculate map center based on GPS points
-  const center = gpsPoints.length > 0 ? {
-    lat: gpsPoints[0].latitude,
-    lng: gpsPoints[0].longitude
-  } : { lat: 0, lng: 0 };
-
   return (
     <Card>
       <CardHeader>
@@ -177,24 +188,7 @@ const GpsMapView: React.FC<GpsMapViewProps> = ({ providerName }) => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <GoogleMap
-          mapContainerStyle={containerStyle}
-          center={center}
-          zoom={12}
-          options={{
-            mapTypeControl: true,
-            streetViewControl: true,
-            fullscreenControl: true,
-          }}
-        >
-          {gpsPoints.map((point) => (
-            <Marker
-              key={point.id}
-              position={{ lat: point.latitude, lng: point.longitude }}
-              title={point.geocoded_address || `Device: ${point.device_id}`}
-            />
-          ))}
-        </GoogleMap>
+        <div ref={mapRef} style={{ width: '100%', height: '600px' }} className="rounded-lg" />
       </CardContent>
     </Card>
   );
