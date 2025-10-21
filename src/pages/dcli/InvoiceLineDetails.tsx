@@ -46,6 +46,16 @@ const getStatusConfig = (status: ValidationStatus) => {
   return configs[status];
 };
 
+// Convert Excel serial date to JavaScript Date string
+const excelDateToJSDate = (excelDate: any): string | null => {
+  if (!excelDate || isNaN(excelDate)) return null;
+  const excelNum = parseFloat(excelDate);
+  // Excel date serial number starts from 1900-01-01
+  // JavaScript date needs adjustment for timezone
+  const date = new Date((excelNum - 25569) * 86400 * 1000);
+  return date.toISOString().split('T')[0]; // Return YYYY-MM-DD format
+};
+
 const InvoiceLineDetails = () => {
   const { lineId } = useParams();
   const navigate = useNavigate();
@@ -131,9 +141,9 @@ const InvoiceLineDetails = () => {
               container: rowData['On-Hire Container'] || lineItem.container_out,
               match_confidence: 85,
               match_type: 'fuzzy',
-              invoice_date: rowData['Billing Date'],
-              billing_start: rowData['Bill Start Date'],
-              billing_end: rowData['Bill End Date'],
+              invoice_date: excelDateToJSDate(rowData['Billing Date']),
+              billing_start: excelDateToJSDate(rowData['Bill Start Date']),
+              billing_end: excelDateToJSDate(rowData['Bill End Date']),
               total_charges: parseFloat(String(rowData['Grand Total'] || lineItem.invoice_total || 0)),
               invoice_rate: parseFloat(String(rowData['Tier 1 Rate'] || 0)),
               invoice_quantity: Number(rowData['Tier 1 Days'] || 0),
@@ -145,10 +155,10 @@ const InvoiceLineDetails = () => {
                 container_number: rowData['On-Hire Container'],
                 carrier_name: rowData['On-Hire MC SCAC'],
                 customer_name: rowData['Customer Name'],
-                date_out: lineItem.date_out,
-                date_in: lineItem.date_in,
-                pickup_actual_date: lineItem.date_out,
-                actual_rc_date: lineItem.date_in,
+                date_out: excelDateToJSDate(rowData['On-Hire Date']) || lineItem.date_out,
+                date_in: excelDateToJSDate(rowData['Off-Hire Date']) || lineItem.date_in,
+                pickup_actual_date: excelDateToJSDate(rowData['On-Hire Date']) || lineItem.date_out,
+                actual_rc_date: excelDateToJSDate(rowData['Off-Hire Date']) || lineItem.date_in,
                 calculated_charges: parseFloat(String(rowData['Grand Total'] || 0)),
                 rated_amount: parseFloat(String(rowData['Grand Total'] || 0)),
                 rated_rate: parseFloat(String(rowData['Tier 1 Rate'] || 0)),
