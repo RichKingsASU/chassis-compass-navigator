@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow } from '@react-google-maps/api';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, subDays } from 'date-fns';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import FinancialsTab from '@/components/chassis/FinancialsTab';
+import { ChassisMapView } from '@/components/chassis/ChassisMapView';
 
 interface Asset {
   id: string;
@@ -59,11 +59,6 @@ interface Repair {
   repair_status: string;
 }
 
-const mapContainerStyle = {
-  width: '100%',
-  height: '400px'
-};
-
 const ChassisDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -76,7 +71,7 @@ const ChassisDetail = () => {
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [selectedMarker, setSelectedMarker] = useState<number | null>(null);
-  const [mapsApiKey, setMapsApiKey] = useState<string>('');
+  const [mapsApiKey, setMapsApiKey] = useState<string | null>(null);
 
   // Fetch Google Maps API key from Supabase edge function
   useEffect(() => {
@@ -102,11 +97,6 @@ const ChassisDetail = () => {
     };
     fetchMapsKey();
   }, []);
-
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: mapsApiKey
-  });
 
   useEffect(() => {
     if (id) {
@@ -466,149 +456,14 @@ const ChassisDetail = () => {
                 <CardTitle>GPS Location History</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoaded && coordinates.length > 0 ? (
-                  <GoogleMap
-                    mapContainerStyle={mapContainerStyle}
-                    center={center}
-                    zoom={10}
-                    options={{
-                      styles: [
-                        // Industry-optimized map style for logistics
-                        { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-                        { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-                        { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
-                        { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
-                        {
-                          featureType: "administrative.land_parcel",
-                          elementType: "labels.text.fill",
-                          stylers: [{ color: "#bdbdbd" }],
-                        },
-                        {
-                          featureType: "poi",
-                          elementType: "geometry",
-                          stylers: [{ color: "#eeeeee" }],
-                        },
-                        {
-                          featureType: "poi",
-                          elementType: "labels.text.fill",
-                          stylers: [{ color: "#757575" }],
-                        },
-                        {
-                          featureType: "poi.park",
-                          elementType: "geometry",
-                          stylers: [{ color: "#e5e5e5" }],
-                        },
-                        {
-                          featureType: "road",
-                          elementType: "geometry",
-                          stylers: [{ color: "#ffffff" }],
-                        },
-                        {
-                          featureType: "road.arterial",
-                          elementType: "labels.text.fill",
-                          stylers: [{ color: "#757575" }],
-                        },
-                        {
-                          featureType: "road.highway",
-                          elementType: "geometry",
-                          stylers: [{ color: "#dadada" }],
-                        },
-                        {
-                          featureType: "road.highway",
-                          elementType: "labels.text.fill",
-                          stylers: [{ color: "#616161" }],
-                        },
-                        {
-                          featureType: "road.local",
-                          elementType: "labels.text.fill",
-                          stylers: [{ color: "#9e9e9e" }],
-                        },
-                        {
-                          featureType: "transit.line",
-                          elementType: "geometry",
-                          stylers: [{ color: "#e5e5e5" }],
-                        },
-                        {
-                          featureType: "transit.station",
-                          elementType: "geometry",
-                          stylers: [{ color: "#eeeeee" }],
-                        },
-                        {
-                          featureType: "water",
-                          elementType: "geometry",
-                          stylers: [{ color: "#c9c9c9" }],
-                        },
-                        {
-                          featureType: "water",
-                          elementType: "labels.text.fill",
-                          stylers: [{ color: "#9e9e9e" }],
-                        },
-                      ],
-                      mapTypeControl: true,
-                      streetViewControl: true,
-                      fullscreenControl: true,
-                      zoomControl: true,
-                    }}
-                  >
-                    {coordinates.map((coord, index) => (
-                      <Marker
-                        key={index}
-                        position={{ lat: coord.lat, lng: coord.lng }}
-                        onClick={() => setSelectedMarker(index)}
-                        icon={{
-                          path: google.maps.SymbolPath.CIRCLE,
-                          scale: 8,
-                          fillColor: index === 0 ? '#ef4444' : '#2563eb',
-                          fillOpacity: 1,
-                          strokeColor: '#ffffff',
-                          strokeWeight: 3,
-                        }}
-                        label={
-                          index === 0
-                            ? {
-                                text: 'Current',
-                                color: '#ffffff',
-                                fontSize: '12px',
-                                fontWeight: 'bold',
-                              }
-                            : undefined
-                        }
-                      />
-                    ))}
-                    {selectedMarker !== null && (
-                      <InfoWindow
-                        position={{
-                          lat: coordinates[selectedMarker].lat,
-                          lng: coordinates[selectedMarker].lng
-                        }}
-                        onCloseClick={() => setSelectedMarker(null)}
-                      >
-                        <div className="p-2">
-                          <p className="font-semibold">
-                            {coordinates[selectedMarker].address || 'Unknown Location'}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {format(new Date(coordinates[selectedMarker].timestamp), 'PPpp')}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {coordinates[selectedMarker].lat.toFixed(4)}, {coordinates[selectedMarker].lng.toFixed(4)}
-                          </p>
-                        </div>
-                      </InfoWindow>
-                    )}
-                    <Polyline
-                      path={coordinates.map(c => ({ lat: c.lat, lng: c.lng }))}
-                      options={{
-                        strokeColor: '#2563eb',
-                        strokeOpacity: 0.8,
-                        strokeWeight: 4,
-                        geodesic: true,
-                      }}
-                    />
-                  </GoogleMap>
+                {mapsApiKey ? (
+                  <ChassisMapView 
+                    apiKey={mapsApiKey} 
+                    locationHistory={locationHistory} 
+                  />
                 ) : (
                   <div className="h-[400px] flex items-center justify-center text-muted-foreground">
-                    No GPS data available
+                    Loading map...
                   </div>
                 )}
               </CardContent>
