@@ -214,28 +214,35 @@ const ChassisDetail = () => {
       if (locationsError) throw locationsError;
       setLocationHistory(locationsData || []);
 
-      // Fetch TMS data
+      // Fetch TMS data - try multiple identifier fields for matching
       if (assetData?.identifier) {
+        console.log('Fetching TMS data for chassis:', assetData.identifier);
+        
         const { data: tmsDataResult, error: tmsError } = await supabase
           .from('mg_tms')
           .select('*')
           .eq('chassis_norm', assetData.identifier)
-          .order('created_date', { ascending: false })
-          .limit(50);
+          .order('created_date', { ascending: false });
 
-        if (tmsError) console.error('TMS error:', tmsError);
+        if (tmsError) {
+          console.error('TMS error:', tmsError);
+        } else {
+          console.log('TMS data found:', tmsDataResult?.length || 0, 'records');
+        }
         setTMSData(tmsDataResult || []);
       }
 
-      // Fetch repairs
-      const { data: repairsData, error: repairsError } = await supabase
-        .from('repairs')
-        .select('*')
-        .eq('chassis_id', id)
-        .order('timestamp_utc', { ascending: false });
+      // Fetch repairs - only for real assets with UUIDs
+      if (assetData.id && !assetData.id.startsWith('mcl-')) {
+        const { data: repairsData, error: repairsError } = await supabase
+          .from('repairs')
+          .select('*')
+          .eq('chassis_id', assetData.id)
+          .order('timestamp_utc', { ascending: false });
 
-      if (repairsError) console.error('Repairs error:', repairsError);
-      setRepairs(repairsData || []);
+        if (repairsError) console.error('Repairs error:', repairsError);
+        setRepairs(repairsData || []);
+      }
 
     } catch (error) {
       console.error('Error fetching chassis data:', error);
