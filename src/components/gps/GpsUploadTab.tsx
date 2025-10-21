@@ -25,6 +25,92 @@ interface PreviewData {
   sheets: SheetPreview[];
 }
 
+// Helper function to parse GPS data from spreadsheet rows
+const parseGpsData = (headers: string[], rows: any[][], provider: string, dataDate: Date) => {
+  const records: any[] = [];
+  
+  // Find column indices (case-insensitive)
+  const latLonIndex = headers.findIndex(h => 
+    /latitude.*longitude|lat.*lon|coordinates|location/i.test(h)
+  );
+  const deviceIdIndex = headers.findIndex(h => 
+    /device.*id|unit.*id|asset.*id|tracker.*id/i.test(h)
+  );
+  const timestampIndex = headers.findIndex(h => 
+    /timestamp|date.*time|recorded.*at/i.test(h)
+  );
+  const speedIndex = headers.findIndex(h => 
+    /speed|velocity/i.test(h)
+  );
+  const batteryIndex = headers.findIndex(h => 
+    /battery|power/i.test(h)
+  );
+
+  for (const row of rows) {
+    if (!row || row.length === 0 || row.every((cell: any) => !cell)) continue;
+    
+    try {
+      let latitude: number | null = null;
+      let longitude: number | null = null;
+      
+      // Parse combined "Latitude, Longitude" column
+      if (latLonIndex >= 0 && row[latLonIndex]) {
+        const latLonStr = String(row[latLonIndex]).trim();
+        const parts = latLonStr.split(',').map(p => p.trim());
+        
+        if (parts.length >= 2) {
+          latitude = parseFloat(parts[0]);
+          longitude = parseFloat(parts[1]);
+        }
+      }
+      
+      // Skip if no valid coordinates
+      if (latitude === null || longitude === null || isNaN(latitude) || isNaN(longitude)) {
+        continue;
+      }
+      
+      const record: any = {
+        provider,
+        latitude,
+        longitude,
+        recorded_at: dataDate.toISOString(),
+        raw_data: { original_row: row }
+      };
+      
+      if (deviceIdIndex >= 0 && row[deviceIdIndex]) {
+        record.device_id = String(row[deviceIdIndex]).trim();
+      }
+      
+      if (timestampIndex >= 0 && row[timestampIndex]) {
+        try {
+          const timestamp = new Date(row[timestampIndex]);
+          if (!isNaN(timestamp.getTime())) {
+            record.recorded_at = timestamp.toISOString();
+          }
+        } catch (e) {
+          // Use dataDate as fallback
+        }
+      }
+      
+      if (speedIndex >= 0 && row[speedIndex]) {
+        const speed = parseFloat(String(row[speedIndex]));
+        if (!isNaN(speed)) record.speed = speed;
+      }
+      
+      if (batteryIndex >= 0 && row[batteryIndex]) {
+        const battery = parseInt(String(row[batteryIndex]));
+        if (!isNaN(battery)) record.battery_level = battery;
+      }
+      
+      records.push(record);
+    } catch (error) {
+      console.error('Error parsing row:', error);
+    }
+  }
+  
+  return records;
+};
+
 const GpsUploadTab = ({ providerName }: { providerName: string }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -226,25 +312,38 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
 
         if (uploadError) throw uploadError;
 
-        // Calculate row count for approved sheets only
+        // Parse GPS data from approved sheets
         let rowCount = 0;
+        const gpsRecords: any[] = [];
+        
         if (fileExtension === 'csv' || fileExtension === 'xlsx' || fileExtension === 'xls') {
           const extension = file.name.split('.').pop()?.toLowerCase();
 
           if (extension === 'csv') {
             const text = await file.text();
-            const parsedData = text.split('\n').map(row => row.split(','));
-            rowCount = parsedData.length - 1;
+            const rows = text.split('\n').map(row => row.split(','));
+            const headers = rows[0].map(h => h.trim());
+            const dataRows = rows.slice(1);
+            
+            rowCount = dataRows.length;
+            gpsRecords.push(...parseGpsData(headers, dataRows, providerName, dataDate));
+            
           } else if (extension === 'xlsx' || extension === 'xls') {
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data);
             
-            // Only count rows from approved sheets
+            // Parse approved sheets
             previewData?.sheets.forEach((sheetPreview, index) => {
               if (sheetPreview.approved) {
                 const sheet = workbook.Sheets[workbook.SheetNames[index]];
-                const parsedData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
-                rowCount += Math.max(0, parsedData.length - 1);
+                const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+                
+                if (jsonData.length > 1) {
+                  const headers = jsonData[0].map((h: any) => String(h || '').trim());
+                  const dataRows = jsonData.slice(1);
+                  rowCount += dataRows.length;
+                  gpsRecords.push(...parseGpsData(headers, dataRows, providerName, dataDate));
+                }
               }
             });
           }
@@ -267,6 +366,23 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
           .single();
 
         if (dbError) throw dbError;
+
+        // Insert GPS data records
+        if (gpsRecords.length > 0) {
+          const recordsWithUploadId = gpsRecords.map(rec => ({
+            ...rec,
+            upload_id: uploadRecord.id
+          }));
+
+          const { error: gpsError } = await supabase
+            .from('gps_data')
+            .insert(recordsWithUploadId);
+
+          if (gpsError) {
+            console.error('GPS data insert error:', gpsError);
+            throw new Error(`Failed to insert GPS data: ${gpsError.message}`);
+          }
+        }
       }
 
       toast({
