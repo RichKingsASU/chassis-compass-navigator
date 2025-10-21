@@ -136,7 +136,7 @@ ${JSON.stringify(dataRows, null, 2)}
 {
   "invoice_id": "string (use column[0] from first data row)",
   "billing_date": null,
-  "due_date": "YYYY-MM-DD (find latest date in column[6] + 30 days)",
+  "due_date": "YYYY-MM-DD (find latest date in column[6], then add 24 days for WCCP)",
   "billing_terms": "Net 30",
   "total_amount": number (sum of all column[15] values),
   "validation_status": "VALIDATED or TOTAL_MISMATCH",
@@ -159,7 +159,8 @@ ${JSON.stringify(dataRows, null, 2)}
 2. **Handle missing fields**: If Quantity/Unit_Price is missing, set to null but include the row
 3. **Date conversion**: "09/02/2025 00:00" → "2025-09-02"
 4. **Currency**: Remove "$" and convert to number: "$33.00" → 33.00
-5. **Due date**: Find maximum date in column[6], then add 30 days
+5. **Due date**: Find the latest date in column[6] (Bill To), then add 24 days to get due_date
+   Example: Latest Bill To = "09/30/2025" → due_date = "2025-10-24"
 6. **Validation**: If sum(amounts) equals total_amount, use "VALIDATED", else "TOTAL_MISMATCH"
 7. **Return ONLY valid JSON** - No markdown, no backticks, no explanations
 
