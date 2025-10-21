@@ -93,7 +93,6 @@ const ChassisDetail = () => {
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [selectedMarker, setSelectedMarker] = useState<number | null>(null);
-  const [mapsApiKey, setMapsApiKey] = useState<string | null>(null);
   const [expandedCharges, setExpandedCharges] = useState<Set<string>>(new Set());
 
   // Helper functions for charge parsing and formatting
@@ -142,31 +141,6 @@ const ChassisDetail = () => {
       loadCount
     };
   }, [tmsData]);
-
-  // Fetch Google Maps API key from Supabase edge function
-  useEffect(() => {
-    const fetchMapsKey = async () => {
-      try {
-        const response = await fetch(
-          `https://fucvkmsaappphsvuabos.supabase.co/functions/v1/get-maps-key`,
-          {
-            method: 'GET',
-            headers: {
-              'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1Y3ZrbXNhYXBwcGhzdnVhYm9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3Mzg1OTcsImV4cCI6MjA3MzMxNDU5N30.zGnrRCzrWbFY-tvXjsb6nf9nVmRhqlEAcdtilRaJPxQ',
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1Y3ZrbXNhYXBwcGhzdnVhYm9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3Mzg1OTcsImV4cCI6MjA3MzMxNDU5N30.zGnrRCzrWbFY-tvXjsb6nf9nVmRhqlEAcdtilRaJPxQ'
-            }
-          }
-        );
-        const data = await response.json();
-        if (data?.apiKey) {
-          setMapsApiKey(data.apiKey);
-        }
-      } catch (error) {
-        console.error('Error fetching Maps API key:', error);
-      }
-    };
-    fetchMapsKey();
-  }, []);
 
   useEffect(() => {
     if (id) {
@@ -533,24 +507,17 @@ const ChassisDetail = () => {
                 <CardTitle>GPS Location History</CardTitle>
               </CardHeader>
               <CardContent>
-                {mapsApiKey ? (
-                  locationHistory.length > 0 ? (
-                    <ChassisMapView 
-                      apiKey={mapsApiKey} 
-                      locationHistory={locationHistory} 
-                    />
-                  ) : (
-                    <div className="h-[400px] flex items-center justify-center bg-muted rounded-lg">
-                      <div className="text-center space-y-2">
-                        <MapPin className="h-12 w-12 mx-auto text-muted-foreground" />
-                        <p className="text-muted-foreground">No GPS data available for this chassis</p>
-                        <p className="text-sm text-muted-foreground">GPS tracking data will appear here once available</p>
-                      </div>
-                    </div>
-                  )
+                {locationHistory.length > 0 ? (
+                  <ChassisMapView 
+                    locationHistory={locationHistory} 
+                  />
                 ) : (
-                  <div className="h-[400px] flex items-center justify-center text-muted-foreground">
-                    Loading map...
+                  <div className="h-[400px] flex items-center justify-center bg-muted rounded-lg">
+                    <div className="text-center space-y-2">
+                      <MapPin className="h-12 w-12 mx-auto text-muted-foreground" />
+                      <p className="text-muted-foreground">No GPS data available for this chassis</p>
+                      <p className="text-sm text-muted-foreground">GPS tracking data will appear here once available</p>
+                    </div>
                   </div>
                 )}
               </CardContent>

@@ -10,7 +10,6 @@ interface LocationHistory {
 }
 
 interface ChassisMapViewProps {
-  apiKey: string;
   locationHistory: LocationHistory[];
 }
 
@@ -19,13 +18,34 @@ const mapContainerStyle = {
   height: '400px'
 };
 
-export const ChassisMapView = ({ apiKey, locationHistory }: ChassisMapViewProps) => {
+export const ChassisMapView = ({ locationHistory }: ChassisMapViewProps) => {
   const [selectedMarker, setSelectedMarker] = useState<number | null>(null);
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
-  const { isLoaded } = useJsApiLoader({
+  const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: apiKey
   });
+
+  if (loadError) {
+    return (
+      <div className="h-[400px] flex items-center justify-center bg-destructive/10 rounded-lg border border-destructive/20">
+        <p className="text-destructive text-sm px-4">
+          Google Maps error: {loadError.message}
+        </p>
+      </div>
+    );
+  }
+
+  if (!apiKey) {
+    return (
+      <div className="h-[400px] flex items-center justify-center bg-destructive/10 rounded-lg border border-destructive/20">
+        <p className="text-destructive text-sm px-4">
+          Missing VITE_GOOGLE_MAPS_API_KEY
+        </p>
+      </div>
+    );
+  }
 
   const coordinates = locationHistory
     .filter(loc => loc.location?.coordinates)

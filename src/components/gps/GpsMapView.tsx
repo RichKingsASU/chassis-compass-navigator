@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { loadGoogleMaps } from '@/lib/loadGoogleMaps';
 
 interface GpsMapViewProps {
   providerName: string;
@@ -18,36 +19,17 @@ interface GpsPoint {
 }
 
 const GpsMapView: React.FC<GpsMapViewProps> = ({ providerName }) => {
-  const [apiKey, setApiKey] = useState<string>('');
   const [gpsPoints, setGpsPoints] = useState<GpsPoint[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<google.maps.Map | null>(null);
   const { toast } = useToast();
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
 
   useEffect(() => {
-    fetchApiKey();
     fetchGpsData();
   }, [providerName]);
-
-  const fetchApiKey = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('get-maps-key');
-      if (error) throw error;
-      
-      if (data?.apiKey) {
-        setApiKey(data.apiKey);
-      }
-    } catch (error: any) {
-      console.error('Error fetching Maps API key:', error);
-      toast({
-        title: "Error loading map",
-        description: "Could not fetch Google Maps API key",
-        variant: "destructive"
-      });
-    }
-  };
 
   const fetchGpsData = async () => {
     try {
@@ -83,65 +65,58 @@ const GpsMapView: React.FC<GpsMapViewProps> = ({ providerName }) => {
     }
   };
 
-  // Load Google Maps script
-  useEffect(() => {
-    if (!apiKey || mapLoaded) return;
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      setMapLoaded(true);
-    };
-    script.onerror = () => {
-      toast({
-        title: "Error loading map",
-        description: "Failed to load Google Maps",
-        variant: "destructive"
-      });
-    };
-    document.head.appendChild(script);
-
-    return () => {
-      // Cleanup if needed
-    };
-  }, [apiKey]);
-
   // Initialize map
   useEffect(() => {
-    if (!mapLoaded || !mapRef.current || googleMapRef.current || gpsPoints.length === 0) return;
-
-    const map = new google.maps.Map(mapRef.current, {
-      zoom: 12,
-      center: { lat: gpsPoints[0].latitude, lng: gpsPoints[0].longitude },
-      mapTypeControl: true,
-      streetViewControl: true,
-      fullscreenControl: true,
-    });
-
-    googleMapRef.current = map;
-
-    // Add markers for each GPS point
-    gpsPoints.forEach((point) => {
-      new google.maps.Marker({
-        position: { lat: point.latitude, lng: point.longitude },
-        map: map,
-        title: point.geocoded_address || `Device: ${point.device_id}`,
-      });
-    });
-
-    // Fit bounds to show all markers
-    if (gpsPoints.length > 1) {
-      const bounds = new google.maps.LatLngBounds();
-      gpsPoints.forEach(point => {
-        bounds.extend({ lat: point.latitude, lng: point.longitude });
-      });
-      map.fitBounds(bounds);
+    if (!apiKey) {
+      setError("Missing VITE_GOOGLE_MAPS_API_KEY");
+      return;
     }
-  }, [mapLoaded, gpsPoints]);
+    
+    if (!mapRef.current || googleMapRef.current || gpsPoints.length === 0) return;
 
-  if (loading || !apiKey) {
+    loadGoogleMaps(apiKey)
+      .then(() => {
+        if (!mapRef.current) return;
+        
+        const map = new google.maps.Map(mapRef.current, {
+          zoom: 12,
+          center: { lat: gpsPoints[0].latitude, lng: gpsPoints[0].longitude },
+          mapTypeControl: true,
+          streetViewControl: true,
+          fullscreenControl: true,
+        });
+
+        googleMapRef.current = map;
+
+        // Add markers for each GPS point
+        gpsPoints.forEach((point) => {
+          new google.maps.Marker({
+            position: { lat: point.latitude, lng: point.longitude },
+            map: map,
+            title: point.geocoded_address || `Device: ${point.device_id}`,
+          });
+        });
+
+        // Fit bounds to show all markers
+        if (gpsPoints.length > 1) {
+          const bounds = new google.maps.LatLngBounds();
+          gpsPoints.forEach(point => {
+            bounds.extend({ lat: point.latitude, lng: point.longitude });
+          });
+          map.fitBounds(bounds);
+        }
+      })
+      .catch((e) => {
+        setError(e?.message ?? "Failed to load Google Maps");
+        toast({
+          title: "Error loading map",
+          description: e?.message ?? "Failed to load Google Maps",
+          variant: "destructive"
+        });
+      });
+  }, [apiKey, gpsPoints]);
+
+  if (loading) {
     return (
       <Card>
         <CardHeader>
@@ -153,6 +128,24 @@ const GpsMapView: React.FC<GpsMapViewProps> = ({ providerName }) => {
         <CardContent>
           <div className="flex items-center justify-center h-[600px]">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            GPS Map View
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-destructive text-sm p-4 border border-destructive/20 rounded-md bg-destructive/10">
+            Google Maps error: {error}
           </div>
         </CardContent>
       </Card>
