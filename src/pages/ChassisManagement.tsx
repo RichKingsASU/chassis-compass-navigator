@@ -163,23 +163,40 @@ const ChassisManagement = () => {
 
   const metrics = useMemo(() => {
     const total = chassisData.length;
+    
+    // Count by status
+    const byStatus = chassisData.reduce((acc, c) => {
+      const status = c.mcl_data?.chassis_status || c.current_status || 'Unknown';
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    const outOfService = byStatus['Out of Service'] || 0;
+    const active = byStatus['Active'] || 0;
+    const available = byStatus['Available'] || 0;
+    const maintenance = byStatus['Maintenance'] || 0;
+    
+    // Count by type
     const byType = chassisData.reduce((acc, c) => {
-      const type = c.type || 'Unknown';
+      const type = c.type || c.mcl_data?.forrest_chassis_type || 'Unknown';
       acc[type] = (acc[type] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    const topType = Object.entries(byType).sort(([,a], [,b]) => (b as number) - (a as number))[0];
-    const byClass = chassisData.reduce((acc, c) => {
-      const assetClass = c.asset_class || 'Unknown';
-      acc[assetClass] = (acc[assetClass] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    
+    // Sort types by count descending
+    const typeBreakdown = Object.entries(byType)
+      .sort(([,a], [,b]) => (b as number) - (a as number))
+      .slice(0, 6); // Top 6 types
 
     return {
       total,
-      byType: Object.keys(byType).length,
-      byClass: Object.keys(byClass).length,
-      topType: topType ? `${topType[0]} (${topType[1]})` : 'N/A',
+      outOfService,
+      active,
+      available,
+      maintenance,
+      operational: total - outOfService,
+      byType: typeBreakdown,
+      byStatus,
     };
   }, [chassisData]);
 
@@ -275,6 +292,7 @@ const ChassisManagement = () => {
         </div>
       </div>
 
+      {/* Status Overview KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <KPICard 
           title="Total Chassis" 
@@ -283,24 +301,47 @@ const ChassisManagement = () => {
           icon="chart" 
         />
         <KPICard 
-          title="Chassis Types" 
-          value={metrics.byType.toString()} 
-          description="Different types"
+          title="Operational" 
+          value={metrics.operational.toString()} 
+          description={`${((metrics.operational / metrics.total) * 100).toFixed(1)}% of fleet`}
           icon="users" 
         />
         <KPICard 
-          title="Asset Classes" 
-          value={metrics.byClass.toString()} 
-          description="Different classes" 
+          title="Out of Service" 
+          value={metrics.outOfService.toString()} 
+          description={`${((metrics.outOfService / metrics.total) * 100).toFixed(1)}% of fleet`}
+          icon="alert" 
+        />
+        <KPICard 
+          title="Active" 
+          value={metrics.active.toString()} 
+          description={`${metrics.available} Available`}
           icon="file" 
         />
-        <KPICard 
-          title="Most Common" 
-          value={metrics.topType} 
-          description="Top chassis type" 
-          icon="users" 
-        />
       </div>
+
+      {/* Chassis Type Breakdown */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Chassis Type Breakdown</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {metrics.byType.map(([type, count]) => {
+              const countNum = count as number;
+              return (
+                <div key={type} className="p-4 border rounded-lg bg-muted/50">
+                  <div className="text-2xl font-bold">{countNum}</div>
+                  <div className="text-sm text-muted-foreground">{type}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {((countNum / metrics.total) * 100).toFixed(1)}%
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
       
       <Card>
         <CardHeader className="pb-3">
