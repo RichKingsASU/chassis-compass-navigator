@@ -105,14 +105,14 @@ serve(async (req) => {
     // Use AI to extract structured invoice data with explicit line items instruction
     const aiPrompt = `You are performing invoice data extraction. 
 
-**CRITICAL TASK**: Extract ALL line items from the CSV data.
+**CRITICAL TASK**: Extract ALL line items from the CSV data AND determine the correct invoice due date.
 
 **DATA PROVIDED**:
-1. PDF contains header information (invoice number, dates, total amount)
+1. PDF contains header information (invoice number, dates, total amount) - but the text may not be properly parsed
 2. CSV contains ALL line item rows with columns: Invoice, Chassis, Size, Type, Container, Bill From, Bill To, # of Days, Rate, Gate out Location, Line Out, Gate in Location, Line In, Tax, Surcharge Total, Total
 
 **YOUR TASK**:
-Extract EVERY non-empty row from the CSV into the Line_Items array. The CSV has ${jsonData.length - 1} data rows after the header.
+Extract EVERY non-empty row from the CSV into the line_items array. The CSV has ${jsonData.length - 1} data rows after the header.
 
 **REQUIRED JSON STRUCTURE**:
 {
@@ -134,7 +134,7 @@ Extract EVERY non-empty row from the CSV into the Line_Items array. The CSV has 
   ]
 }
 
-**PDF TEXT** (extract due date):
+**PDF TEXT** (may contain due date if parseable):
 ${pdfText.substring(0, 3000)}
 
 **CSV HEADER ROW**:
@@ -148,9 +148,14 @@ ${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
 2. Skip completely empty rows
 3. Convert "09/02/2025 00:00" format to "2025-09-02"
 4. Convert "$33.00" to 33.00 (number)
-5. Extract due_date from PDF text (look for "Date Due")
-6. Return invoice_id from first data row in CSV (column 0)
-7. If billing_date not found in PDF, set to null
+5. **DUE DATE EXTRACTION (CRITICAL)**:
+   - First, look for "Date Due" or "Due Date" in the PDF text
+   - If PDF text is not readable (contains binary data like %PDF), find the LATEST "Bill To" date from the CSV data
+   - The latest Bill To date is typically the invoice period end date
+   - Add 30 days to the latest Bill To date to get the due_date
+   - For example: if latest Bill To is "09/30/2025", then due_date should be "2025-10-30"
+6. **BILLING DATE**: Set to null (will be calculated as due_date - 30 days)
+7. Return invoice_id from first data row in CSV (column 0)
 8. Return ONLY valid JSON with NO markdown backticks
 
 **VERIFICATION**: Your response must include ${jsonData.filter(row => row && row.length > 0 && row[1]).length} items in line_items array.`;
