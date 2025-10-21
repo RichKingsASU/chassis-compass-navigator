@@ -85,24 +85,26 @@ const InvoiceLineDetails = () => {
           invoice_rate: parseFloat(String(data.tier_1_rate || 0)),
           invoice_quantity: Number(data.tier_1_days || 0),
           charge_type: data.charge_description || 'Chassis Charge',
-          tms_match: {
-            ld_num: 'LD123456',
-            so_num: 'SO789012',
-            chassis_number: data.chassis,
-            container_number: data.on_hire_container,
-            carrier_name: 'ABC Trucking',
-            customer_name: data.customer_name,
-            date_out: data.on_hire_date,
-            date_in: data.off_hire_date,
-            calculated_charges: parseFloat(String(data.grand_total || 0)),
-            rated_amount: parseFloat(String(data.grand_total || 0)),
-            rated_rate: parseFloat(String(data.tier_1_rate || 0)),
-            rated_quantity: Number(data.tier_1_days || 0),
-            confidence: 85,
-            match_reasons: ['Chassis exact match'],
-            multi_load: false,
-            special_contract: false
-          }
+            tms_match: {
+              ld_num: 'LD123456',
+              so_num: 'SO789012',
+              chassis_number: data.chassis,
+              container_number: data.on_hire_container,
+              carrier_name: 'ABC Trucking',
+              customer_name: data.customer_name,
+              date_out: data.on_hire_date,
+              date_in: data.off_hire_date,
+              pickup_actual_date: data.on_hire_date,
+              actual_rc_date: data.off_hire_date,
+              calculated_charges: parseFloat(String(data.grand_total || 0)),
+              rated_amount: parseFloat(String(data.grand_total || 0)),
+              rated_rate: parseFloat(String(data.tier_1_rate || 0)),
+              rated_quantity: Number(data.tier_1_days || 0),
+              confidence: 85,
+              match_reasons: ['Chassis exact match'],
+              multi_load: false,
+              special_contract: false
+            }
         });
       } else {
         // If not found in final table, check staging table
@@ -145,6 +147,8 @@ const InvoiceLineDetails = () => {
                 customer_name: rowData['Customer Name'],
                 date_out: lineItem.date_out,
                 date_in: lineItem.date_in,
+                pickup_actual_date: lineItem.date_out,
+                actual_rc_date: lineItem.date_in,
                 calculated_charges: parseFloat(String(rowData['Grand Total'] || 0)),
                 rated_amount: parseFloat(String(rowData['Grand Total'] || 0)),
                 rated_rate: parseFloat(String(rowData['Tier 1 Rate'] || 0)),
@@ -203,10 +207,12 @@ const InvoiceLineDetails = () => {
       id: 'dates',
       label: 'Date Verification',
       icon: Calendar,
-      status: lineItem.invoice_date === lineItem.tms_match.date_out ? 'pass' : 'warning',
-      message: lineItem.invoice_date === lineItem.tms_match.date_out 
-        ? 'Billing dates align with TMS' 
-        : 'Date discrepancies found'
+      status: (lineItem.billing_start === lineItem.tms_match.pickup_actual_date && 
+               lineItem.billing_end === lineItem.tms_match.actual_rc_date) ? 'pass' : 'fail',
+      message: (lineItem.billing_start === lineItem.tms_match.pickup_actual_date && 
+               lineItem.billing_end === lineItem.tms_match.actual_rc_date)
+        ? 'Billing dates align with TMS pickup and return' 
+        : 'Bill Start/End dates do not match TMS dates'
     },
     {
       id: 'charges',
@@ -413,10 +419,10 @@ const TroubleshootPanel = ({ lineItem, validationCategories }: { lineItem: any; 
     dates: {
       title: 'Date Mismatch Details',
       items: [
-        { label: 'Invoice Date', value: lineItem.invoice_date || 'N/A', status: 'mismatch' },
-        { label: 'TMS Date Out', value: lineItem.tms_match?.date_out || 'N/A', status: 'info' },
-        { label: 'Billing Start', value: lineItem.billing_start || 'N/A', status: 'info' },
-        { label: 'Billing End', value: lineItem.billing_end || 'N/A', status: 'info' },
+        { label: 'Bill Start Date', value: lineItem.billing_start || 'N/A', status: 'mismatch' },
+        { label: 'TMS Pickup Actual', value: lineItem.tms_match?.pickup_actual_date || 'N/A', status: 'info' },
+        { label: 'Bill End Date', value: lineItem.billing_end || 'N/A', status: 'mismatch' },
+        { label: 'TMS Return Actual', value: lineItem.tms_match?.actual_rc_date || 'N/A', status: 'info' },
       ]
     },
     charges: {
