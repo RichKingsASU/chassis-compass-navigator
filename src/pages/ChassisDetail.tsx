@@ -203,16 +203,18 @@ const ChassisDetail = () => {
 
       setAsset(assetData);
 
-      // Fetch location history (GPS)
-      const { data: locationsData, error: locationsError } = await supabase
-        .from('asset_locations')
-        .select('*')
-        .eq('asset_id', id)
-        .order('recorded_at', { ascending: false })
-        .limit(100);
+      // Fetch location history (GPS) - only for real assets with UUIDs
+      if (assetData.id && !assetData.id.startsWith('mcl-')) {
+        const { data: locationsData, error: locationsError } = await supabase
+          .from('asset_locations')
+          .select('*')
+          .eq('asset_id', assetData.id)
+          .order('recorded_at', { ascending: false })
+          .limit(100);
 
-      if (locationsError) throw locationsError;
-      setLocationHistory(locationsData || []);
+        if (locationsError) throw locationsError;
+        setLocationHistory(locationsData || []);
+      }
 
       // Fetch TMS data - try multiple identifier fields for matching
       if (assetData?.identifier) {

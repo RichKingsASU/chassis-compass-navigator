@@ -46,6 +46,18 @@ const FinancialsTab: React.FC<FinancialsTabProps> = ({ chassisId }) => {
     try {
       setLoading(true);
 
+      // Check if this is a real UUID (not an MCL-only chassis identifier)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chassisId);
+      
+      if (!isUuid) {
+        // MCL-only chassis don't have financial data in these tables
+        setTmsFinancials([]);
+        setEquipmentCosts([]);
+        setRepairs([]);
+        setLoading(false);
+        return;
+      }
+
       // Fetch TMS financials
       const { data: tmsData, error: tmsError } = await supabase
         .from('tms_load_financials')
