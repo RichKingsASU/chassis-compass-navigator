@@ -185,9 +185,15 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 
       console.log("Edge function response:", data);
 
+      // Check if edge function returned an error
       if (!data || !data.ok) {
         console.error("Edge function returned error response:", data);
-        throw new Error(data?.error || 'Invoice extraction failed - unknown error');
+        toast({
+          title: "Extraction failed",
+          description: data?.error || 'Invoice extraction failed - unknown error',
+          variant: "destructive",
+        });
+        throw new Error(data?.error || 'Invoice extraction failed');
       }
 
       // Validate that we have line items
@@ -208,6 +214,15 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
           variant: 'destructive',
         });
         throw new Error('Invalid invoice totals');
+      }
+
+      // Show warning if validation failed
+      if (data.validation_status === 'TOTAL_MISMATCH') {
+        toast({
+          title: 'Validation Warning',
+          description: data.warnings?.[0] || 'Invoice totals do not match - please review carefully',
+          variant: 'destructive',
+        });
       }
 
       // Ensure we have required dates
@@ -259,6 +274,8 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       console.log("  - Total Amount:", transformedData.invoice.amount_due);
       console.log("  - Line Items:", transformedData.line_items.length);
       console.log("  - Status:", transformedData.invoice.status);
+      console.log("  - Validation:", data.validation_status);
+      console.log("  - Warnings:", transformedData.warnings);
       
       if (transformedData.line_items.length === 0) {
         console.error("⚠️ CRITICAL: No line items in transformed data!");

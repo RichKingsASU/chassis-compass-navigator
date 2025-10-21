@@ -102,63 +102,72 @@ serve(async (req) => {
     console.log(`✅ Parsed ${jsonData.length} rows from Excel`);
     console.log('First 10 rows (cleaned):', JSON.stringify(jsonData.slice(0, 10), null, 2));
 
-    // Use AI to extract structured invoice data with explicit line items instruction
-    const aiPrompt = `You are performing invoice data extraction. 
+    // Use AI to extract structured invoice data with explicit validation
+    const aiPrompt = `You are an expert invoice data extraction engine.
 
-**CRITICAL TASK**: Extract ALL line items from the CSV data AND determine the correct invoice due date.
+**TASK**: Extract ALL line items from the CSV and validate against the invoice header.
 
-**DATA PROVIDED**:
-1. PDF contains header information (invoice number, dates, total amount) - but the text may not be properly parsed
-2. CSV contains ALL line item rows with columns: Invoice, Chassis, Size, Type, Container, Bill From, Bill To, # of Days, Rate, Gate out Location, Line Out, Gate in Location, Line In, Tax, Surcharge Total, Total
+**INPUT DOCUMENTS**:
+1. PDF Invoice Header - Contains invoice metadata (invoice number, dates, total amount)
+2. CSV Line Items - Contains ${jsonData.length - 1} rows of detailed transaction data
 
-**YOUR TASK**:
-Extract EVERY non-empty row from the CSV into the line_items array. The CSV has ${jsonData.length - 1} data rows after the header.
-
-**REQUIRED JSON STRUCTURE**:
+**REQUIRED OUTPUT SCHEMA**:
 {
-  "invoice_id": "string",
+  "invoice_id": "string from CSV column 0",
   "billing_date": "YYYY-MM-DD or null",
-  "due_date": "YYYY-MM-DD",
+  "due_date": "YYYY-MM-DD (CRITICAL: see rule 5 below)",
   "billing_terms": "Net 30",
   "total_amount": number,
+  "validation_status": "VALIDATED or TOTAL_MISMATCH",
   "line_items": [
     {
-      "chassis": "from Chassis column",
-      "container": "from Container column",
-      "date_out": "convert Bill From (MM/DD/YYYY HH:MM) to YYYY-MM-DD",
-      "date_in": "convert Bill To (MM/DD/YYYY HH:MM) to YYYY-MM-DD",
-      "days": "from # of Days column as number",
-      "rate": "from Rate column, remove $ and convert to number",
-      "amount": "from Total column, remove $ and convert to number"
+      "chassis": "string",
+      "container": "string", 
+      "date_out": "YYYY-MM-DD",
+      "date_in": "YYYY-MM-DD",
+      "days": number,
+      "rate": number,
+      "amount": number
     }
   ]
 }
 
-**PDF TEXT** (may contain due date if parseable):
-${pdfText.substring(0, 3000)}
+**CSV STRUCTURE**:
+Header Row: ${JSON.stringify(jsonData[0])}
 
-**CSV HEADER ROW**:
-${JSON.stringify(jsonData[0])}
-
-**CSV DATA ROWS** (Process EVERY row where Chassis is not empty):
+Data Rows (${jsonData.filter(row => row && row.length > 0 && row[1]).length} items):
 ${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
 
-**EXTRACTION RULES**:
-1. Process EVERY row from the CSV where column index 1 (Chassis) is not empty
-2. Skip completely empty rows
-3. Convert "09/02/2025 00:00" format to "2025-09-02"
-4. Convert "$33.00" to 33.00 (number)
-5. **DUE DATE EXTRACTION (CRITICAL)**:
-   - First, look for "Date Due" or "Due Date" in the PDF text
-   - If PDF text is not readable (contains binary data like %PDF), find the LATEST "Bill To" date from the CSV data
-   - The latest Bill To date is typically the invoice period end date
-   - Add 30 days to the latest Bill To date to get the due_date
-   - For example: if latest Bill To is "09/30/2025", then due_date should be "2025-10-30"
-6. **BILLING DATE**: Set to null (will be calculated as due_date - 30 days)
-7. Return invoice_id from first data row in CSV (column 0)
-8. Return ONLY valid JSON with NO markdown backticks
+**PDF HEADER TEXT** (first 3000 chars):
+${pdfText.substring(0, 3000)}
 
-**VERIFICATION**: Your response must include ${jsonData.filter(row => row && row.length > 0 && row[1]).length} items in line_items array.`;
+**EXTRACTION RULES** (CRITICAL - FOLLOW EXACTLY):
+1. **Process ALL rows**: Extract EVERY row from CSV where column[1] (Chassis) is not empty
+2. **Skip empty rows**: Ignore rows where all fields are blank
+3. **Date conversion**: Convert "MM/DD/YYYY HH:MM" → "YYYY-MM-DD"
+   Example: "09/02/2025 00:00" → "2025-09-02"
+4. **Currency conversion**: Remove $ and convert to number
+   Example: "$33.00" → 33.00
+5. **DUE DATE EXTRACTION** (MOST IMPORTANT):
+   - First attempt: Search PDF text for "Date Due:" or "Due Date:"
+   - If PDF is unreadable (binary data): Find the LATEST date in CSV column[6] (Bill To)
+   - Add 30 days to the latest Bill To date
+   - Example: Latest Bill To = "09/30/2025" → due_date = "2025-10-30"
+6. **VALIDATION**: 
+   - Calculate: sum_line_items = sum of all line_items[].amount
+   - Compare: sum_line_items vs total_amount
+   - If match (within $0.01): validation_status = "VALIDATED"
+   - If mismatch: validation_status = "TOTAL_MISMATCH"
+7. **billing_date**: Set to null (will be calculated later)
+8. **Output format**: Return ONLY valid JSON. NO markdown backticks. NO prose.
+
+**VERIFICATION CHECKLIST**:
+- Line items count must equal ${jsonData.filter(row => row && row.length > 0 && row[1]).length}
+- Each line item must have: chassis, container, date_out, date_in, days, rate, amount
+- validation_status must be set based on totals comparison
+- due_date must be calculated correctly
+
+Return the JSON now:`;
 
     // Call Lovable AI with explicit line items extraction
     console.log("Calling AI with CSV data containing", jsonData.length - 1, "rows");
@@ -220,28 +229,54 @@ ${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
       console.log("✅ Successfully parsed AI response");
       console.log("📊 Extracted line items count:", extractedData.line_items?.length || 0);
       
-      if (extractedData.line_items && extractedData.line_items.length > 0) {
-        console.log("✅ First line item:", JSON.stringify(extractedData.line_items[0], null, 2));
-      } else {
-        console.warn("⚠️ WARNING: No line items extracted!");
+      // Validate line items were extracted
+      if (!extractedData.line_items || extractedData.line_items.length === 0) {
+        console.error("⚠️ CRITICAL: No line items extracted from AI response!");
+        throw new Error("AI extraction returned zero line items");
       }
+      
+      console.log("✅ First line item:", JSON.stringify(extractedData.line_items[0], null, 2));
+      
+      // Calculate and verify totals
+      const lineItemsTotal = extractedData.line_items.reduce((sum: number, item: any) => 
+        sum + (parseFloat(item.amount) || 0), 0
+      );
+      const headerTotal = extractedData.total_amount || 0;
+      const totalsMatch = Math.abs(headerTotal - lineItemsTotal) < 0.01;
+      
+      console.log("💰 Header Total:", headerTotal);
+      console.log("💰 Line Items Sum:", lineItemsTotal);
+      console.log("✓ Totals Match:", totalsMatch);
+      
+      // Override validation status with our calculation
+      extractedData.validation_status = totalsMatch ? 'VALIDATED' : 'TOTAL_MISMATCH';
+      
+      // Verify all line items have required fields
+      const invalidItems = extractedData.line_items.filter((item: any) => 
+        !item.chassis || !item.amount || item.amount === 0
+      );
+      if (invalidItems.length > 0) {
+        console.warn(`⚠️ WARNING: ${invalidItems.length} line items missing required fields:`, 
+          JSON.stringify(invalidItems, null, 2));
+      }
+      
     } catch (e) {
-      console.error("Failed to parse AI response:", extractedText);
+      console.error("❌ Failed to parse AI response:", extractedText.substring(0, 500));
       console.error("Parse error:", e);
       
-      // Fallback: try to extract basic data ourselves
-      const today = new Date();
-      const dueDate = new Date(today);
-      dueDate.setDate(dueDate.getDate() + 30);
-      
-      extractedData = {
-        invoice_id: 'WCCP-' + Date.now(),
-        billing_date: null,
-        due_date: dueDate.toISOString().split('T')[0],
-        billing_terms: 'Net 30',
-        total_amount: 0,
-        line_items: []
-      };
+      // Return error response instead of fallback
+      return new Response(
+        JSON.stringify({ 
+          ok: false, 
+          error: 'AI extraction failed to return valid JSON',
+          error_type: 'PARSE_ERROR',
+          ai_response_preview: extractedText.substring(0, 500)
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
+        }
+      );
     }
 
     // If billing_date is null or missing, calculate as due_date - 30 days
@@ -272,14 +307,16 @@ ${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
       extractedData.billing_date = billingDate.toISOString().split('T')[0];
     }
 
-
-    // Calculate totals and validate
-    const lineItemsTotal = extractedData.line_items?.reduce((sum: number, item: any) => sum + (parseFloat(item.amount) || 0), 0) || 0;
+    // Calculate totals and determine final status
+    const lineItemsTotal = extractedData.line_items?.reduce((sum: number, item: any) => 
+      sum + (parseFloat(item.amount) || 0), 0
+    ) || 0;
     const headerTotal = extractedData.total_amount || lineItemsTotal;
     
-    // Determine status based on total match
+    // Determine status based on validation
     const totalsMatch = Math.abs(headerTotal - lineItemsTotal) < 0.01;
-    const status = totalsMatch ? 'VALIDATED (Gemini)' : 'ERROR: Total Mismatch';
+    const validationStatus = extractedData.validation_status || (totalsMatch ? 'VALIDATED' : 'TOTAL_MISMATCH');
+    const status = validationStatus === 'VALIDATED' ? 'VALIDATED (Gemini)' : 'ERROR: Total Mismatch';
 
     console.log("=== FINAL EXTRACTION SUMMARY ===");
     console.log("Invoice ID:", extractedData.invoice_id);
@@ -288,7 +325,8 @@ ${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
     console.log("Line Items Count:", extractedData.line_items?.length || 0);
     console.log("Header Total:", headerTotal);
     console.log("Line Items Sum:", lineItemsTotal);
-    console.log("Status:", status);
+    console.log("Validation Status:", validationStatus);
+    console.log("Final Status:", status);
     console.log("=== END SUMMARY ===");
 
     const response = {
@@ -300,19 +338,30 @@ ${JSON.stringify(jsonData.filter(row => row && row.length > 0 && row[1]))}
       vendor: 'WCCP',
       currency: 'USD',
       status: status,
+      validation_status: validationStatus,
       totals: {
         header_total: headerTotal,
-        sum_line_items: lineItemsTotal
+        sum_line_items: lineItemsTotal,
+        difference: Math.abs(headerTotal - lineItemsTotal)
       },
       line_items: extractedData.line_items || [],
       line_items_count: extractedData.line_items?.length || 0,
-      warnings: (extractedData.line_items?.length || 0) === 0 ? ['No line items found - check extraction logs'] : [],
+      warnings: [],
       debug: {
         csv_rows_provided: jsonData.length - 1,
         non_empty_chassis_rows: jsonData.filter(row => row && row.length > 0 && row[1]).length,
         extracted_count: extractedData.line_items?.length || 0
       }
     };
+
+    // Add warnings if totals don't match
+    if (validationStatus === 'TOTAL_MISMATCH') {
+      response.warnings.push(
+        `Total mismatch: Header shows $${headerTotal.toFixed(2)}, ` +
+        `but line items sum to $${lineItemsTotal.toFixed(2)} ` +
+        `(difference: $${Math.abs(headerTotal - lineItemsTotal).toFixed(2)})`
+      );
+    }
 
     console.log("Final response - Line items:", response.line_items_count);
     console.log("Returning response:", JSON.stringify(response, null, 2));
