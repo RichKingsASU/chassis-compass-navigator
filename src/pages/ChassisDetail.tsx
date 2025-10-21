@@ -82,8 +82,17 @@ const ChassisDetail = () => {
   useEffect(() => {
     const fetchMapsKey = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('get-maps-key');
-        if (error) throw error;
+        const response = await fetch(
+          `https://fucvkmsaappphsvuabos.supabase.co/functions/v1/get-maps-key`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${supabase.auth.getSession}`,
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1Y3ZrbXNhYXBwcGhzdnVhYm9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3Mzg1OTcsImV4cCI6MjA3MzMxNDU5N30.zGnrRCzrWbFY-tvXjsb6nf9nVmRhqlEAcdtilRaJPxQ'
+            }
+          }
+        );
+        const data = await response.json();
         if (data?.apiKey) {
           setMapsApiKey(data.apiKey);
         }
