@@ -10,6 +10,7 @@ import { AlertCircle } from 'lucide-react';
 import { ExtractedData } from '@/pages/dcli/NewInvoice';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { formatDateValue } from '@/utils/dateUtils';
 
 import { Save } from 'lucide-react';
 
@@ -229,15 +230,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
                     
                     // Check if value exists and is not empty
                     if (cellValue !== undefined && cellValue !== null && cellValue !== '') {
-                      // Format dates if they look like Excel serial numbers
-                      if (typeof cellValue === 'number' && cellValue > 40000 && cellValue < 50000) {
-                        const date = new Date((cellValue - 25569) * 86400 * 1000);
-                        displayValue = date.toLocaleDateString();
-                      } else if (typeof cellValue === 'number' && cellValue === 0) {
-                        displayValue = '0';
-                      } else {
-                        displayValue = String(cellValue);
-                      }
+                      displayValue = formatDateValue(cellValue);
                     }
                     
                     return (

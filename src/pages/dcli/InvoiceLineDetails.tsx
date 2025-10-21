@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { excelDateToJSDate } from '@/utils/dateUtils';
 
 // Validation Categories Configuration
 type ValidationStatus = 'pass' | 'fail' | 'warning' | 'info';
@@ -44,16 +45,6 @@ const getStatusConfig = (status: ValidationStatus) => {
     }
   };
   return configs[status];
-};
-
-// Convert Excel serial date to JavaScript Date string
-const excelDateToJSDate = (excelDate: any): string | null => {
-  if (!excelDate || isNaN(excelDate)) return null;
-  const excelNum = parseFloat(excelDate);
-  // Excel date serial number starts from 1900-01-01
-  // JavaScript date needs adjustment for timezone
-  const date = new Date((excelNum - 25569) * 86400 * 1000);
-  return date.toISOString().split('T')[0]; // Return YYYY-MM-DD format
 };
 
 const InvoiceLineDetails = () => {
