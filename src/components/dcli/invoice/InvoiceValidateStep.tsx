@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ExtractedData } from '@/pages/dcli/NewInvoice';
 import ValidationDrawer from './ValidationDrawer';
+import { excelDateToJSDate } from '@/utils/dateUtils';
 import { Loader2 } from 'lucide-react';
 
 import { Save } from 'lucide-react';
@@ -46,12 +47,41 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({
   const runValidation = async () => {
     setIsValidating(true);
     try {
+      // Convert Excel dates in line items to proper date strings
+      const convertedLineItems = extractedData.line_items.map((item) => {
+        const rowData = item.row_data as any;
+        
+        // Helper to convert date field if it's an Excel serial number
+        const convertDateField = (value: any): string | null => {
+          if (typeof value === 'number' && value > 40000 && value < 50000) {
+            return excelDateToJSDate(value);
+          }
+          if (typeof value === 'string') {
+            return value.split('T')[0]; // Return just the date part
+          }
+          return null;
+        };
+
+        return {
+          ...item,
+          row_data: {
+            ...rowData,
+            'Bill Start Date': convertDateField(rowData?.['Bill Start Date']),
+            'Bill End Date': convertDateField(rowData?.['Bill End Date']),
+            'On-Hire Date': convertDateField(rowData?.['On-Hire Date']),
+            'Off-Hire Date': convertDateField(rowData?.['Off-Hire Date']),
+            'Billing Date': convertDateField(rowData?.['Billing Date']),
+            'Due Date': convertDateField(rowData?.['Due Date']),
+          }
+        };
+      });
+
       const { data, error } = await supabase.rpc('validate_dcli_invoice' as any, {
         p_summary_invoice_id: extractedData.invoice.summary_invoice_id,
         p_account_code: extractedData.invoice.account_code || '',
         p_billing_date: extractedData.invoice.billing_date,
         p_due_date: extractedData.invoice.due_date,
-        p_line_items: extractedData.line_items as any,
+        p_line_items: convertedLineItems as any,
       });
 
       if (error) throw error;
