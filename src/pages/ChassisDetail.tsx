@@ -471,6 +471,84 @@ const ChassisDetail = () => {
                     mapContainerStyle={mapContainerStyle}
                     center={center}
                     zoom={10}
+                    options={{
+                      styles: [
+                        // Industry-optimized map style for logistics
+                        { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
+                        { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+                        { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+                        { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
+                        {
+                          featureType: "administrative.land_parcel",
+                          elementType: "labels.text.fill",
+                          stylers: [{ color: "#bdbdbd" }],
+                        },
+                        {
+                          featureType: "poi",
+                          elementType: "geometry",
+                          stylers: [{ color: "#eeeeee" }],
+                        },
+                        {
+                          featureType: "poi",
+                          elementType: "labels.text.fill",
+                          stylers: [{ color: "#757575" }],
+                        },
+                        {
+                          featureType: "poi.park",
+                          elementType: "geometry",
+                          stylers: [{ color: "#e5e5e5" }],
+                        },
+                        {
+                          featureType: "road",
+                          elementType: "geometry",
+                          stylers: [{ color: "#ffffff" }],
+                        },
+                        {
+                          featureType: "road.arterial",
+                          elementType: "labels.text.fill",
+                          stylers: [{ color: "#757575" }],
+                        },
+                        {
+                          featureType: "road.highway",
+                          elementType: "geometry",
+                          stylers: [{ color: "#dadada" }],
+                        },
+                        {
+                          featureType: "road.highway",
+                          elementType: "labels.text.fill",
+                          stylers: [{ color: "#616161" }],
+                        },
+                        {
+                          featureType: "road.local",
+                          elementType: "labels.text.fill",
+                          stylers: [{ color: "#9e9e9e" }],
+                        },
+                        {
+                          featureType: "transit.line",
+                          elementType: "geometry",
+                          stylers: [{ color: "#e5e5e5" }],
+                        },
+                        {
+                          featureType: "transit.station",
+                          elementType: "geometry",
+                          stylers: [{ color: "#eeeeee" }],
+                        },
+                        {
+                          featureType: "water",
+                          elementType: "geometry",
+                          stylers: [{ color: "#c9c9c9" }],
+                        },
+                        {
+                          featureType: "water",
+                          elementType: "labels.text.fill",
+                          stylers: [{ color: "#9e9e9e" }],
+                        },
+                      ],
+                      mapTypeControl: true,
+                      streetViewControl: true,
+                      fullscreenControl: true,
+                      zoomControl: true,
+                    }}
                   >
                     {coordinates.map((coord, index) => (
                       <Marker
@@ -479,12 +557,22 @@ const ChassisDetail = () => {
                         onClick={() => setSelectedMarker(index)}
                         icon={{
                           path: google.maps.SymbolPath.CIRCLE,
-                          scale: 6,
-                          fillColor: index === 0 ? '#ef4444' : '#3b82f6',
+                          scale: 8,
+                          fillColor: index === 0 ? '#ef4444' : '#2563eb',
                           fillOpacity: 1,
                           strokeColor: '#ffffff',
-                          strokeWeight: 2,
+                          strokeWeight: 3,
                         }}
+                        label={
+                          index === 0
+                            ? {
+                                text: 'Current',
+                                color: '#ffffff',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                              }
+                            : undefined
+                        }
                       />
                     ))}
                     {selectedMarker !== null && (
@@ -511,9 +599,10 @@ const ChassisDetail = () => {
                     <Polyline
                       path={coordinates.map(c => ({ lat: c.lat, lng: c.lng }))}
                       options={{
-                        strokeColor: '#3b82f6',
-                        strokeOpacity: 0.6,
-                        strokeWeight: 3,
+                        strokeColor: '#2563eb',
+                        strokeOpacity: 0.8,
+                        strokeWeight: 4,
+                        geodesic: true,
                       }}
                     />
                   </GoogleMap>
