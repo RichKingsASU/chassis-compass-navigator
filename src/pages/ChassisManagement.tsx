@@ -19,13 +19,6 @@ import {
 } from "@/components/ui/card";
 import KPICard from "@/components/ccm/KPICard";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@/components/ui/form";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -35,15 +28,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, Search, Upload, FileX, Filter, MapPin, UploadCloud, FileCheck, Eye } from 'lucide-react';
-import { useForm } from "react-hook-form";
+import { Label } from "@/components/ui/label";
+import { Search, FileX, Eye } from 'lucide-react';
 
 const ChassisManagement = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [uploadOpen, setUploadOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [chassisData, setChassisData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,13 +112,6 @@ const ChassisManagement = () => {
       setLoading(false);
     }
   };
-  
-  const form = useForm({
-    defaultValues: {
-      fileType: 'csv',
-      gpsProvider: '',
-    },
-  });
 
   const filteredChassis = chassisData.filter(chassis => {
     // Search term filter
@@ -144,12 +127,6 @@ const ChassisManagement = () => {
     
     return true;
   });
-
-  const onUploadSubmit = (data: any) => {
-    console.log("Upload data:", data);
-    setUploadOpen(false);
-    // Handle file upload here
-  };
 
   const resetFilters = () => {
     setSelectedFilters({
@@ -204,92 +181,6 @@ const ChassisManagement = () => {
     <div className="dashboard-layout">
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
         <h1 className="dash-title">Chassis Management</h1>
-        
-        <div className="flex gap-3">
-          <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <UploadCloud size={18} />
-                Upload GPS File
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Upload GPS Data</DialogTitle>
-                <DialogDescription>
-                  Upload a file containing GPS data from your provider.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onUploadSubmit)} className="space-y-4 pt-4">
-                  <FormField
-                    control={form.control}
-                    name="fileType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>File Type</FormLabel>
-                        <FormControl>
-                          <Tabs defaultValue="csv" className="w-full" value={field.value} onValueChange={field.onChange}>
-                            <TabsList className="grid w-full grid-cols-3">
-                              <TabsTrigger value="csv">CSV</TabsTrigger>
-                              <TabsTrigger value="excel">Excel</TabsTrigger>
-                              <TabsTrigger value="pdf">PDF</TabsTrigger>
-                            </TabsList>
-                          </Tabs>
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="gpsProvider"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>GPS Provider</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a provider" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="samsara">Samsara</SelectItem>
-                            <SelectItem value="blackberry">BlackBerry Radar</SelectItem>
-                            <SelectItem value="fleetview">Fleetview</SelectItem>
-                            <SelectItem value="fleetlocate">Fleetlocate</SelectItem>
-                            <SelectItem value="anytrek">Anytrek</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="mx-auto h-10 w-10 text-gray-400" />
-                    <div className="mt-2 text-sm text-gray-600">Drag and drop a file here, or click to browse</div>
-                    <input
-                      type="file"
-                      className="hidden"
-                      id="file-upload"
-                      accept=".csv,.xlsx,.xls,.pdf"
-                    />
-                    <Button variant="outline" className="mt-2" onClick={() => document.getElementById('file-upload')?.click()}>
-                      Select File
-                    </Button>
-                  </div>
-                  
-                  <DialogFooter>
-                    <Button variant="outline" type="button" onClick={() => setUploadOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit">Upload</Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        </div>
       </div>
 
       {/* Status Overview KPIs */}
@@ -367,8 +258,8 @@ const ChassisManagement = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div>
-              <FormLabel>Chassis Type</FormLabel>
-              <Select 
+              <Label>Chassis Type</Label>
+              <Select
                 value={selectedFilters.chassisType} 
                 onValueChange={(value) => setSelectedFilters({...selectedFilters, chassisType: value})}
               >
