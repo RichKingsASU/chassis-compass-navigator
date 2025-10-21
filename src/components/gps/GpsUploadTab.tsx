@@ -382,6 +382,16 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
             console.error('GPS data insert error:', gpsError);
             throw new Error(`Failed to insert GPS data: ${gpsError.message}`);
           }
+
+          // Trigger GPS data standardization in background
+          try {
+            await supabase.functions.invoke('standardize-gps-data', {
+              body: { upload_id: uploadRecord.id }
+            });
+          } catch (standardizeError) {
+            console.error('GPS standardization error:', standardizeError);
+            // Don't fail the upload if standardization fails
+          }
         }
       }
 

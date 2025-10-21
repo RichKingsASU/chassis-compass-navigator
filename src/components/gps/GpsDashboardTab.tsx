@@ -25,6 +25,7 @@ interface GpsDataPoint {
   provider: string;
   chassis_id?: string;
   asset_id?: string;
+  geocoded_address?: string | null;
 }
 
 interface GpsUploadRecord {
@@ -100,7 +101,8 @@ const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName }) => {
         enrichedGpsData.push({
           ...gpsPoint,
           chassis_id: chassisId,
-          asset_id: assetId
+          asset_id: assetId,
+          geocoded_address: (gpsPoint.raw_data as any)?.geocoded_address || null
         });
       }
 
@@ -270,10 +272,13 @@ const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName }) => {
                         <div className="flex items-center gap-2">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
                           <div className="space-y-0.5">
-                            <div className="text-sm">
+                            {data.geocoded_address ? (
+                              <div className="text-sm font-medium">{data.geocoded_address}</div>
+                            ) : null}
+                            <div className="text-sm text-muted-foreground">
                               Lat: {typeof data.latitude === 'number' ? data.latitude.toFixed(6) : parseFloat(String(data.latitude || 0)).toFixed(6)}°
                             </div>
-                            <div className="text-sm">
+                            <div className="text-sm text-muted-foreground">
                               Lon: {typeof data.longitude === 'number' ? data.longitude.toFixed(6) : parseFloat(String(data.longitude || 0)).toFixed(6)}°
                             </div>
                           </div>
