@@ -68,8 +68,38 @@ serve(async (req) => {
       }
     }
 
-    const billingDate = new Date().toISOString().split("T")[0];
-    const dueDate = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    // Extract billing date and due date from Excel
+    // Convert Excel serial date number to JavaScript Date
+    const excelDateToJSDate = (excelDate: number): string => {
+      const date = new Date((excelDate - 25569) * 86400 * 1000);
+      return date.toISOString().split("T")[0];
+    };
+
+    let billingDate = new Date().toISOString().split("T")[0];
+    let dueDate = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+    // Search for "Billing Date" and "Due Date" in the first few rows
+    for (let i = 0; i < Math.min(10, jsonData.length); i++) {
+      const row = jsonData[i] as unknown[];
+      for (let j = 0; j < row.length - 1; j++) {
+        const cell = String(row[j] || "").trim();
+        const nextCell = row[j + 1];
+        
+        if (cell.toLowerCase().includes("billing date") && nextCell) {
+          if (typeof nextCell === "number" && nextCell > 40000) {
+            billingDate = excelDateToJSDate(nextCell);
+            console.log(`Found Billing Date: ${billingDate} (Excel: ${nextCell})`);
+          }
+        }
+        
+        if (cell.toLowerCase().includes("due date") && nextCell) {
+          if (typeof nextCell === "number" && nextCell > 40000) {
+            dueDate = excelDateToJSDate(nextCell);
+            console.log(`Found Due Date: ${dueDate} (Excel: ${nextCell})`);
+          }
+        }
+      }
+    }
 
     // Find data rows - look for rows with numeric values that could be amounts
     const lineItems: Array<Record<string, unknown>> = [];
