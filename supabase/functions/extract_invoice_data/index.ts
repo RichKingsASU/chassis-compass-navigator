@@ -115,56 +115,57 @@ serve(async (req) => {
     // Use AI to extract structured invoice data with explicit validation
     const aiPrompt = `You are an expert invoice data extraction engine.
 
-**CRITICAL TASK**: Extract ALL ${dataRows.length} line items from the CSV data below.
+**CRITICAL TASK**: Extract invoice header from PDF and ALL ${dataRows.length} line items from CSV.
 
-**CSV STRUCTURE**:
-- Header Row: ${JSON.stringify(jsonData[0])}
-- Column mapping:
-  [0]=Invoice, [1]=Chassis, [2]=Size, [3]=Type, [4]=Container, 
-  [5]=Bill From, [6]=Bill To, [7]=# of Days, [8]=Rate, 
-  [9]=Gate out Location, [10]=Line Out, [11]=Gate in Location, 
-  [12]=Line In, [13]=Tax, [14]=Surcharge Total, [15]=Total
+**PDF INVOICE HEADER** (extract due date and billing date from here):
+${pdfText.substring(0, 5000)}
 
-**SAMPLE ROW FORMAT**:
-${JSON.stringify(dataRows[0])}
-- Maps to: chassis="${dataRows[0][1]}", container="${dataRows[0][4]}", amount="${dataRows[0][15]}"
+**WHAT TO EXTRACT FROM PDF**:
+- Look for "Due Date :" or "Due Date:" → extract as YYYY-MM-DD
+- Look for "Billing Date :" or "Billing Date:" → extract as YYYY-MM-DD  
+- Look for "Amount Due :" or "Amount Due:" → extract as number
+- If dates are in MM/DD/YYYY format, convert to YYYY-MM-DD
 
-**ALL ${dataRows.length} DATA ROWS TO EXTRACT**:
+**CSV LINE ITEMS DATA**:
+- Header: ${JSON.stringify(jsonData[0])}
+- Sample row: ${JSON.stringify(dataRows[0])}
+- All ${dataRows.length} data rows:
 ${JSON.stringify(dataRows, null, 2)}
 
 **REQUIRED OUTPUT JSON**:
 {
-  "invoice_id": "string (use column[0] from first data row)",
-  "billing_date": null,
-  "due_date": "YYYY-MM-DD (find latest date in column[6], then add 24 days for WCCP)",
-  "billing_terms": "Net 30",
-  "total_amount": number (sum of all column[15] values),
+  "invoice_id": "string (from PDF or CSV column[0])",
+  "billing_date": "YYYY-MM-DD (extract from PDF header)",
+  "due_date": "YYYY-MM-DD (extract from PDF header - this is CRITICAL)",
+  "billing_terms": "string (from PDF, e.g., 'Net 30', 'BFB 21 Days')",
+  "total_amount": number (from PDF Amount Due),
   "validation_status": "VALIDATED or TOTAL_MISMATCH",
   "line_items": [
     {
       "chassis": "column[1]",
       "container": "column[4]",
-      "date_out": "column[5] converted from MM/DD/YYYY to YYYY-MM-DD",
-      "date_in": "column[6] converted from MM/DD/YYYY to YYYY-MM-DD",
+      "date_out": "column[5] MM/DD/YYYY → YYYY-MM-DD",
+      "date_in": "column[6] MM/DD/YYYY → YYYY-MM-DD",
       "days": "column[7] as number",
-      "rate": "column[8] remove $ convert to number",
-      "amount": "column[15] remove $ convert to number"
+      "rate": "column[8] remove $ as number",
+      "amount": "column[15] remove $ as number"
     }
-    // ... repeat for ALL ${dataRows.length} rows
+    // ... ALL ${dataRows.length} rows
   ]
 }
 
-**EXTRACTION RULES** (MUST FOLLOW):
-1. **Extract ALL ${dataRows.length} rows** - Do not skip any row
-2. **Handle missing fields**: If Quantity/Unit_Price is missing, set to null but include the row
-3. **Date conversion**: "09/02/2025 00:00" → "2025-09-02"
-4. **Currency**: Remove "$" and convert to number: "$33.00" → 33.00
-5. **Due date**: Find the latest date in column[6] (Bill To), then add 24 days to get due_date
-   Example: Latest Bill To = "09/30/2025" → due_date = "2025-10-24"
-6. **Validation**: If sum(amounts) equals total_amount, use "VALIDATED", else "TOTAL_MISMATCH"
-7. **Return ONLY valid JSON** - No markdown, no backticks, no explanations
+**CRITICAL EXTRACTION RULES**:
+1. **DUE DATE**: Extract DIRECTLY from PDF text where it says "Due Date :" - DO NOT CALCULATE
+2. **BILLING DATE**: Extract from PDF where it says "Billing Date :"
+3. **Line items**: Extract ALL ${dataRows.length} rows from CSV - no skipping
+4. **Validation**: Compare sum(line_items amounts) with total_amount from PDF
+5. **Date format**: Convert MM/DD/YYYY to YYYY-MM-DD
+6. **Currency**: Remove $ and convert to number
+7. Return ONLY valid JSON, no markdown
 
-**VERIFICATION**: Your line_items array MUST have exactly ${dataRows.length} objects.
+**EXAMPLE FROM PDF**:
+If PDF shows "Due Date : 10/24/2025" → return "due_date": "2025-10-24"
+If PDF shows "Billing Date : 10/03/2025" → return "billing_date": "2025-10-03"
 
 Return JSON now:`;
 
