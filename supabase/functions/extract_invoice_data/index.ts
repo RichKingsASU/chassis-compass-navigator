@@ -102,8 +102,10 @@ serve(async (req) => {
     console.log(`✅ Parsed ${jsonData.length} rows from Excel`);
     console.log('First 10 rows (cleaned):', JSON.stringify(jsonData.slice(0, 10), null, 2));
     
-    // Filter to only rows with chassis data (column index 1)
-    const dataRows = jsonData.filter(row => row && row.length > 1 && row[1] && row[1].toString().trim() !== '');
+    // Filter to only data rows with chassis (skip header row at index 0)
+    const dataRows = jsonData.slice(1).filter(row => 
+      row && row.length > 1 && row[1] && row[1].toString().trim() !== ''
+    );
     console.log(`📋 Filtered to ${dataRows.length} data rows with chassis`);
     console.log('All chassis numbers:', dataRows.map(r => r[1]).join(', '));
 
