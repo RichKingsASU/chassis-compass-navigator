@@ -204,6 +204,7 @@ const ChassisDetail = () => {
 
       // Fetch location history (GPS) - only for real assets with UUIDs
       if (assetData.id && !assetData.id.startsWith('mcl-')) {
+        console.log('Fetching GPS data for asset:', assetData.id);
         const { data: locationsData, error: locationsError } = await supabase
           .from('asset_locations')
           .select('*')
@@ -211,8 +212,14 @@ const ChassisDetail = () => {
           .order('recorded_at', { ascending: false })
           .limit(100);
 
-        if (locationsError) throw locationsError;
+        if (locationsError) {
+          console.error('GPS error:', locationsError);
+        } else {
+          console.log('GPS data found:', locationsData?.length || 0, 'records');
+        }
         setLocationHistory(locationsData || []);
+      } else {
+        console.log('Skipping GPS fetch - asset from MCL master list');
       }
 
       // Fetch TMS data - try multiple identifier fields for matching
@@ -457,10 +464,20 @@ const ChassisDetail = () => {
               </CardHeader>
               <CardContent>
                 {mapsApiKey ? (
-                  <ChassisMapView 
-                    apiKey={mapsApiKey} 
-                    locationHistory={locationHistory} 
-                  />
+                  locationHistory.length > 0 ? (
+                    <ChassisMapView 
+                      apiKey={mapsApiKey} 
+                      locationHistory={locationHistory} 
+                    />
+                  ) : (
+                    <div className="h-[400px] flex items-center justify-center bg-muted rounded-lg">
+                      <div className="text-center space-y-2">
+                        <MapPin className="h-12 w-12 mx-auto text-muted-foreground" />
+                        <p className="text-muted-foreground">No GPS data available for this chassis</p>
+                        <p className="text-sm text-muted-foreground">GPS tracking data will appear here once available</p>
+                      </div>
+                    </div>
+                  )
                 ) : (
                   <div className="h-[400px] flex items-center justify-center text-muted-foreground">
                     Loading map...
