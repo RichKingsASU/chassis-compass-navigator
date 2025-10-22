@@ -52,55 +52,38 @@ const ChassisManagement = () => {
     try {
       setLoading(true);
       
-      // Fetch from MCL master chassis list
-      const { data: mclData, error: mclError } = await supabase
-        .from('mcl_master_chassis_list')
+      // @ts-ignore - chassis_master types not yet generated
+      const { data: chassisData, error } = await supabase
+        // @ts-ignore - chassis_master types not yet generated
+        .from('chassis_master')
         .select('*')
-        .order('forrest_chz', { ascending: true });
+        .order('forrest_chz_id', { ascending: true });
 
-      if (mclError) {
-        console.error('Error fetching MCL data:', mclError);
-        toast({
-          title: "Warning",
-          description: "Failed to load MCL chassis data. Showing assets table only.",
-          variant: "destructive",
-        });
-      }
+      if (error) throw error;
 
-      // Fetch from assets table
-      const { data: assetsData, error: assetsError } = await supabase
-        .from('assets')
-        .select('*')
-        .order('identifier', { ascending: true });
+      // @ts-ignore - chassis_master types not yet generated
+      const formattedData = (chassisData || []).map((chassis: any) => ({
+        id: chassis.forrest_chz_id,
+        identifier: chassis.forrest_chz_id,
+        type: chassis.forrest_chassis_type,
+        asset_class: chassis.chassis_category,
+        current_status: chassis.chassis_status,
+        mcl_data: {
+          forrest_chassis_type: chassis.forrest_chassis_type,
+          chassis_category: chassis.chassis_category,
+          chassis_status: chassis.chassis_status,
+          region: chassis.region,
+          lessor: chassis.manufacturer,
+          daily_rate: null,
+        },
+        manufacturer: chassis.manufacturer,
+        region: chassis.region,
+        serial_number: chassis.serial_number,
+        plate_number: chassis.plate_number,
+        model_year: chassis.model_year,
+      }));
 
-      if (assetsError) throw assetsError;
-
-      // Combine and enrich data
-      const enrichedData = (assetsData || []).map(asset => {
-        const mclMatch = (mclData || []).find(
-          mcl => mcl.forrest_chz === asset.identifier || 
-                 mcl.serial === asset.identifier
-        );
-        return {
-          ...asset,
-          mcl_data: mclMatch || null,
-        };
-      });
-
-      // Add MCL records that don't have matching assets
-      const mclOnlyData = (mclData || [])
-        .filter(mcl => !enrichedData.some(
-          asset => asset.identifier === mcl.forrest_chz || asset.identifier === mcl.serial
-        ))
-        .map(mcl => ({
-          id: `mcl-${mcl.id}`,
-          identifier: mcl.forrest_chz,
-          type: mcl.forrest_chassis_type,
-          asset_class: mcl.chassis_category,
-          mcl_data: mcl,
-        }));
-
-      setChassisData([...enrichedData, ...mclOnlyData]);
+      setChassisData(formattedData);
     } catch (error) {
       console.error('Error fetching chassis data:', error);
       toast({
