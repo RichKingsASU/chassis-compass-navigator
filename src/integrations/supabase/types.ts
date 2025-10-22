@@ -68,6 +68,89 @@ export type Database = {
         }
         Relationships: []
       }
+      ccm_invoice: {
+        Row: {
+          created_at: string | null
+          file_name: string | null
+          file_path: string | null
+          file_type: string | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          provider: string | null
+          reason_for_dispute: string | null
+          status: string | null
+          tags: string[] | null
+          total_amount_usd: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_type?: string | null
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          provider?: string | null
+          reason_for_dispute?: string | null
+          status?: string | null
+          tags?: string[] | null
+          total_amount_usd?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_type?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          provider?: string | null
+          reason_for_dispute?: string | null
+          status?: string | null
+          tags?: string[] | null
+          total_amount_usd?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      ccm_invoice_data: {
+        Row: {
+          created_at: string | null
+          id: number
+          invoice_id: string | null
+          row_data: Json | null
+          sheet_name: string | null
+          validated: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          invoice_id?: string | null
+          row_data?: Json | null
+          sheet_name?: string | null
+          validated?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          invoice_id?: string | null
+          row_data?: Json | null
+          sheet_name?: string | null
+          validated?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ccm_invoice_data_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "ccm_invoice"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chassis_master: {
         Row: {
           charge_code_mg: string | null
