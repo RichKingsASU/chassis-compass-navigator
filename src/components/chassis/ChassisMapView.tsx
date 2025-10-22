@@ -1,5 +1,9 @@
 import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface LocationHistory {
   id: number;
@@ -9,8 +13,18 @@ interface LocationHistory {
   };
 }
 
+interface FleetAsset {
+  id: string;
+  identifier: string;
+  lat: number;
+  lon: number;
+  last_seen_at: string;
+  last_address: string;
+}
+
 interface ChassisMapViewProps {
   locationHistory: LocationHistory[];
+  currentChassisId?: string;
 }
 
 const mapContainerStyle = {
@@ -18,9 +32,91 @@ const mapContainerStyle = {
   height: '400px'
 };
 
-export const ChassisMapView = ({ locationHistory }: ChassisMapViewProps) => {
-  const [selectedMarker, setSelectedMarker] = useState<number | null>(null);
+export const ChassisMapView = ({ locationHistory, currentChassisId }: ChassisMapViewProps) => {
+  const [selectedMarker, setSelectedMarker] = useState<string | null>(null);
+  const [fleetAssets, setFleetAssets] = useState<FleetAsset[]>([]);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const { toast } = useToast();
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+
+  // Load all fleet assets for the map
+  const loadFleetMarkers = async () => {
+    try {
+      // @ts-ignore - fleet.assets_for_map view
+      const { data, error } = await supabase
+        // @ts-ignore - fleet.assets_for_map view
+        .from('fleet.assets_for_map')
+        .select('*')
+        .not('lat', 'is', null)
+        .not('lon', 'is', null);
+
+      if (error) {
+        console.error('Error loading fleet markers:', error);
+        return;
+      }
+
+      setFleetAssets((data as any) || []);
+    } catch (err) {
+      console.error('Failed to load fleet markers:', err);
+    }
+  };
+
+  // Update GPS data by calling edge function
+  const updateGps = async () => {
+    setIsUpdating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('refreshLocation', {
+        body: {}
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "GPS Updated",
+        description: "Fleet locations have been refreshed",
+      });
+
+      await loadFleetMarkers();
+    } catch (error) {
+      console.error('Error updating GPS:', error);
+      toast({
+        title: "Update Failed",
+        description: "Failed to refresh GPS data",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Load fleet markers on mount
+  useEffect(() => {
+    loadFleetMarkers();
+  }, []);
+
+  // Subscribe to realtime location updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('location-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'fleet',
+          table: 'asset_locations'
+        },
+        (payload) => {
+          console.log('New location received:', payload);
+          // Reload markers when new location data arrives
+          loadFleetMarkers();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
@@ -55,30 +151,45 @@ export const ChassisMapView = ({ locationHistory }: ChassisMapViewProps) => {
       time: loc.recorded_at
     }));
 
-  const center = coordinates.length > 0
-    ? coordinates[coordinates.length - 1]
-    : { lat: 33.7701, lng: -118.1937 };
-
   const pathCoordinates = coordinates.map(coord => ({
     lat: coord.lat,
     lng: coord.lng
   }));
 
-  if (!isLoaded || coordinates.length === 0) {
+  if (!isLoaded) {
     return (
       <div className="h-[400px] flex items-center justify-center bg-muted rounded-lg">
-        <p className="text-muted-foreground">
-          {!isLoaded ? 'Loading map...' : 'No GPS data available'}
-        </p>
+        <p className="text-muted-foreground">Loading map...</p>
       </div>
     );
   }
 
+  const mapCenter = coordinates.length > 0
+    ? coordinates[coordinates.length - 1]
+    : fleetAssets.length > 0
+    ? { lat: fleetAssets[0].lat, lng: fleetAssets[0].lon }
+    : { lat: 33.7701, lng: -118.1937 };
+
   return (
-    <GoogleMap
-      mapContainerStyle={mapContainerStyle}
-      center={center}
-      zoom={10}
+    <div className="relative">
+      {/* Update GPS Button */}
+      <div className="absolute top-2 left-2 z-10">
+        <Button
+          onClick={updateGps}
+          disabled={isUpdating}
+          size="sm"
+          variant="secondary"
+          className="shadow-lg"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isUpdating ? 'animate-spin' : ''}`} />
+          Update GPS
+        </Button>
+      </div>
+
+      <GoogleMap
+        mapContainerStyle={mapContainerStyle}
+        center={mapCenter}
+        zoom={10}
       options={{
         styles: [
           // Industry-optimized map style for logistics
@@ -175,12 +286,12 @@ export const ChassisMapView = ({ locationHistory }: ChassisMapViewProps) => {
         />
       )}
 
-      {/* Location markers */}
+      {/* Historical route markers for current chassis */}
       {coordinates.map((coord, index) => (
         <Marker
-          key={index}
+          key={`history-${index}`}
           position={{ lat: coord.lat, lng: coord.lng }}
-          onClick={() => setSelectedMarker(index)}
+          onClick={() => setSelectedMarker(`history-${index}`)}
           icon={{
             path: google.maps.SymbolPath.CIRCLE,
             fillColor: index === coordinates.length - 1 ? '#16a34a' : '#2563eb',
@@ -189,9 +300,37 @@ export const ChassisMapView = ({ locationHistory }: ChassisMapViewProps) => {
             strokeWeight: 2,
             scale: index === coordinates.length - 1 ? 8 : 6,
           }}
-          title={new Date(coord.time).toLocaleString()}
+          title={`${new Date(coord.time).toLocaleString()}`}
         />
       ))}
+
+      {/* Fleet asset markers */}
+      {fleetAssets.map((asset) => {
+        const isCurrentChassis = asset.identifier === currentChassisId;
+        return (
+          <Marker
+            key={asset.id}
+            position={{ lat: asset.lat, lng: asset.lon }}
+            onClick={() => setSelectedMarker(asset.id)}
+            icon={{
+              path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+              fillColor: isCurrentChassis ? '#f59e0b' : '#10b981',
+              fillOpacity: isCurrentChassis ? 1 : 0.7,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+              scale: isCurrentChassis ? 7 : 5,
+            }}
+            title={`${asset.identifier}\n${asset.last_address || 'Unknown location'}\n${new Date(asset.last_seen_at).toLocaleString()}`}
+            label={isCurrentChassis ? {
+              text: asset.identifier,
+              color: '#ffffff',
+              fontSize: '12px',
+              fontWeight: 'bold'
+            } : undefined}
+          />
+        );
+      })}
     </GoogleMap>
+    </div>
   );
 };

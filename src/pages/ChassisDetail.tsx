@@ -501,6 +501,10 @@ const ChassisDetail = () => {
 
           {/* GPS Tab */}
           <TabsContent value="gps" className="space-y-4">
+            <ChassisMapView 
+              locationHistory={locationHistory} 
+              currentChassisId={asset?.identifier}
+            />
             <Card>
               <CardHeader>
                 <CardTitle>GPS Location History</CardTitle>
