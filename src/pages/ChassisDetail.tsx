@@ -238,24 +238,36 @@ const ChassisDetail = () => {
 
       setAsset(assetData);
 
-      // Fetch location history (GPS) - only for real assets with UUIDs
-      if (assetData.id && !assetData.id.startsWith('mcl-')) {
-        console.log('Fetching GPS data for asset:', assetData.id);
+      // Fetch GPS location data from fleet schema
+      if (assetData.identifier) {
+        console.log('Fetching GPS data for chassis:', assetData.identifier);
+        
+        // Query asset_locations_kmh view which has lat/lon exposed
+        // @ts-ignore - asset_locations_kmh view types
         const { data: locationsData, error: locationsError } = await supabase
-          .from('asset_locations')
+          .from('asset_locations_kmh')
           .select('*')
-          .eq('asset_id', assetData.id)
+          .eq('identifier', assetData.identifier)
           .order('recorded_at', { ascending: false })
           .limit(100);
 
         if (locationsError) {
-          console.error('GPS error:', locationsError);
+          console.error('GPS location history error:', locationsError);
+        } else if (locationsData && locationsData.length > 0) {
+          console.log('GPS data found:', locationsData.length, 'records');
+          // Transform data to match LocationHistory interface
+          const transformedLocations = locationsData.map((loc: any) => ({
+            id: loc.id || loc.asset_id,
+            recorded_at: loc.recorded_at,
+            location: loc.lat && loc.lon ? { coordinates: [loc.lon, loc.lat] } : null,
+            normalized_address: loc.normalized_address || '',
+            velocity_cms: loc.velocity_kmh ? loc.velocity_kmh * 27.778 : 0,
+            altitude_m: loc.altitude_m || 0
+          }));
+          setLocationHistory(transformedLocations);
         } else {
-          console.log('GPS data found:', locationsData?.length || 0, 'records');
+          console.log('No GPS data found for chassis:', assetData.identifier);
         }
-        setLocationHistory(locationsData || []);
-      } else {
-        console.log('Skipping GPS fetch - asset from MCL master list');
       }
 
       // Fetch TMS data from tms_mg table
@@ -279,17 +291,8 @@ const ChassisDetail = () => {
         setTMSData(tmsDataResult || []);
       }
 
-      // Fetch repairs - only for real assets with UUIDs
-      if (assetData.id && !assetData.id.startsWith('mcl-')) {
-        const { data: repairsData, error: repairsError } = await supabase
-          .from('repairs')
-          .select('*')
-          .eq('chassis_id', assetData.id)
-          .order('timestamp_utc', { ascending: false });
-
-        if (repairsError) console.error('Repairs error:', repairsError);
-        setRepairs(repairsData || []);
-      }
+      // Repairs table doesn't exist yet - skip for now
+      setRepairs([]);
 
     } catch (error) {
       console.error('Error fetching chassis data:', error);
