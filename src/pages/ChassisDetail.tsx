@@ -161,15 +161,22 @@ const ChassisDetail = () => {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'assets',
-          filter: `id=eq.${id}`
+          table: 'chassis_master',
+          filter: `forrest_chz_id=eq.${id}`
         },
         (payload) => {
-          setAsset(payload.new as Asset);
-          toast({
-            title: "Status Updated",
-            description: "Chassis status has been updated",
-          });
+          // @ts-ignore - chassis_master types not yet generated
+          const updated = payload.new;
+          if (asset) {
+            setAsset({
+              ...asset,
+              current_status: updated.chassis_status || asset.current_status
+            });
+            toast({
+              title: "Status Updated",
+              description: "Chassis status has been updated",
+            });
+          }
         }
       )
       .subscribe();
@@ -186,58 +193,43 @@ const ChassisDetail = () => {
       let assetData: Asset | null = null;
       const decodedId = decodeURIComponent(id || '');
 
-      // Try to fetch from assets table first (by UUID or identifier)
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedId);
-      
-      if (isUuid) {
-        // Look up by UUID
-        const { data, error } = await supabase
-          .from('assets')
-          .select('*')
-          .eq('id', decodedId)
-          .single();
+      // Fetch from chassis_master table
+      // @ts-ignore - chassis_master types not yet generated
+      const { data: chassisData, error: chassisError } = await supabase
+        // @ts-ignore - chassis_master types not yet generated
+        .from('chassis_master')
+        .select('*')
+        .eq('forrest_chz_id', decodedId)
+        .maybeSingle();
 
-        if (!error && data) {
-          assetData = data;
-        }
-      } else {
-        // Look up by identifier in assets table
-        const { data, error } = await supabase
-          .from('assets')
-          .select('*')
-          .eq('identifier', decodedId)
-          .maybeSingle();
-
-        if (!error && data) {
-          assetData = data;
-        }
+      if (chassisError) {
+        console.error('Error fetching chassis:', chassisError);
       }
 
-      // If not found in assets, try MCL master chassis list
-      if (!assetData) {
-        const { data: mclData, error: mclError } = await supabase
-          .from('mcl_master_chassis_list')
-          .select('*')
-          .eq('forrest_chz', decodedId)
-          .maybeSingle();
-
-        if (!mclError && mclData) {
-          // Convert MCL data to Asset format
-          assetData = {
-            id: `mcl-${mclData.id}`,
-            identifier: mclData.forrest_chz,
-            type: mclData.forrest_chassis_type,
-            asset_class: mclData.chassis_category,
-            length: 0,
-            width: 0,
-            height: 0,
-            current_status: mclData.chassis_status || 'Active',
-            vin: mclData.serial || '',
-            make: '',
-            model: '',
-            updated_at: new Date().toISOString()
-          };
-        }
+      if (chassisData) {
+        // @ts-ignore - chassis_master types not yet generated
+        assetData = {
+          // @ts-ignore
+          id: chassisData.forrest_chz_id,
+          // @ts-ignore
+          identifier: chassisData.forrest_chz_id,
+          // @ts-ignore
+          type: chassisData.forrest_chassis_type || 'N/A',
+          // @ts-ignore
+          asset_class: chassisData.chassis_category || 'N/A',
+          length: 0,
+          width: 0,
+          height: 0,
+          // @ts-ignore
+          current_status: chassisData.chassis_status || 'Active',
+          // @ts-ignore
+          vin: chassisData.serial_number || '',
+          // @ts-ignore
+          make: chassisData.manufacturer || '',
+          // @ts-ignore
+          model: chassisData.model_year ? `${chassisData.model_year}` : '',
+          updated_at: new Date().toISOString()
+        };
       }
 
       if (!assetData) {
@@ -266,14 +258,16 @@ const ChassisDetail = () => {
         console.log('Skipping GPS fetch - asset from MCL master list');
       }
 
-      // Fetch TMS data - try multiple identifier fields for matching
+      // Fetch TMS data from tms_mg table
       if (assetData?.identifier) {
         console.log('Fetching TMS data for chassis:', assetData.identifier);
         
+        // @ts-ignore - tms_mg types not yet generated
         const { data: tmsDataResult, error: tmsError } = await supabase
-          .from('mg_tms')
+          // @ts-ignore - tms_mg types not yet generated
+          .from('tms_mg')
           .select('*')
-          .eq('chassis_norm', assetData.identifier)
+          .or(`chassis_number.eq.${assetData.identifier},chassis_number_format.eq.${assetData.identifier}`)
           .order('created_date', { ascending: false });
 
         if (tmsError) {
@@ -281,6 +275,7 @@ const ChassisDetail = () => {
         } else {
           console.log('TMS data found:', tmsDataResult?.length || 0, 'records');
         }
+        // @ts-ignore - tms_mg types not yet generated
         setTMSData(tmsDataResult || []);
       }
 
@@ -313,13 +308,14 @@ const ChassisDetail = () => {
 
     setStatusUpdating(true);
     try {
+      // @ts-ignore - chassis_master types not yet generated
       const { error } = await supabase
-        .from('assets')
+        // @ts-ignore - chassis_master types not yet generated
+        .from('chassis_master')
         .update({ 
-          current_status: newStatus,
-          updated_at: new Date().toISOString()
+          chassis_status: newStatus
         })
-        .eq('id', asset.id);
+        .eq('forrest_chz_id', asset.id);
 
       if (error) throw error;
 
