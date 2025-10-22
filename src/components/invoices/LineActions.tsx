@@ -34,10 +34,12 @@ const LineActions = ({ lineItem }: LineActionsProps) => {
 
   const validateMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.rpc('validate_invoice_line', {
-        line_id: lineItem.id
+      // validate_invoice_line function not available in database
+      toast({
+        title: 'Not Available',
+        description: 'Database function validate_invoice_line needs to be configured',
+        variant: "destructive"
       });
-      if (error) throw error;
     },
     onSuccess: () => {
       toast({

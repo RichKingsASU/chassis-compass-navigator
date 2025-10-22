@@ -45,7 +45,7 @@ const FLEXIVANDashboard = () => {
         </TabsContent>
         
         <TabsContent value="tracker" className="pt-4">
-          <FLEXIVANInvoiceTracker onViewDetail={setSelectedRecord} />
+          <FLEXIVANInvoiceTracker />
         </TabsContent>
       </Tabs>
     </div>
