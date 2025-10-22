@@ -141,19 +141,19 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       }
 
       // Upload PDF
-      const pdfFileName = `dcli_invoices/${Date.now()}_${pdfFile.name}`;
+      const pdfFileName = `dcli/${Date.now()}_${pdfFile.name}`;
       setUploadProgress(20);
       const { data: pdfData, error: pdfError } = await supabase.storage
-        .from('dcli-invoices')
+        .from('invoices')
         .upload(pdfFileName, pdfFile);
 
       if (pdfError) throw pdfError;
 
       // Upload Excel
-      const excelFileName = `dcli_invoices/${Date.now()}_${excelFile.name}`;
+      const excelFileName = `dcli/${Date.now()}_${excelFile.name}`;
       setUploadProgress(40);
       const { data: excelData, error: excelError } = await supabase.storage
-        .from('dcli-invoices')
+        .from('invoices')
         .upload(excelFileName, excelFile);
 
       if (excelError) throw excelError;
