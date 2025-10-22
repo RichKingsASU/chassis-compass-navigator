@@ -47,7 +47,12 @@ Deno.serve(async (req) => {
 
     // Parse CSV
     const text = await fileData.text();
-    const lines = text.trim().split('\n');
+    let lines = text.trim().split('\n');
+    
+    // Skip Excel metadata line if present (sep=)
+    if (lines[0] && lines[0].toLowerCase().startsWith('sep=')) {
+      lines = lines.slice(1);
+    }
     
     if (lines.length < 2) {
       return new Response(
