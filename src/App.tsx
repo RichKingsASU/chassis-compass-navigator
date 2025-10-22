@@ -52,6 +52,7 @@ import WCCPInvoiceLineDispute from "./pages/wccp/InvoiceLineDispute";
 import InvoicesList from "./pages/invoices/InvoicesList";
 import InvoiceLineDetails from "./pages/invoices/InvoiceLineDetails";
 import InvoiceLineDispute from "./pages/invoices/InvoiceLineDispute";
+import InvoiceSearch from "./pages/InvoiceSearch";
 import CCMInvoiceLineDetails from "./pages/ccm/InvoiceLineDetails";
 import CCMNewInvoice from "./pages/ccm/NewInvoice";
 import FLEXIVANNewInvoice from "./pages/flexivan/NewInvoice";
@@ -298,6 +299,11 @@ function App() {
               <Route path="/invoices" element={
                 <DashboardLayout>
                   <InvoicesList />
+                </DashboardLayout>
+              } />
+              <Route path="/invoices/search" element={
+                <DashboardLayout>
+                  <InvoiceSearch />
                 </DashboardLayout>
               } />
               <Route path="/invoices/:invoiceId/details/:lineId" element={
