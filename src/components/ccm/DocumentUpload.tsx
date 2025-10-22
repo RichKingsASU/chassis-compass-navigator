@@ -120,12 +120,9 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ vendor = 'CCM' }) => {
           ? tags.split(',').map(tag => tag.trim()).filter(tag => tag)
           : [];
 
-        // Determine which table to use based on vendor
-        const tableName = vendor === 'TRAC' ? 'trac_invoice' : 'ccm_invoice';
-
-        // Insert invoice data into the database
-        const { data: insertedInvoice, error: insertError } = await supabase
-          .from(tableName)
+        // Insert invoice data into the database (only ccm_invoice table exists)
+        const { data: insertedInvoice, error: insertError} = await supabase
+          .from('ccm_invoice')
           .insert({
             invoice_number: invoiceNumber,
             invoice_date: format(invoiceDate, 'yyyy-MM-dd'),
