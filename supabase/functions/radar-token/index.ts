@@ -1,5 +1,5 @@
 // Minimal, resilient Radar token function for single-tenant "Logistics"
-import { importPKCS8, SignJWT } from "https://deno.land/x/jose@v4.15.5/index.ts";
+import { importPKCS8, SignJWT } from "jose";
 
 type Json = Record<string, unknown>;
 const json = (body: Json, status = 200) =>
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     const now = Math.floor(Date.now() / 1000);
     let clientAssertion: string;
     try {
-      clientAssertion = await new SignJWT({ jti: crypto.randomUUID() })
+      clientAssertion = await new SignJWT ({})
         .setProtectedHeader({ alg: "ES256", typ: "JWT" })
         .setIssuer(APP_ID)
         .setSubject(APP_ID)
@@ -79,9 +79,10 @@ Deno.serve(async (req) => {
 
     // 5) OAuth2 Token exchange
     const form = new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      grant_type: "client_credentials",
       scope: body?.scope ?? SCOPE,
-      assertion: clientAssertion,
+      client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+      client_assertion: clientAssertion,
     });
 
     const r = await fetch(TOKEN_URL, {
@@ -98,4 +99,3 @@ Deno.serve(async (req) => {
     return json({ error: "unhandled", detail: String(e) }, 500);
   }
 });
-

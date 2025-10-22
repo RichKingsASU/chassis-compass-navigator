@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "properties": {
+    "Header": {
+      "type": "object",
+      "required": ["Invoice_ID", "Total_Amount_Due"],
+      "properties": {
+        "Invoice_ID": { "type": "string" },
+        "Vendor": { "type": "string" },
+        "Invoice_Date": { "type": "string", "description": "ISO date (YYYY-MM-DD)" },
+        "Due_Date": { "type": "string", "description": "ISO date (YYYY-MM-DD)" },
+        "Currency": { "type": "string" },
+        "Total_Amount_Due": { "type": "number" }
+      }
+    },
+    "Line_Items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["Description", "Total_Charge"],
+        "properties": {
+          "Line_No": { "type": "integer" },
+          "Description": { "type": "string" },
+          "Quantity": { "type": "number" },
+          "Unit_Price": { "type": "number" },
+          "Total_Charge": { "type": "number" },
+          "Extra": { "type": "object", "additionalProperties": true }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": ["Header", "Line_Items"],
+  "additionalProperties": false
+}

@@ -3,8 +3,13 @@ import { Upload, FileText, FileSpreadsheet, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { ExtractedData } from '@/pages/dcli/NewInvoice';
+import {
+  xlsxFileToCsvBlob,
+  makeFolderPath,
+  uploadToBucket,
+  callExtractInvoice,
+} from '@/lib/invoiceClient';
 
 interface InvoiceUploadStepProps {
   uploadedFiles: { pdf: File | null; excel: File | null };
@@ -21,8 +26,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
 }) => {
   const { toast } = useToast();
   const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -77,79 +81,85 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
   };
 
-  const handleContinue = async () => {
-    if (!uploadedFiles.pdf || !uploadedFiles.excel) {
-      toast({
-        title: 'Missing Files',
-        description: 'Please upload both PDF and Excel files.',
-        variant: 'destructive',
-      });
+  async function handleNext() {
+    const { pdf, excel } = uploadedFiles;
+    if (!pdf || !excel) {
+      toast({ title: 'Missing files', description: 'Please upload both PDF and Excel file.', variant: 'destructive' });
       return;
     }
 
-    setIsUploading(true);
-    setUploadProgress(10);
-
     try {
-      // Generate unique invoice ID
-      const tempUuid = crypto.randomUUID();
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
+      setIsProcessing(true);
 
-      // Upload PDF
-      const pdfPath = `vendor/dcli/invoices/${year}/${month}/${tempUuid}/${uploadedFiles.pdf.name}`;
-      setUploadProgress(30);
-      const { error: pdfError } = await supabase.storage
-        .from('invoices')
-        .upload(pdfPath, uploadedFiles.pdf, { upsert: false });
+      // convert Excel to CSV if needed
+      let csvBlob: Blob;
+      if (/\.(xlsx?|xlsb)$/i.test(excel.name)) {
+        csvBlob = await xlsxFileToCsvBlob(excel);
+      } else {
+        // already CSV
+        csvBlob = excel;
+      }
 
-      if (pdfError) throw pdfError;
+      // folder path
+      const folder = makeFolderPath({vendor: 'dcli'});
 
-      // Upload Excel
-      const excelPath = `vendor/dcli/invoices/${year}/${month}/${tempUuid}/${uploadedFiles.excel.name}`;
-      setUploadProgress(50);
-      const { error: excelError } = await supabase.storage
-        .from('invoices')
-        .upload(excelPath, uploadedFiles.excel, { upsert: false });
+      // upload pdf & csv
+      const pdfPath = `${folder}/invoice.pdf`;
+      const csvPath = `${folder}/lines.csv`;
 
-      if (excelError) throw excelError;
+      await uploadToBucket({ bucket: 'invoices', path: pdfPath, file: pdf, contentType: 'application/pdf' });
+      await uploadToBucket({ bucket: 'invoices', path: csvPath, file: csvBlob, contentType: 'text/csv' });
 
-      setUploadProgress(70);
+      // call extraction
+      const extraction = await callExtractInvoice({pdfPath, csvPath, requireJwt: true});
 
-      // Call extraction edge function
-      const { data, error } = await supabase.functions.invoke('extract-dcli-invoice', {
-        body: {
-          pdf_path: pdfPath,
-          xlsx_path: excelPath,
-          tenant_id: 'default',
-          uploader_user_id: 'current_user',
+      // map extraction into your ExtractedData shape
+      const extracted: ExtractedData = {
+        invoice: {
+          summary_invoice_id: extraction.invoice_id ?? '',
+          billing_date: extraction.Header.Invoice_Date ?? '',
+          due_date: extraction.Header.Due_Date ?? '',
+          billing_terms: '',
+          vendor: extraction.Header.Vendor ?? '',
+          currency_code: extraction.Header.Currency ?? '',
+          amount_due: extraction.totals?.header_total ?? 0,
+          status: extraction.status ?? '',
         },
-      });
+        line_.items: (extraction.Line_Items ?? []).map((item: any) => ({
+            invoice_type: '',
+            line_invoice_number: '',
+            invoice_status: '',
+            invoice_total: item.Total_Charge,
+            remaining_balance: 0,
+            dispute_status: null,
+            attachment_count: 0,
+            chassis_out: '',
+            container_out: '',
+            date_out: '',
+            container_in: '',
+            date_in: '',
+            row_data: item.Extra,
+        })),
+        attachments: [],
+        warnings: [],
+        source_hash: '',
+        excel_headers: []
+      };
 
-      if (error) throw error;
-
-      setUploadProgress(100);
-      setExtractedData(data);
-
-      toast({
-        title: 'Files Uploaded',
-        description: 'Invoice data extracted successfully.',
-      });
+      setExtractedData(extracted);
 
       onComplete();
-    } catch (error: any) {
-      console.error('Upload error:', error);
+    } catch (err: any) {
+      console.error('Extraction failed:', err);
       toast({
-        title: 'Upload Failed',
-        description: error.message || 'Failed to upload files.',
+        title: 'Extraction Error',
+        description: err.message || 'Failed to extract invoice data. Please try again.',
         variant: 'destructive',
       });
     } finally {
-      setIsUploading(false);
-      setUploadProgress(0);
+      setIsProcessing(false);
     }
-  };
+  }
 
   const bothFilesUploaded = uploadedFiles.pdf && uploadedFiles.excel;
 
@@ -202,7 +212,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => removeFile('pdf')}
-              disabled={isUploading}
+              disabled={isProcessing}
             >
               <X className="w-4 h-4" />
             </Button>
@@ -224,7 +234,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
               variant="ghost"
               size="sm"
               onClick={() => removeFile('excel')}
-              disabled={isUploading}
+              disabled={isProcessing}
             >
               <X className="w-4 h-4" />
             </Button>
@@ -232,29 +242,13 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
         )}
       </div>
 
-      {/* Upload progress */}
-      {isUploading && (
-        <div className="mt-6">
-          <div className="flex justify-between text-sm mb-2">
-            <span>Uploading and extracting...</span>
-            <span>{uploadProgress}%</span>
-          </div>
-          <div className="w-full bg-muted rounded-full h-2">
-            <div
-              className="bg-primary h-2 rounded-full transition-all"
-              style={{ width: `${uploadProgress}%` }}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Actions */}
       <div className="mt-6 flex justify-end">
         <Button
-          onClick={handleContinue}
-          disabled={!bothFilesUploaded || isUploading}
+          onClick={handleNext}
+          disabled={!bothFilesUploaded || isProcessing}
         >
-          Continue to Review
+          {isProcessing ? 'Processing...' : 'Continue to Review'}
         </Button>
       </div>
 

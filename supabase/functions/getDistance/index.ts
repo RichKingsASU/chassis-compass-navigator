@@ -1,113 +1,41 @@
-// Edge function: getDistance
-// POST body accepts either:
-//   { asset_id: string, toLat: number, toLon: number }
-// or
-//   { identifier: string, toLat: number, toLon: number }
-// Response:
-//   { origin:{lat,lon}, destination:{lat,lon}, straight_line_meters, driving?:{distance_meters,duration_seconds} }
-
-import { fetchLatestLatLon, haversineMeters, sbAdmin } from "../_shared/db.ts";
 import { env } from "../_shared/env.ts";
-
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function json(data: unknown, init: ResponseInit = {}) {
-  return new Response(JSON.stringify(data), {
-    headers: { "content-type": "application/json", ...cors },
-    ...init,
-  });
-}
+import { sbAdmin } from "../_shared/db.ts";
+import { ok, bad } from "../_shared/http.ts";
 
 Deno.serve(async (req) => {
   try {
-    if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+    const { asset_id, toLat, toLon } = await req.json();
+    if (!asset_id || typeof toLat !== "number" || typeof toLon !== "number") {
+      return bad("asset_id, toLat, toLon required");
+    }
 
+    // Get last known coords from view
     const sb = sbAdmin();
+    const { data, error } = await sb.from("fleet.assets_for_map")
+      .select("lat,lon")
+      .eq("id", asset_id)
+      .maybeSingle();
+    if (error) return bad(error.message, 500);
+    if (!data) return bad("asset not found or no last location", 404);
 
-    // ✱ FIX: accept identifier OR asset_id; validate properly
-    const body = await req.json().catch(() => ({} as Record<string, unknown>));
-    const aId = body.asset_id as string | undefined;
-    const identifier = body.identifier as string | undefined;
-    const toLat = body.toLat as number;
-    const toLon = body.toLon as number;
+    const u = new URL("https://maps.googleapis.com/maps/api/directions/json");
+    u.searchParams.set("origin", `${data.lat},${data.lon}`);
+    u.searchParams.set("destination", `${toLat},${toLon}`);
+    u.searchParams.set("mode", "driving");
+    u.searchParams.set("key", env.GOOGLE_MAPS_API_KEY);
 
-    if ((!aId && !identifier) || typeof toLat !== "number" || typeof toLon !== "number") {
-      return json({ error: "asset_id (or identifier), toLat, toLon required" }, { status: 400 });
-    }
-
-    // ✱ FIX: if identifier provided, resolve it to asset_id
-    let asset_id = aId;
-    if (!asset_id && identifier) {
-      const { data, error } = await sb
-        .from("assets")
-        .select("id")
-        .eq("identifier", identifier)
-        .maybeSingle();
-
-      if (error) return json({ error: error.message }, { status: 500 });
-      if (!data?.id) {
-        return json({ error: `asset with identifier \"${identifier}\" not found` }, {
-          status: 404,
-        });
-      }
-      asset_id = data.id as string;
-    }
-
-    if (!asset_id) {
-      return json({ error: "asset_id is required" }, { status: 400 });
-    }
-
-    const latest = await fetchLatestLatLon(asset_id);
-    if (!latest) {
-      return json({ error: "no last location" }, { status: 404 });
-    }
-
-    const dest = { lat: toLat, lon: toLon };
-    const straight = haversineMeters(latest.lat, latest.lon, dest.lat, dest.lon);
-
-    // Optional driving distance via Google Maps (if key present)
-    const driving = await googleDriving({ lat: latest.lat, lon: latest.lon }, dest);
-
-    return json({
-      origin: latest,
-      destination: dest,
-      straight_line_meters: Math.round(straight),
-      driving: driving ?? null,
-    });
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return json({ error: msg }, { status: 500 });
+    const r = await fetch(u);
+    if (!r.ok) return bad(`Google Directions ${r.status}`, 502);
+    const j = await r.json();
+    const leg = j.routes?.[0]?.legs?.[0];
+    const out = {
+      distance_m: leg?.distance?.value ?? null,
+      duration_s: leg?.duration?.value ?? null,
+      summary: j.routes?.[0]?.summary ?? null,
+      polyline: j.routes?.[0]?.overview_polyline?.points ?? null
+    };
+    return ok(out);
+  } catch (e) {
+    return bad(`distance error: ${e.message}`, 500);
   }
 });
-
-async function googleDriving(
-  origin: { lat: number; lon: number },
-  dest: { lat: number; lon: number },
-): Promise<{ distance_meters: number; duration_seconds: number } | null> {
-  if (!env.GOOGLE_MAPS_API_KEY) return null;
-
-  const params = new URLSearchParams({
-    origins: `${origin.lat},${origin.lon}`,
-    destinations: `${dest.lat},${dest.lon}`,
-    units: "metric",
-    mode: "driving",
-    key: env.GOOGLE_MAPS_API_KEY,
-  });
-
-  const url = `https://maps.googleapis.com/maps/api/distancematrix/json?${params.toString()}`;
-  const r = await fetch(url);
-  if (!r.ok) return null;
-
-  const payload = await r.json();
-  const element = payload?.rows?.[0]?.elements?.[0];
-  if (!element || element.status !== "OK") return null;
-
-  return {
-    distance_meters: element.distance.value,
-    duration_seconds: element.duration.value,
-  };
-}
