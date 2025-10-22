@@ -145,35 +145,6 @@ export type Database = {
         }
         Relationships: []
       }
-      blackberry_device_map: {
-        Row: {
-          asset_id: string
-          created_at: string
-          external_device_id: string
-          org_id: string
-        }
-        Insert: {
-          asset_id: string
-          created_at?: string
-          external_device_id: string
-          org_id: string
-        }
-        Update: {
-          asset_id?: string
-          created_at?: string
-          external_device_id?: string
-          org_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "blackberry_device_map_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ccm_activity: {
         Row: {
           amount_due: number | null
@@ -827,6 +798,63 @@ export type Database = {
           },
         ]
       }
+      fleetlocate_daily_asset_report: {
+        Row: {
+          address: string | null
+          asset_id: string | null
+          battery_status: string | null
+          city: string | null
+          device: string | null
+          duration: string | null
+          group: string | null
+          id: string
+          inserted_at: string
+          landmark: string | null
+          last_event_date: string | null
+          location: string | null
+          serial_number: string | null
+          state: string | null
+          status: string | null
+          zip: number | null
+        }
+        Insert: {
+          address?: string | null
+          asset_id?: string | null
+          battery_status?: string | null
+          city?: string | null
+          device?: string | null
+          duration?: string | null
+          group?: string | null
+          id?: string
+          inserted_at?: string
+          landmark?: string | null
+          last_event_date?: string | null
+          location?: string | null
+          serial_number?: string | null
+          state?: string | null
+          status?: string | null
+          zip?: number | null
+        }
+        Update: {
+          address?: string | null
+          asset_id?: string | null
+          battery_status?: string | null
+          city?: string | null
+          device?: string | null
+          duration?: string | null
+          group?: string | null
+          id?: string
+          inserted_at?: string
+          landmark?: string | null
+          last_event_date?: string | null
+          location?: string | null
+          serial_number?: string | null
+          state?: string | null
+          status?: string | null
+          zip?: number | null
+        }
+        Relationships: []
+      }
       flexivan_activity: {
         Row: {
           age: number | null
@@ -1010,6 +1038,54 @@ export type Database = {
           payment_method?: string | null
           tranid?: string | null
           transaction_date?: string | null
+        }
+        Relationships: []
+      }
+      GPS_Blackberry_Log: {
+        Row: {
+          battery_pct: number | null
+          device_id: string
+          formatted_address: string | null
+          heading: number | null
+          id: string
+          inserted_at: string
+          latitude: number
+          location_label: string | null
+          longitude: number
+          place_id: string | null
+          source_file: string | null
+          speed_kph: number | null
+          timestamp_utc: string
+        }
+        Insert: {
+          battery_pct?: number | null
+          device_id: string
+          formatted_address?: string | null
+          heading?: number | null
+          id?: string
+          inserted_at?: string
+          latitude: number
+          location_label?: string | null
+          longitude: number
+          place_id?: string | null
+          source_file?: string | null
+          speed_kph?: number | null
+          timestamp_utc: string
+        }
+        Update: {
+          battery_pct?: number | null
+          device_id?: string
+          formatted_address?: string | null
+          heading?: number | null
+          id?: string
+          inserted_at?: string
+          latitude?: number
+          location_label?: string | null
+          longitude?: number
+          place_id?: string | null
+          source_file?: string | null
+          speed_kph?: number | null
+          timestamp_utc?: string
         }
         Relationships: []
       }
@@ -3316,43 +3392,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      staging_blackberry_locations_mapped: {
-        Row: {
-          altitude_m: number | null
-          asset_id: string | null
-          created_at: string | null
-          external_device_id: string | null
-          hdop: number | null
-          lat: number | null
-          lon: number | null
-          org_id: string | null
-          raw: Json | null
-          recorded_at: string | null
-          source: string | null
-          speed_kmh: number | null
-          src: string | null
-          ts: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "blackberry_device_map_asset_id_fkey"
-            columns: ["asset_id"]
-            isOneToOne: false
-            referencedRelation: "assets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      unmapped_blackberry_devices: {
-        Row: {
-          external_device_id: string | null
-          first_seen: string | null
-          last_seen: string | null
-          org_id: string | null
-          samples: number | null
-        }
-        Relationships: []
       }
       v_invoice_totals: {
         Row: {
