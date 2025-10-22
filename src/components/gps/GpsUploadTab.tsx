@@ -367,30 +367,52 @@ const GpsUploadTab = ({ providerName }: { providerName: string }) => {
 
         if (dbError) throw dbError;
 
-        // Insert GPS data records
-        if (gpsRecords.length > 0) {
-          const recordsWithUploadId = gpsRecords.map(rec => ({
-            ...rec,
-            upload_id: uploadRecord.id
-          }));
-
-          const { error: gpsError } = await supabase
-            .from('gps_data')
-            .insert(recordsWithUploadId);
-
-          if (gpsError) {
-            console.error('GPS data insert error:', gpsError);
-            throw new Error(`Failed to insert GPS data: ${gpsError.message}`);
-          }
-
-          // Trigger GPS data standardization in background
+        // For BlackBerry Radar, use dedicated ingest function
+        if (providerName === 'BlackBerry Radar') {
           try {
-            await supabase.functions.invoke('standardize-gps-data', {
-              body: { upload_id: uploadRecord.id }
+            const { data: ingestResult, error: ingestError } = await supabase.functions.invoke('ingest-blackberry-log', {
+              body: { 
+                bucket: bucketName,
+                path: uploadData.path 
+              }
             });
-          } catch (standardizeError) {
-            console.error('GPS standardization error:', standardizeError);
-            // Don't fail the upload if standardization fails
+
+            if (ingestError) {
+              console.error('BlackBerry ingest error:', ingestError);
+              throw new Error(`Failed to ingest BlackBerry data: ${ingestError.message}`);
+            }
+
+            console.log('BlackBerry ingest result:', ingestResult);
+          } catch (ingestError) {
+            console.error('BlackBerry ingest failed:', ingestError);
+            throw ingestError;
+          }
+        } else {
+          // Use standard GPS data insertion for other providers
+          if (gpsRecords.length > 0) {
+            const recordsWithUploadId = gpsRecords.map(rec => ({
+              ...rec,
+              upload_id: uploadRecord.id
+            }));
+
+            const { error: gpsError } = await supabase
+              .from('gps_data')
+              .insert(recordsWithUploadId);
+
+            if (gpsError) {
+              console.error('GPS data insert error:', gpsError);
+              throw new Error(`Failed to insert GPS data: ${gpsError.message}`);
+            }
+
+            // Trigger GPS data standardization in background
+            try {
+              await supabase.functions.invoke('standardize-gps-data', {
+                body: { upload_id: uploadRecord.id }
+              });
+            } catch (standardizeError) {
+              console.error('GPS standardization error:', standardizeError);
+              // Don't fail the upload if standardization fails
+            }
           }
         }
       }
