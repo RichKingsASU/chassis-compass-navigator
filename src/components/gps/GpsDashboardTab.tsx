@@ -87,14 +87,13 @@ const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName }) => {
 
         if (gpsPoint.device_id) {
           // Look up device mapping
-          const { data: mapping } = await supabase
-            .from('blackberry_device_map')
-            .select('asset_id, assets(identifier)')
-            .eq('external_device_id', gpsPoint.device_id)
-            .maybeSingle();
+          // @ts-ignore - blackberry_device_map table exists but not in generated types yet
+          const { data: mapping } = await supabase.from('blackberry_device_map').select('asset_id, assets(identifier)').eq('external_device_id', gpsPoint.device_id).maybeSingle();
 
           if (mapping) {
+            // @ts-ignore
             assetId = mapping.asset_id;
+            // @ts-ignore
             chassisId = (mapping.assets as any)?.identifier || null;
           }
         }
