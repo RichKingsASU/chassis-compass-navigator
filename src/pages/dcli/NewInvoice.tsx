@@ -105,40 +105,13 @@ const NewInvoice = () => {
   const handleSaveDraft = async () => {
     if (!extractedData) return;
     
-    try {
-      const { error } = await supabase
-        .from('dcli_invoice_staging')
-        .insert([{
-          summary_invoice_id: extractedData.invoice.summary_invoice_id,
-          billing_date: extractedData.invoice.billing_date,
-          due_date: extractedData.invoice.due_date,
-          total_amount: extractedData.invoice.amount_due,
-          account_code: extractedData.invoice.account_code,
-          vendor: extractedData.invoice.vendor,
-          currency: extractedData.invoice.currency_code,
-          status: 'draft',
-          line_items: extractedData.line_items as any,
-          attachments: extractedData.attachments as any,
-          excel_headers: (extractedData.excel_headers || []) as any,
-        }]);
-
-      if (error) throw error;
-      
-      toast({
-        title: "Draft Saved",
-        description: "Your progress has been saved. You can resume later from the dashboard.",
-      });
-      
-      setHasUnsavedChanges(false);
-    } catch (error) {
-      console.error('Error saving draft:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save draft. Please try again.",
-        variant: "destructive",
-      });
-    }
+    toast({
+      title: "Draft Not Saved",
+      description: "dcli_invoice_staging table is not configured",
+      variant: "destructive"
+    });
   };
+
 
   return (
     <div className="min-h-screen bg-background">

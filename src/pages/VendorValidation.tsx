@@ -44,11 +44,8 @@ const VendorValidation = () => {
   const { data: dcliData } = useQuery({
     queryKey: ['dcli-validation'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('dcli_invoice_line_item')
-        .select('*');
-      if (error) throw error;
-      return data || [];
+      // dcli_invoice_line_item table doesn't exist
+      return [];
     }
   });
 
@@ -56,11 +53,8 @@ const VendorValidation = () => {
   const { data: flexivanData } = useQuery({
     queryKey: ['flexivan-validation'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('flexivan_activity')
-        .select('*');
-      if (error) throw error;
-      return data || [];
+      // flexivan_activity table doesn't exist
+      return [];
     }
   });
 

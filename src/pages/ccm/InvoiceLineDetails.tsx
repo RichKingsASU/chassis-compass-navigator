@@ -24,7 +24,7 @@ const InvoiceLineDetails = () => {
       const { data, error } = await supabase
         .from('ccm_invoice_data')
         .select('*')
-        .eq('id', lineId)
+        .eq('id', Number(lineId))
         .single();
       if (error) throw error;
       return data;
@@ -64,7 +64,7 @@ const InvoiceLineDetails = () => {
       const { error } = await supabase
         .from('ccm_invoice_data')
         .update({ row_data: updatedRowData })
-        .eq('id', lineId);
+        .eq('id', Number(lineId));
       
       if (error) throw error;
     },
@@ -116,7 +116,7 @@ const InvoiceLineDetails = () => {
       const { error: updateError } = await supabase
         .from('ccm_invoice_data')
         .update({ row_data: updatedRowData })
-        .eq('id', lineId);
+        .eq('id', Number(lineId));
 
       if (updateError) throw updateError;
 

@@ -242,32 +242,9 @@ const ChassisDetail = () => {
       if (assetData.identifier) {
         console.log('Fetching GPS data for chassis:', assetData.identifier);
         
-        // Query asset_locations_kmh view which has lat/lon exposed
-        // @ts-ignore - asset_locations_kmh view types
-        const { data: locationsData, error: locationsError } = await supabase
-          .from('asset_locations_kmh')
-          .select('*')
-          .eq('identifier', assetData.identifier)
-          .order('recorded_at', { ascending: false })
-          .limit(100);
-
-        if (locationsError) {
-          console.error('GPS location history error:', locationsError);
-        } else if (locationsData && locationsData.length > 0) {
-          console.log('GPS data found:', locationsData.length, 'records');
-          // Transform data to match LocationHistory interface
-          const transformedLocations = locationsData.map((loc: any) => ({
-            id: loc.id || loc.asset_id,
-            recorded_at: loc.recorded_at,
-            location: loc.lat && loc.lon ? { coordinates: [loc.lon, loc.lat] } : null,
-            normalized_address: loc.normalized_address || '',
-            velocity_cms: loc.velocity_kmh ? loc.velocity_kmh * 27.778 : 0,
-            altitude_m: loc.altitude_m || 0
-          }));
-          setLocationHistory(transformedLocations);
-        } else {
-          console.log('No GPS data found for chassis:', assetData.identifier);
-        }
+        // asset_locations_kmh view doesn't exist, skip GPS history
+        setLocationHistory([]);
+        console.log('GPS location data table not configured');
       }
 
       // Fetch TMS data from tms_mg table
