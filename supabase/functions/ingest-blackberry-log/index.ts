@@ -49,8 +49,16 @@ Deno.serve(async (req) => {
     const text = await fileData.text();
     let lines = text.trim().split('\n');
     
+    console.log('First 3 lines:', lines.slice(0, 3));
+    
     // Skip Excel metadata line if present (sep=)
-    if (lines[0] && lines[0].toLowerCase().startsWith('sep=')) {
+    while (lines.length > 0 && lines[0] && lines[0].toLowerCase().trim().startsWith('sep=')) {
+      console.log('Skipping sep line:', lines[0]);
+      lines = lines.slice(1);
+    }
+    
+    // Skip empty lines at the beginning
+    while (lines.length > 0 && (!lines[0] || lines[0].trim() === '')) {
       lines = lines.slice(1);
     }
     
@@ -63,6 +71,7 @@ Deno.serve(async (req) => {
 
     const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
     console.log('CSV Headers:', headers);
+    console.log('Number of headers:', headers.length);
 
     // Find column indices for BlackBerry format
     const latIndex = headers.findIndex(h => /latitude|lat/i.test(h));
