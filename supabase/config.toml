@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.extract_invoice_data]
 verify_jwt = false
+
+[functions.build-embeddings]
+verify_jwt = false
+
+[functions.chat-vendors]
+verify_jwt = false
