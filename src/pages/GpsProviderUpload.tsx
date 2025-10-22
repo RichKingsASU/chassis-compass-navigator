@@ -15,7 +15,6 @@ import GpsDataTab from '@/components/gps/GpsDataTab';
 import GpsDocumentsTab from '@/components/gps/GpsDocumentsTab';
 
 import { 
-  generatePreviousUploads, 
   extractedGpsData, 
   generateDocuments 
 } from '@/components/gps/mockData';
@@ -33,8 +32,7 @@ interface GpsProviderUploadProps {
 const GpsProviderUpload: React.FC<GpsProviderUploadProps> = ({ providerName, providerLogo }) => {
   const [activeTab, setActiveTab] = useState("dashboard");
   
-  // Generate mock data for the provider
-  const previousUploads = generatePreviousUploads(providerName);
+  // Generate mock data for documents
   const documents = generateDocuments(providerName);
 
   const handleViewData = () => {
@@ -64,8 +62,7 @@ const GpsProviderUpload: React.FC<GpsProviderUploadProps> = ({ providerName, pro
         
         <TabsContent value="history" className="space-y-6">
           <GpsHistoryTab 
-            providerName={providerName} 
-            previousUploads={previousUploads} 
+            providerName={providerName}
             onViewData={handleViewData}
           />
         </TabsContent>
