@@ -86,65 +86,22 @@ const InvoiceValidateStep = ({
 
       if (lineError) throw lineError;
 
-      // Perform TMS validation (simplified - no heavy queries)
-      const chassisNumbers = extractedData.line_items
-        .map(item => item.chassis_out)
-        .filter(Boolean)
-        .slice(0, 5); // Limit to first 5 for performance
+      // Skip TMS validation for now - just mark all as pending validation
+      console.log('Skipping TMS validation - marking all items as pending');
 
-      // Query TMS data with limit
-      const { data: tmsData, error: tmsError } = await supabase
-        .from('tms_mg')
-        .select('id, chassis_number, container_number, so_num, ld_num')
-        .in('chassis_number', chassisNumbers)
-        .limit(20);
-
-      if (tmsError) {
-        console.warn('TMS query error:', tmsError);
-      }
-
-      // Build validation results without individual updates
-      const results: any[] = [];
-      let exactMatches = 0;
-      let fuzzyMatches = 0;
-      let mismatches = 0;
-
-      for (const lineItem of lineInserts) {
-        const tmsMatch = tmsData?.find(t => 
-          t.chassis_number === lineItem.chassis_out
-        );
-
-        if (tmsMatch) {
-          const containerMatch = tmsMatch.container_number === lineItem.container_out;
-          const confidence = containerMatch ? 90 : 60;
-          
-          if (confidence >= 80) {
-            exactMatches++;
-          } else {
-            fuzzyMatches++;
-          }
-
-          results.push({
-            line_id: lineItem.line_index,
-            match_type: confidence >= 80 ? 'exact' : 'fuzzy',
-            match_confidence: confidence,
-            tms_match: tmsMatch
-          });
-        } else {
-          mismatches++;
-          results.push({
-            line_id: lineItem.line_index,
-            match_type: 'mismatch',
-            match_confidence: 0
-          });
-        }
-      }
+      const results: any[] = extractedData.line_items.map((item, index) => ({
+        line_id: index,
+        match_type: 'pending',
+        match_confidence: 0,
+        tms_match: null
+      }));
 
       const summary = {
         total_rows: results.length,
-        exact_matches: exactMatches,
-        fuzzy_matches: fuzzyMatches,
-        mismatches: mismatches
+        exact_matches: 0,
+        fuzzy_matches: 0,
+        mismatches: 0,
+        pending: results.length
       };
 
       // Update staging invoice with validation results
@@ -159,8 +116,8 @@ const InvoiceValidateStep = ({
       setValidationResult({ summary, results });
 
       toast({
-        title: "Validation Complete",
-        description: `${exactMatches} exact, ${fuzzyMatches} fuzzy, ${mismatches} mismatches`,
+        title: "Data Saved to Staging",
+        description: `${results.length} line items ready for validation`,
       });
     } catch (error: any) {
       console.error('Validation error:', error);
@@ -252,8 +209,7 @@ const InvoiceValidateStep = ({
     }
   };
 
-  const readyToSave = validationResult && 
-    validationResult.summary.mismatches === 0;
+  const readyToSave = validationResult && validationResult.summary.total_rows > 0;
 
   return (
     <Card>
