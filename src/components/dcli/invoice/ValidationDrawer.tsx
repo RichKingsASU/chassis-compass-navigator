@@ -1,9 +1,11 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { CheckCircle2, AlertTriangle, XCircle, Info } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, Info, Eye } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface TMSMatch {
   ld_num: string;
@@ -37,9 +39,10 @@ interface ValidationDrawerProps {
     }>;
     errors: string[];
   };
+  navigationState?: any;
 }
 
-const ValidationDrawer: React.FC<ValidationDrawerProps> = ({ validationResult }) => {
+const ValidationDrawer: React.FC<ValidationDrawerProps> = ({ validationResult, navigationState }) => {
   const exactMatches = validationResult.rows.filter((r) => r.match_type === 'exact');
   const fuzzyMatches = validationResult.rows.filter((r) => r.match_type === 'fuzzy');
   const mismatches = validationResult.rows.filter((r) => r.match_type === 'mismatch');
@@ -107,15 +110,15 @@ const ValidationDrawer: React.FC<ValidationDrawerProps> = ({ validationResult })
         </TabsList>
 
         <TabsContent value="exact" className="mt-4">
-          <MatchTable matches={exactMatches} type="exact" />
+          <MatchTable matches={exactMatches} type="exact" navigationState={navigationState} />
         </TabsContent>
 
         <TabsContent value="fuzzy" className="mt-4">
-          <MatchTable matches={fuzzyMatches} type="fuzzy" />
+          <MatchTable matches={fuzzyMatches} type="fuzzy" navigationState={navigationState} />
         </TabsContent>
 
         <TabsContent value="mismatches" className="mt-4">
-          <MatchTable matches={mismatches} type="mismatch" />
+          <MatchTable matches={mismatches} type="mismatch" navigationState={navigationState} />
         </TabsContent>
       </Tabs>
     </div>
@@ -125,10 +128,14 @@ const ValidationDrawer: React.FC<ValidationDrawerProps> = ({ validationResult })
 const MatchTable = ({
   matches,
   type,
+  navigationState,
 }: {
   matches: any[];
   type: 'exact' | 'fuzzy' | 'mismatch';
+  navigationState?: any;
 }) => {
+  const navigate = useNavigate();
+
   if (matches.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -152,6 +159,7 @@ const MatchTable = ({
             <TableHead>Equipment</TableHead>
             <TableHead>Confidence</TableHead>
             <TableHead>TMS Match (LD/SO Numbers)</TableHead>
+            <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -230,6 +238,18 @@ const MatchTable = ({
                 ) : (
                   <span className="text-xs text-muted-foreground">No TMS match found</span>
                 )}
+              </TableCell>
+              <TableCell className="align-top">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate(`/vendors/dcli/invoice-line/${match.line_invoice_number}`, {
+                    state: navigationState
+                  })}
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  Details
+                </Button>
               </TableCell>
             </TableRow>
           ))}

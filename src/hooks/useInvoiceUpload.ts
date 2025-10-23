@@ -43,11 +43,11 @@ export const useInvoiceUpload = (fetchInvoices: () => Promise<void>, fetchExcelD
         ? data.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
         : [];
       
-      // 1. Upload file to storage - USING THE CORRECT BUCKET NAME
+      // 1. Upload file to CCM-specific storage bucket
       console.log("Starting file upload:", { fileName, filePath, fileSize: file.size, fileType: file.type });
       
       const { data: uploadedFile, error: uploadError } = await supabase.storage
-        .from('invoices')
+        .from('ccm-invoices')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
@@ -96,20 +96,73 @@ export const useInvoiceUpload = (fetchInvoices: () => Promise<void>, fetchExcelD
 
       console.log("Invoice inserted successfully:", insertedInvoice);
 
-      // 3. If it's an Excel file, parse the data
-      if (data.file_type === 'excel' && ['xlsx', 'xls', 'csv'].includes(fileExt)) {
-        try {
-          console.log("Starting Excel parsing for invoice:", insertedInvoice.id);
-          await parseExcelFile(file, insertedInvoice.id);
-          console.log("Excel parsing completed successfully");
-        } catch (parseError) {
-          console.error('Error parsing Excel file:', parseError);
+      // 3. Call the extraction edge function to process the invoice
+      try {
+        console.log("Calling CCM invoice extraction edge function");
+        
+        const extractionPayload: any = {
+          invoice_id: insertedInvoice.id,
+        };
+
+        // Add file paths based on file type
+        if (data.file_type === 'pdf' || fileExt === 'pdf') {
+          extractionPayload.pdf_path = filePath;
+        } else if (data.file_type === 'excel' || ['xlsx', 'xls', 'csv', 'xlsb'].includes(fileExt)) {
+          extractionPayload.excel_path = filePath;
+        }
+
+        const { data: extractedData, error: extractError } = await supabase.functions.invoke(
+          'extract-ccm-invoice',
+          {
+            body: extractionPayload
+          }
+        );
+
+        if (extractError) {
+          console.error('Extraction error:', extractError);
           toast({
             title: "Warning",
-            description: "Invoice was uploaded but there was an error parsing the Excel data.",
+            description: "Invoice was uploaded but extraction failed. You may need to manually enter the data.",
             variant: "destructive",
           });
+        } else {
+          console.log("Extraction successful:", extractedData);
+          
+          // Store extracted line items in ccm_invoice_data table
+          if (extractedData?.line_items && extractedData.line_items.length > 0) {
+            const lineItemsToInsert = extractedData.line_items.map((item: any) => ({
+              invoice_id: insertedInvoice.id,
+              sheet_name: 'Sheet1',
+              row_data: item.row_data || item,
+              validated: false,
+            }));
+
+            const { error: lineItemsError } = await supabase
+              .from('ccm_invoice_data')
+              .insert(lineItemsToInsert);
+
+            if (lineItemsError) {
+              console.error('Error saving line items:', lineItemsError);
+            } else {
+              console.log(`Saved ${lineItemsToInsert.length} line items to database`);
+            }
+          }
+
+          // Update invoice with extracted total if available
+          if (extractedData?.invoice?.total_amount_usd) {
+            const { error: updateError } = await supabase
+              .from('ccm_invoice')
+              .update({ total_amount_usd: extractedData.invoice.total_amount_usd })
+              .eq('id', insertedInvoice.id);
+
+            if (updateError) {
+              console.error('Error updating invoice total:', updateError);
+            }
+          }
         }
+      } catch (extractError) {
+        console.error('Error during extraction:', extractError);
+        // Don't fail the whole upload if extraction fails
       }
       
       // 4. Refresh the data based on active tab

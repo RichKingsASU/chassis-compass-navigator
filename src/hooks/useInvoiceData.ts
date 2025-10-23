@@ -70,9 +70,10 @@ export const useInvoiceData = () => {
 
       console.log("Excel data fetched:", data?.length || 0, "rows");
       
-      // Transform data to include validated field if it doesn't exist and ensure row_data is properly typed
+      // Transform data to include validated field and convert id to string
       const formattedData = (data || []).map(item => ({
         ...item,
+        id: String(item.id),  // Convert number to string
         validated: item.validated === undefined ? false : item.validated,
         row_data: typeof item.row_data === 'string' 
           ? JSON.parse(item.row_data) 

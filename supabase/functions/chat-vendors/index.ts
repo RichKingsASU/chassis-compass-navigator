@@ -1,34 +1,97 @@
-// deno-lint-ignore-file no-explicit-any
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
-const sb = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-async function embed(q: string): Promise<number[]> {
-  const r = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "text-embedding-3-small", input: q })
-  });
-  const j = await r.json();
-  return j.data[0].embedding;
-}
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
-Deno.serve(async (req) => {
-  const { question, vendor = null, k = 8, threshold = 0.2 } = await req.json();
+  try {
+    const { question, vendor, k = 8 } = await req.json();
 
-  const qvec = await embed(question);
-  const { data, error } = await sb.rpc("search_invoice_lines", {
-    query_embedding: qvec,
-    match_count: k,
-    similarity_threshold: threshold,
-    vendor
-  });
-  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400 });
+    if (!question) {
+      return new Response(
+        JSON.stringify({ error: "Question is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-  // Optional: call a chat model to summarize; for now, return matches
-  return new Response(JSON.stringify({ matches: data }), { status: 200 });
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    console.log(`Searching for: "${question}", vendor: ${vendor || "all"}, k: ${k}`);
+
+    // Generate embedding for the question
+    const embeddingResponse = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        input: question,
+        model: "text-embedding-ada-002",
+      }),
+    });
+
+    if (!embeddingResponse.ok) {
+      const errorText = await embeddingResponse.text();
+      console.error("Embedding API error:", errorText);
+      throw new Error(`Embedding API error: ${errorText}`);
+    }
+
+    const embeddingData = await embeddingResponse.json();
+    const questionEmbedding = embeddingData.data[0].embedding;
+
+    // Search for similar embeddings using pgvector
+    let query = supabase.rpc("match_invoice_lines", {
+      query_embedding: questionEmbedding,
+      match_count: k,
+      match_threshold: 0.7,
+    });
+
+    const { data: matches, error: searchError } = await query;
+
+    if (searchError) {
+      console.error("Search error:", searchError);
+      throw searchError;
+    }
+
+    console.log(`Found ${matches?.length || 0} matches`);
+
+    // Enrich matches with invoice details
+    const enrichedMatches = await Promise.all(
+      (matches || []).map(async (match: any) => {
+        const { data: rawData } = await supabase
+          .from("dcli_invoice_raw")
+          .select("*")
+          .eq("id", match.line_id)
+          .single();
+
+        return {
+          ...match,
+          raw_data: rawData,
+          similarity: match.similarity,
+        };
+      })
+    );
+
+    return new Response(
+      JSON.stringify({ matches: enrichedMatches }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Error in chat-vendors:", error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 });

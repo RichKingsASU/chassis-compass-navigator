@@ -21,9 +21,10 @@ const InvoiceSummaryCard: React.FC<InvoiceSummaryCardProps> = ({ extractedData, 
     );
   }
 
-  const itemCount = extractedData.line_items.length;
-  const openCount = extractedData.line_items.filter((item) => item.invoice_status === 'Open').length;
-  const closedCount = extractedData.line_items.filter(
+  const lineItems = extractedData.line_items || [];
+  const itemCount = lineItems.length;
+  const openCount = lineItems.filter((item) => item.invoice_status === 'Open').length;
+  const closedCount = lineItems.filter(
     (item) => item.invoice_status === 'Closed'
   ).length;
 
@@ -74,7 +75,7 @@ const InvoiceSummaryCard: React.FC<InvoiceSummaryCardProps> = ({ extractedData, 
         <div className="border-t pt-4">
           <div className="text-sm text-muted-foreground mb-2">Attachments</div>
           <div className="space-y-1">
-            {extractedData.attachments.map((att, idx) => (
+            {(extractedData.attachments || []).map((att, idx) => (
               <div key={idx} className="text-xs truncate" title={att.path}>
                 {att.name}
               </div>
@@ -83,11 +84,11 @@ const InvoiceSummaryCard: React.FC<InvoiceSummaryCardProps> = ({ extractedData, 
         </div>
 
         {/* Warnings */}
-        {extractedData.warnings.length > 0 && (
+        {(extractedData.warnings || []).length > 0 && (
           <div className="border-t pt-4">
             <div className="text-sm text-muted-foreground mb-2">Warnings</div>
             <div className="space-y-1">
-              {extractedData.warnings.map((warning, idx) => (
+              {(extractedData.warnings || []).map((warning, idx) => (
                 <div key={idx} className="text-xs text-yellow-600">
                   • {warning}
                 </div>

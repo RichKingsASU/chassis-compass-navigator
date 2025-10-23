@@ -3,19 +3,26 @@ project_id = "fucvkmsaappphsvuabos"
 [functions.extract-dcli-invoice]
 verify_jwt = false
 
-[functions.radar-token]
+[functions.extract-ccm-invoice]
+verify_jwt = false
+
+[functions.extract-flexivan-invoice]
+verify_jwt = false
+
+[functions.extract-trac-invoice]
+verify_jwt = false
+
+[functions.extract-wccp-invoice]
+verify_jwt = false
+
+[functions.extract-scspa-invoice]
 verify_jwt = false
 
 [functions.extract_invoice_data]
-enabled = true
-verify_jwt = true
-import_map = "./functions/extract_invoice_data/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
-entrypoint = "./functions/extract_invoice_data/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/extract_invoice_data/*.html" ]
+verify_jwt = false
 
-[functions.ingest-storage]
+[functions.build-embeddings]
+verify_jwt = false
+
+[functions.chat-vendors]
 verify_jwt = false

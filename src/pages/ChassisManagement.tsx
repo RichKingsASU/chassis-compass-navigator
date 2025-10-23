@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -18,13 +19,6 @@ import {
 } from "@/components/ui/card";
 import KPICard from "@/components/ccm/KPICard";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@/components/ui/form";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -34,14 +28,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, Search, Upload, FileX, Filter, MapPin, UploadCloud, FileCheck } from 'lucide-react';
-import { useForm } from "react-hook-form";
+import { Label } from "@/components/ui/label";
+import { Search, FileX, Eye } from 'lucide-react';
 
 const ChassisManagement = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const [uploadOpen, setUploadOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [chassisData, setChassisData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,14 +51,39 @@ const ChassisManagement = () => {
   const fetchChassisData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('mcl_master_chassis_list')
+      
+      // @ts-ignore - chassis_master types not yet generated
+      const { data: chassisData, error } = await supabase
+        // @ts-ignore - chassis_master types not yet generated
+        .from('chassis_master')
         .select('*')
-        .order('forrest_chz', { ascending: true });
+        .order('forrest_chz_id', { ascending: true });
 
       if (error) throw error;
 
-      setChassisData(data || []);
+      // @ts-ignore - chassis_master types not yet generated
+      const formattedData = (chassisData || []).map((chassis: any) => ({
+        id: chassis.forrest_chz_id,
+        identifier: chassis.forrest_chz_id,
+        type: chassis.forrest_chassis_type,
+        asset_class: chassis.chassis_category,
+        current_status: chassis.chassis_status,
+        mcl_data: {
+          forrest_chassis_type: chassis.forrest_chassis_type,
+          chassis_category: chassis.chassis_category,
+          chassis_status: chassis.chassis_status,
+          region: chassis.region,
+          lessor: chassis.manufacturer,
+          daily_rate: null,
+        },
+        manufacturer: chassis.manufacturer,
+        region: chassis.region,
+        serial_number: chassis.serial_number,
+        plate_number: chassis.plate_number,
+        model_year: chassis.model_year,
+      }));
+
+      setChassisData(formattedData);
     } catch (error) {
       console.error('Error fetching chassis data:', error);
       toast({
@@ -78,44 +95,21 @@ const ChassisManagement = () => {
       setLoading(false);
     }
   };
-  
-  const form = useForm({
-    defaultValues: {
-      fileType: 'csv',
-      gpsProvider: '',
-    },
-  });
 
   const filteredChassis = chassisData.filter(chassis => {
     // Search term filter
     if (searchTerm && 
-        !chassis.forrest_chz?.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !chassis.serial?.toLowerCase().includes(searchTerm.toLowerCase())) {
+        !chassis.identifier?.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
     
     // Dropdown filters
-    if (selectedFilters.chassisType !== 'all' && chassis.forrest_chassis_type !== selectedFilters.chassisType) {
-      return false;
-    }
-    if (selectedFilters.lessor !== 'all' && chassis.lessor !== selectedFilters.lessor) {
-      return false;
-    }
-    if (selectedFilters.region !== 'all' && chassis.region !== selectedFilters.region) {
-      return false;
-    }
-    if (selectedFilters.status !== 'all' && chassis.chassis_status !== selectedFilters.status) {
+    if (selectedFilters.chassisType !== 'all' && chassis.type !== selectedFilters.chassisType) {
       return false;
     }
     
     return true;
   });
-
-  const onUploadSubmit = (data: any) => {
-    console.log("Upload data:", data);
-    setUploadOpen(false);
-    // Handle file upload here
-  };
 
   const resetFilters = () => {
     setSelectedFilters({
@@ -129,117 +123,78 @@ const ChassisManagement = () => {
 
   const metrics = useMemo(() => {
     const total = chassisData.length;
-    const active = chassisData.filter(c => c.chassis_status?.toLowerCase() === 'active').length;
-    const withContracts = chassisData.filter(c => c.contract && c.contract !== 'N/A').length;
-    const byLessor = chassisData.reduce((acc, c) => {
-      const lessor = c.lessor || 'Unknown';
-      acc[lessor] = (acc[lessor] || 0) + 1;
+    
+    // Count by status
+    const byStatus = chassisData.reduce((acc, c) => {
+      const status = c.mcl_data?.chassis_status || c.current_status || 'Unknown';
+      acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    const topLessor = Object.entries(byLessor).sort(([,a], [,b]) => (b as number) - (a as number))[0];
-    const activePercent = total > 0 ? ((active / total) * 100).toFixed(1) : '0.0';
+    
+    const outOfService = byStatus['Out of Service'] || 0;
+    const active = byStatus['Active'] || 0;
+    const available = byStatus['Available'] || 0;
+    const maintenance = byStatus['Maintenance'] || 0;
+    
+    // Count by type with status breakdown
+    const byTypeWithStatus = chassisData.reduce((acc, c) => {
+      const type = c.type || c.mcl_data?.forrest_chassis_type || 'Unknown';
+      const status = c.mcl_data?.chassis_status || c.current_status || 'Unknown';
+      
+      if (!acc[type]) {
+        acc[type] = {
+          total: 0,
+          available: 0,
+          reserved: 0,
+          oos: 0,
+        };
+      }
+      
+      acc[type].total += 1;
+      
+      if (status === 'Available') {
+        acc[type].available += 1;
+      } else if (status === 'Reserved') {
+        acc[type].reserved += 1;
+      } else if (status === 'Out of Service') {
+        acc[type].oos += 1;
+      }
+      
+      return acc;
+    }, {} as Record<string, { total: number; available: number; reserved: number; oos: number }>);
+    
+    // Sort types by count descending
+    type TypeStats = { total: number; available: number; reserved: number; oos: number };
+    const typeBreakdown = Object.entries(byTypeWithStatus)
+      .sort(([,a], [,b]) => (b as TypeStats).total - (a as TypeStats).total)
+      .slice(0, 6) as [string, TypeStats][]; // Top 6 types
 
     return {
       total,
+      outOfService,
       active,
-      withContracts,
-      topLessor: topLessor ? `${topLessor[0]} (${topLessor[1]})` : 'N/A',
-      activePercent
+      available,
+      maintenance,
+      operational: total - outOfService,
+      byType: typeBreakdown,
+      byStatus,
     };
   }, [chassisData]);
+
+  const handleTypeClick = (type: string) => {
+    setSelectedFilters(prev => ({
+      ...prev,
+      chassisType: type
+    }));
+  };
 
   return (
     <div className="dashboard-layout">
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
         <h1 className="dash-title">Chassis Management</h1>
-        
-        <div className="flex gap-3">
-          <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <UploadCloud size={18} />
-                Upload GPS File
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Upload GPS Data</DialogTitle>
-                <DialogDescription>
-                  Upload a file containing GPS data from your provider.
-                </DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onUploadSubmit)} className="space-y-4 pt-4">
-                  <FormField
-                    control={form.control}
-                    name="fileType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>File Type</FormLabel>
-                        <FormControl>
-                          <Tabs defaultValue="csv" className="w-full" value={field.value} onValueChange={field.onChange}>
-                            <TabsList className="grid w-full grid-cols-3">
-                              <TabsTrigger value="csv">CSV</TabsTrigger>
-                              <TabsTrigger value="excel">Excel</TabsTrigger>
-                              <TabsTrigger value="pdf">PDF</TabsTrigger>
-                            </TabsList>
-                          </Tabs>
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="gpsProvider"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>GPS Provider</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a provider" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="samsara">Samsara</SelectItem>
-                            <SelectItem value="blackberry">BlackBerry Radar</SelectItem>
-                            <SelectItem value="fleetview">Fleetview</SelectItem>
-                            <SelectItem value="fleetlocate">Fleetlocate</SelectItem>
-                            <SelectItem value="anytrek">Anytrek</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="mx-auto h-10 w-10 text-gray-400" />
-                    <div className="mt-2 text-sm text-gray-600">Drag and drop a file here, or click to browse</div>
-                    <input
-                      type="file"
-                      className="hidden"
-                      id="file-upload"
-                      accept=".csv,.xlsx,.xls,.pdf"
-                    />
-                    <Button variant="outline" className="mt-2" onClick={() => document.getElementById('file-upload')?.click()}>
-                      Select File
-                    </Button>
-                  </div>
-                  
-                  <DialogFooter>
-                    <Button variant="outline" type="button" onClick={() => setUploadOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit">Upload</Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
-        </div>
       </div>
 
+      {/* Status Overview KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <KPICard 
           title="Total Chassis" 
@@ -248,24 +203,65 @@ const ChassisManagement = () => {
           icon="chart" 
         />
         <KPICard 
-          title="Active Chassis" 
-          value={metrics.active.toString()} 
-          description={`${metrics.activePercent}% of fleet`}
+          title="Operational" 
+          value={metrics.operational.toString()} 
+          description={`${((metrics.operational / metrics.total) * 100).toFixed(1)}% of fleet`}
           icon="users" 
         />
         <KPICard 
-          title="Under Contract" 
-          value={metrics.withContracts.toString()} 
-          description="Active contract assignments" 
+          title="Out of Service" 
+          value={metrics.outOfService.toString()} 
+          description={`${((metrics.outOfService / metrics.total) * 100).toFixed(1)}% of fleet`}
+          icon="alert" 
+        />
+        <KPICard 
+          title="Active" 
+          value={metrics.active.toString()} 
+          description={`${metrics.available} Available`}
           icon="file" 
         />
-        <KPICard 
-          title="Top Lessor" 
-          value={metrics.topLessor} 
-          description="Most chassis units" 
-          icon="users" 
-        />
       </div>
+
+      {/* Chassis Type Breakdown */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Chassis Type Breakdown</CardTitle>
+          <p className="text-sm text-muted-foreground">Click a type to filter the table</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {metrics.byType.map(([type, stats]) => {
+              const isSelected = selectedFilters.chassisType === type;
+              return (
+                <button
+                  key={type}
+                  onClick={() => handleTypeClick(type)}
+                  className={`p-4 border rounded-lg bg-muted/50 text-left transition-all hover:shadow-md hover:scale-105 ${
+                    isSelected ? 'ring-2 ring-primary bg-primary/10' : ''
+                  }`}
+                >
+                  <div className="text-2xl font-bold">{stats.total}</div>
+                  <div className="text-sm font-medium mb-2">{type}</div>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div className="flex justify-between">
+                      <span>Available:</span>
+                      <span className="font-medium text-green-600">{stats.available}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Reserved:</span>
+                      <span className="font-medium text-blue-600">{stats.reserved}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>OOS:</span>
+                      <span className="font-medium text-red-600">{stats.oos}</span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
       
       <Card>
         <CardHeader className="pb-3">
@@ -291,8 +287,8 @@ const ChassisManagement = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div>
-              <FormLabel>Chassis Type</FormLabel>
-              <Select 
+              <Label>Chassis Type</Label>
+              <Select
                 value={selectedFilters.chassisType} 
                 onValueChange={(value) => setSelectedFilters({...selectedFilters, chassisType: value})}
               >
@@ -301,62 +297,8 @@ const ChassisManagement = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  {Array.from(new Set(chassisData.map(c => c.forrest_chassis_type).filter(Boolean))).map(type => (
+                  {Array.from(new Set(chassisData.map(c => c.type).filter(Boolean))).map(type => (
                     <SelectItem key={type} value={type}>{type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <FormLabel>Lessor</FormLabel>
-              <Select 
-                value={selectedFilters.lessor} 
-                onValueChange={(value) => setSelectedFilters({...selectedFilters, lessor: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Lessors" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Lessors</SelectItem>
-                  {Array.from(new Set(chassisData.map(c => c.lessor).filter(Boolean))).map(lessor => (
-                    <SelectItem key={lessor} value={lessor}>{lessor}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <FormLabel>Region</FormLabel>
-              <Select 
-                value={selectedFilters.region} 
-                onValueChange={(value) => setSelectedFilters({...selectedFilters, region: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Regions" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Regions</SelectItem>
-                  {Array.from(new Set(chassisData.map(c => c.region).filter(Boolean))).map(region => (
-                    <SelectItem key={region} value={region}>{region}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <FormLabel>Status</FormLabel>
-              <Select 
-                value={selectedFilters.status} 
-                onValueChange={(value) => setSelectedFilters({...selectedFilters, status: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  {Array.from(new Set(chassisData.map(c => c.chassis_status).filter(Boolean))).map(status => (
-                    <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -368,48 +310,56 @@ const ChassisManagement = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Chassis ID</TableHead>
-                  <TableHead>Serial</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Asset Class</TableHead>
                   <TableHead>Lessor</TableHead>
                   <TableHead>Region</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Category</TableHead>
                   <TableHead>Daily Rate</TableHead>
-                  <TableHead>Plate</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-4 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
                       Loading chassis data...
                     </TableCell>
                   </TableRow>
                 ) : filteredChassis.length > 0 ? (
                   filteredChassis.map((chassis) => (
                     <TableRow key={chassis.id}>
-                      <TableCell className="font-medium">{chassis.forrest_chz || 'N/A'}</TableCell>
-                      <TableCell>{chassis.serial || 'N/A'}</TableCell>
-                      <TableCell>{chassis.forrest_chassis_type || 'N/A'}</TableCell>
-                      <TableCell>{chassis.lessor || 'N/A'}</TableCell>
-                      <TableCell>{chassis.region || 'N/A'}</TableCell>
+                      <TableCell className="font-medium">{chassis.identifier || 'N/A'}</TableCell>
+                      <TableCell>{chassis.type || chassis.mcl_data?.forrest_chassis_type || 'N/A'}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{chassis.chassis_status || 'Unknown'}</Badge>
+                        <Badge variant="outline">{chassis.asset_class || chassis.mcl_data?.chassis_category || 'N/A'}</Badge>
                       </TableCell>
-                      <TableCell>{chassis.chassis_category || 'N/A'}</TableCell>
+                      <TableCell>{chassis.mcl_data?.lessor || 'N/A'}</TableCell>
+                      <TableCell>{chassis.mcl_data?.region || 'N/A'}</TableCell>
                       <TableCell>
-                        {chassis.daily_rate ? `$${Number(chassis.daily_rate).toFixed(2)}` : 'N/A'}
+                        {chassis.mcl_data?.chassis_status ? (
+                          <Badge variant={chassis.mcl_data.chassis_status === 'Active' ? 'default' : 'secondary'}>
+                            {chassis.mcl_data.chassis_status}
+                          </Badge>
+                        ) : 'N/A'}
                       </TableCell>
-                      <TableCell>
-                        {chassis.plate_state && chassis.plate_nbr 
-                          ? `${chassis.plate_state} ${chassis.plate_nbr}` 
-                          : 'N/A'}
+                      <TableCell>{chassis.mcl_data?.daily_rate ? `$${chassis.mcl_data.daily_rate}` : 'N/A'}</TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="gap-2"
+                          onClick={() => navigate(`/chassis/${encodeURIComponent(chassis.identifier || chassis.id)}`)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          View
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-4 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
                       No chassis found matching your filters.
                     </TableCell>
                   </TableRow>

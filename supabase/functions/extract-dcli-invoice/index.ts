@@ -1,5 +1,4 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.1/package/xlsx.mjs";
 
@@ -8,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -68,8 +67,14 @@ serve(async (req) => {
       }
     }
 
-    const billingDate = new Date().toISOString().split("T")[0];
-    const dueDate = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    // Convert Excel serial date number to JavaScript Date
+    const excelDateToJSDate = (excelDate: number): string => {
+      const date = new Date((excelDate - 25569) * 86400 * 1000);
+      return date.toISOString().split("T")[0];
+    };
+
+    let billingDate = new Date().toISOString().split("T")[0];
+    let dueDate = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
     // Find data rows - look for rows with numeric values that could be amounts
     const lineItems: Array<Record<string, unknown>> = [];
@@ -176,6 +181,19 @@ serve(async (req) => {
     }, 0);
 
     console.log(`==> AMOUNT DUE (Grand Total sum from Excel): $${grandTotalSum}`);
+
+    // Extract billing and due dates from the first line item's row_data
+    if (lineItems.length > 0 && lineItems[0].row_data) {
+      const firstRowData = lineItems[0].row_data as any;
+      if (firstRowData["Billing Date"] && typeof firstRowData["Billing Date"] === "number") {
+        billingDate = excelDateToJSDate(firstRowData["Billing Date"]);
+        console.log(`Extracted Billing Date: ${billingDate} from Excel: ${firstRowData["Billing Date"]}`);
+      }
+      if (firstRowData["Due Date"] && typeof firstRowData["Due Date"] === "number") {
+        dueDate = excelDateToJSDate(firstRowData["Due Date"]);
+        console.log(`Extracted Due Date: ${dueDate} from Excel: ${firstRowData["Due Date"]}`);
+      }
+    }
 
     const extractedData = {
       invoice: {

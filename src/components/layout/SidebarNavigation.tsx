@@ -60,6 +60,7 @@ const SidebarNavigation = () => {
       path: "/yards", 
       icon: FileText,
       subItems: [
+        { title: "Overview", path: "/yards" },
         { title: "PIER S", path: "/yards/pola" },
         { title: "JED YARD", path: "/yards/jed" },
       ] 
@@ -78,16 +79,17 @@ const SidebarNavigation = () => {
       ] 
     },
     { 
-      title: "Vendor Validation", 
+      title: "Equipment Vendor", 
       path: "/validation", 
       icon: FileCheck,
       subItems: [
+        { title: "Overview", path: "/vendor-validation" },
         { title: "DCLI", path: "/vendors/dcli" },
         { title: "CCM", path: "/vendors/ccm" },
         { title: "SCSPA", path: "/vendors/scspa" },
-        { title: "WCCP", path: "/vendors/wccp" },
         { title: "TRAC", path: "/vendors/trac" },
         { title: "FLEXIVAN", path: "/vendors/flexivan" },
+        { title: "WCCP", path: "/vendors/wccp" },
       ]
     },
     { title: "Advanced Features", path: "/advanced-features", icon: Sparkles },
@@ -127,10 +129,12 @@ const SidebarNavigation = () => {
                 >
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton className="group/collapsible">
+                      <SidebarMenuButton>
                         <item.icon size={18} />
                         <span>{item.title}</span>
-                        <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                        <ChevronRight 
+                          className={`ml-auto h-4 w-4 transition-transform duration-200 ${isGroupOpen(item.title) ? 'rotate-90' : ''}`}
+                        />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     

@@ -11,13 +11,21 @@ interface ExcelTableRowProps {
 
 const ExcelTableRow: React.FC<ExcelTableRowProps> = ({ item, displayColumns }) => {
   return (
-    <TableRow>
-      <TableCell>{item.sheet_name}</TableCell>
-      {displayColumns.map(column => (
-        <TableCell key={column}>
-          {item.row_data[column] !== undefined ? String(item.row_data[column]) : '—'}
-        </TableCell>
-      ))}
+    <TableRow className="hover:bg-muted/50">
+      <TableCell className="font-medium sticky left-0 bg-background z-10 border-r">{item.sheet_name}</TableCell>
+      {displayColumns.map(column => {
+        const value = item.row_data[column];
+        // Display raw value exactly as it appears in the CSV
+        const displayValue = value !== undefined && value !== null && value !== '' 
+          ? String(value) 
+          : '—';
+        
+        return (
+          <TableCell key={column} className="whitespace-nowrap">
+            {displayValue}
+          </TableCell>
+        );
+      })}
       <TableCell>
         <Badge variant={item.validated ? "default" : "outline"}>
           {item.validated ? "Validated" : "Pending"}

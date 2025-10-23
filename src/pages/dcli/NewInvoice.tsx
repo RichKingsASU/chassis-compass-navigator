@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import InvoiceUploadStep from '@/components/dcli/invoice/InvoiceUploadStep';
 import InvoiceReviewStep from '@/components/dcli/invoice/InvoiceReviewStep';
 import InvoiceValidateStep from '@/components/dcli/invoice/InvoiceValidateStep';
+import InvoiceSubmitStep from '@/components/dcli/invoice/InvoiceSubmitStep';
 import InvoiceSummaryCard from '@/components/dcli/invoice/InvoiceSummaryCard';
 
 export interface InvoiceData {
@@ -49,17 +52,23 @@ export interface ExtractedData {
 const steps = [
   { id: 1, name: 'Upload', description: 'PDF + Excel' },
   { id: 2, name: 'Review', description: 'Prefill & Edit' },
-  { id: 3, name: 'Validate', description: 'Match & Save' },
+  { id: 3, name: 'Validate', description: 'Match Data' },
+  { id: 4, name: 'Submit', description: 'Review & Submit' },
 ];
 
 const NewInvoice = () => {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [uploadedFiles, setUploadedFiles] = useState<{ pdf: File | null; excel: File | null }>({
-    pdf: null,
-    excel: null,
-  });
-  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const location = useLocation();
+  const { toast } = useToast();
+  
+  // Restore state from navigation if returning from invoice line details
+  const savedState = location.state as { currentStep?: number; extractedData?: ExtractedData; uploadedFiles?: { pdf: File | null; excel: File | null } } | null;
+  
+  const [currentStep, setCurrentStep] = useState(savedState?.currentStep || 1);
+  const [uploadedFiles, setUploadedFiles] = useState<{ pdf: File | null; excel: File | null }>(
+    savedState?.uploadedFiles || { pdf: null, excel: null }
+  );
+  const [extractedData, setExtractedData] = useState<ExtractedData | null>(savedState?.extractedData || null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const progressPercentage = (currentStep / steps.length) * 100;
@@ -79,9 +88,30 @@ const NewInvoice = () => {
 
   const handleStepBack = () => {
     if (currentStep > 1) {
+      // If we have extracted data and we're going back to step 1,
+      // skip step 1 since data is already uploaded
+      if (currentStep === 2 && extractedData) {
+        // Don't go back to upload if we already have data
+        toast({
+          title: "Already Uploaded",
+          description: "Files are already uploaded. Use 'Back to Invoice Tracker' to start over.",
+        });
+        return;
+      }
       setCurrentStep(currentStep - 1);
     }
   };
+
+  const handleSaveDraft = async () => {
+    if (!extractedData) return;
+    
+    toast({
+      title: "Draft Not Saved",
+      description: "dcli_invoice_staging table is not configured",
+      variant: "destructive"
+    });
+  };
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -149,12 +179,24 @@ const NewInvoice = () => {
                 onComplete={handleStepComplete}
                 onBack={handleStepBack}
                 setHasUnsavedChanges={setHasUnsavedChanges}
+                onSaveDraft={handleSaveDraft}
               />
             )}
             {currentStep === 3 && extractedData && (
               <InvoiceValidateStep
                 extractedData={extractedData}
                 onBack={handleStepBack}
+                onComplete={handleStepComplete}
+                currentStep={currentStep}
+                uploadedFiles={uploadedFiles}
+                onSaveDraft={handleSaveDraft}
+              />
+            )}
+            {currentStep === 4 && extractedData && (
+              <InvoiceSubmitStep
+                extractedData={extractedData}
+                onBack={handleStepBack}
+                onSaveDraft={handleSaveDraft}
               />
             )}
           </div>

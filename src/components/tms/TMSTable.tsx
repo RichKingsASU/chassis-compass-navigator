@@ -1,111 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, ChevronLeft, ChevronRight, ArrowUpDown } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-
-interface TMSRecord {
-  row_id: number;
-  shipment_number?: string;
-  container_number?: string;
-  carrier_name?: string;
-  status?: string;
-  pickup_city?: string;
-  pickup_state?: string;
-  delivery_city?: string;
-  delivery_state?: string;
-  pickup_actual_date?: string;
-  delivery_actual_date?: string;
-  cust_invoice_charge?: string;
-  carrier_invoice_charge?: string;
-  mbl?: string;
-  vessel_name?: string;
-}
-
-interface TMSFiltersState {
-  source: string;
-  type: string;
-  status: string;
-}
+import { useTMSData, TMSDataItem, TMSFiltersState } from "@/hooks/useTMSData";
 
 interface TMSTableProps {
-  onViewDetails: (record: TMSRecord) => void;
+  onViewDetails: (record: TMSDataItem) => void;
   selectedFilters: TMSFiltersState;
 }
 
 const TMSTable: React.FC<TMSTableProps> = ({ onViewDetails, selectedFilters }) => {
-  const [data, setData] = useState<TMSRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [sortField, setSortField] = useState<string>('row_id');
+  const [sortField, setSortField] = useState<string>('created_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const { toast } = useToast();
 
   const recordsPerPage = 20;
 
-  useEffect(() => {
-    fetchData();
-  }, [currentPage, sortField, sortDirection, selectedFilters]);
+  const { data: tmsResult, isLoading: loading, error } = useTMSData(
+    selectedFilters, 
+    currentPage, 
+    recordsPerPage
+  );
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      const startIndex = (currentPage - 1) * recordsPerPage;
-      const endIndex = startIndex + recordsPerPage - 1;
-
-      // Note: mg_tms table needs to be created in Supabase
-      // For now, using placeholder data
-      const mockData: TMSRecord[] = [
-        {
-          row_id: 1,
-          shipment_number: 'MG001234',
-          container_number: 'CMAU1234567',
-          carrier_name: 'ABC Logistics',
-          status: 'In Transit',
-          pickup_city: 'Los Angeles',
-          pickup_state: 'CA',
-          delivery_city: 'Chicago',
-          delivery_state: 'IL',
-          pickup_actual_date: '2024-01-15',
-          delivery_actual_date: '2024-01-18',
-          cust_invoice_charge: '2450.00',
-          carrier_invoice_charge: '2100.00'
-        },
-        {
-          row_id: 2,
-          shipment_number: 'MG001235',
-          container_number: 'TCLU7654321',
-          carrier_name: 'Swift Transport',
-          status: 'Delivered',
-          pickup_city: 'Houston',
-          pickup_state: 'TX',
-          delivery_city: 'Atlanta',
-          delivery_state: 'GA',
-          pickup_actual_date: '2024-01-14',
-          delivery_actual_date: '2024-01-17',
-          cust_invoice_charge: '1850.00',
-          carrier_invoice_charge: '1600.00'
-        }
-      ];
-
-      setData(mockData);
-      setTotalPages(1);
-    } catch (error) {
-      console.error('Error fetching TMS data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch TMS data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const data = tmsResult?.data || [];
+  const totalPages = tmsResult?.totalPages || 1;
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -165,7 +85,7 @@ const TMSTable: React.FC<TMSTableProps> = ({ onViewDetails, selectedFilters }) =
     <Card>
       <CardHeader>
         <CardTitle className="text-lg font-medium">
-          TMS Data ({(data || []).length} of {totalPages * recordsPerPage} records)
+          TMS Data ({data.length} records, Page {currentPage} of {totalPages})
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -206,39 +126,47 @@ const TMSTable: React.FC<TMSTableProps> = ({ onViewDetails, selectedFilters }) =
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(data || []).map((record) => (
-                <TableRow key={record.row_id}>
-                  <TableCell className="font-medium">
-                    {record.shipment_number || record.row_id}
-                  </TableCell>
-                  <TableCell>{record.container_number || '-'}</TableCell>
-                  <TableCell>{record.carrier_name || '-'}</TableCell>
-                  <TableCell>{getStatusBadge(record.status)}</TableCell>
-                  <TableCell>
-                    {record.pickup_city && record.pickup_state 
-                      ? `${record.pickup_city}, ${record.pickup_state}`
-                      : '-'}
-                  </TableCell>
-                  <TableCell>
-                    {record.delivery_city && record.delivery_state 
-                      ? `${record.delivery_city}, ${record.delivery_state}`
-                      : '-'}
-                  </TableCell>
-                  <TableCell>{formatDate(record.pickup_actual_date)}</TableCell>
-                  <TableCell>{formatDate(record.delivery_actual_date)}</TableCell>
-                  <TableCell>{formatCurrency(record.cust_invoice_charge)}</TableCell>
-                  <TableCell>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onViewDetails(record)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      View
-                    </Button>
+              {data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                    No TMS data found
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                data.map((record, index) => (
+                  <TableRow key={record.id || index}>
+                    <TableCell className="font-medium">
+                      {record.shipment_number || record.id || '-'}
+                    </TableCell>
+                    <TableCell>{record.container_number || '-'}</TableCell>
+                    <TableCell>{record.carrier_name || '-'}</TableCell>
+                    <TableCell>{getStatusBadge(record.status)}</TableCell>
+                    <TableCell>
+                      {record.pickup_city && record.pickup_state 
+                        ? `${record.pickup_city}, ${record.pickup_state}`
+                        : '-'}
+                    </TableCell>
+                    <TableCell>
+                      {record.delivery_city && record.delivery_state 
+                        ? `${record.delivery_city}, ${record.delivery_state}`
+                        : '-'}
+                    </TableCell>
+                    <TableCell>{formatDate(record.pickup_actual_date)}</TableCell>
+                    <TableCell>{formatDate(record.delivery_actual_date)}</TableCell>
+                    <TableCell>{formatCurrency(record.cust_invoice_charge)}</TableCell>
+                    <TableCell>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onViewDetails(record)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>

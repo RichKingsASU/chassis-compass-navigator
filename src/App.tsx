@@ -1,4 +1,3 @@
-
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -7,36 +6,56 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import DashboardLayout from "./components/layout/DashboardLayout";
+import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import ChassisManagement from "./pages/ChassisManagement";
+import ChassisDetail from "./pages/ChassisDetail";
 import ChassisValidation from "./pages/ChassisValidation";
-import AdvancedFeatures from "./pages/AdvancedFeatures";
 import TMSData from "./pages/TMSData";
-import MercuryGate from "./pages/tms/MercuryGate";
-import PortPro from "./pages/tms/PortPro";
-import NotFound from "./pages/NotFound";
-
-// Yard Report Pages
-import POLAYard from "./pages/yards/POLAYard";
-import JEDYard from "./pages/yards/JEDYard";
-
-// GPS Provider Pages
 import GpsOverview from "./pages/GpsOverview";
+import Settings from "./pages/Settings";
+import AdvancedFeatures from "./pages/AdvancedFeatures";
+import VendorUpload from "./pages/VendorUpload";
+import GpsProviderUpload from "./pages/GpsProviderUpload";
+import NotFound from "./pages/NotFound";
+import Anytrek from "./pages/gps/Anytrek";
 import Samsara from "./pages/gps/Samsara";
 import BlackBerry from "./pages/gps/BlackBerry";
-import Fleetview from "./pages/gps/Fleetview";
 import Fleetlocate from "./pages/gps/Fleetlocate";
-import Anytrek from "./pages/gps/Anytrek";
-
-// Vendor Pages
-import DCLI from "./pages/vendors/DCLI";
-import DCLINewInvoice from "./pages/dcli/NewInvoice";
+import Fleetview from "./pages/gps/Fleetview";
+import MercuryGate from "./pages/tms/MercuryGate";
+import PortPro from "./pages/tms/PortPro";
+import JEDYard from "./pages/yards/JEDYard";
+import POLAYard from "./pages/yards/POLAYard";
+import YardReportOverview from "./pages/YardReportOverview";
 import CCM from "./pages/vendors/CCM";
-import SCSPA from "./pages/vendors/SCSPA";
-import WCCP from "./pages/vendors/WCCP";
-import TRAC from "./pages/vendors/TRAC";
+import DCLI from "./pages/vendors/DCLI";
 import FLEXIVAN from "./pages/vendors/FLEXIVAN";
-import Settings from "./pages/Settings";
+import TRAC from "./pages/vendors/TRAC";
+import TRACNewInvoice from "./pages/trac/NewInvoice";
+import TRACInvoiceReview from "./pages/trac/InvoiceReview";
+import TRACInvoiceValidate from "./pages/trac/InvoiceValidate";
+import TRACInvoiceLineDetails from "./pages/trac/InvoiceLineDetails";
+import TRACInvoiceLineDispute from "./pages/trac/InvoiceLineDispute";
+import WCCP from "./pages/vendors/WCCP";
+import SCSPA from "./pages/vendors/SCSPA";
+import VendorValidation from "./pages/VendorValidation";
+import NewInvoice from "./pages/dcli/NewInvoice";
+import InvoiceReview from "./pages/dcli/InvoiceReview";
+import DCLIInvoiceDetail from "./pages/dcli/InvoiceDetail";
+import DCLIInvoiceLineDetails from "./pages/dcli/InvoiceLineDetails";
+import DCLIInvoiceLineDispute from "./pages/dcli/InvoiceLineDispute";
+import WCCPNewInvoice from "./pages/wccp/NewInvoice";
+import WCCPInvoiceReview from "./pages/wccp/InvoiceReview";
+import WCCPInvoiceLineDetails from "./pages/wccp/InvoiceLineDetails";
+import WCCPInvoiceLineDispute from "./pages/wccp/InvoiceLineDispute";
+import InvoicesList from "./pages/invoices/InvoicesList";
+import InvoiceLineDetails from "./pages/invoices/InvoiceLineDetails";
+import InvoiceLineDispute from "./pages/invoices/InvoiceLineDispute";
+import CCMInvoiceLineDetails from "./pages/ccm/InvoiceLineDetails";
+import CCMNewInvoice from "./pages/ccm/NewInvoice";
+import FLEXIVANNewInvoice from "./pages/flexivan/NewInvoice";
+import SCSPANewInvoice from "./pages/scspa/NewInvoice";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +79,11 @@ function App() {
                   <ChassisManagement />
                 </DashboardLayout>
               } />
+              <Route path="/chassis/:id" element={
+                <DashboardLayout>
+                  <ChassisDetail />
+                </DashboardLayout>
+              } />
               <Route path="/tms" element={
                 <DashboardLayout>
                   <TMSData />
@@ -77,6 +101,11 @@ function App() {
               } />
               
               {/* Yard Report Routes */}
+              <Route path="/yards" element={
+                <DashboardLayout>
+                  <YardReportOverview />
+                </DashboardLayout>
+              } />
               <Route path="/yards/pola" element={
                 <DashboardLayout>
                   <POLAYard />
@@ -132,6 +161,11 @@ function App() {
               } />
               
               {/* Vendor Routes */}
+              <Route path="/vendor-validation" element={
+                <DashboardLayout>
+                  <VendorValidation />
+                </DashboardLayout>
+              } />
               <Route path="/vendors/dcli" element={
                 <DashboardLayout>
                   <DCLI />
@@ -139,7 +173,27 @@ function App() {
               } />
               <Route path="/vendors/dcli/invoices/new" element={
                 <DashboardLayout>
-                  <DCLINewInvoice />
+                  <NewInvoice />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/dcli/invoices/:invoiceId/review" element={
+                <DashboardLayout>
+                  <InvoiceReview />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/dcli/invoices/:invoiceId/detail" element={
+                <DashboardLayout>
+                  <DCLIInvoiceDetail />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/dcli/invoice-line/:lineId" element={
+                <DashboardLayout>
+                  <DCLIInvoiceLineDetails />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/dcli/invoice-line/:lineId/dispute" element={
+                <DashboardLayout>
+                  <DCLIInvoiceLineDispute />
                 </DashboardLayout>
               } />
               <Route path="/vendors/ccm" element={
@@ -147,9 +201,24 @@ function App() {
                   <CCM />
                 </DashboardLayout>
               } />
+              <Route path="/vendors/ccm/invoices/new" element={
+                <DashboardLayout>
+                  <CCMNewInvoice />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/ccm/invoice-line/:lineId" element={
+                <DashboardLayout>
+                  <CCMInvoiceLineDetails />
+                </DashboardLayout>
+              } />
               <Route path="/vendors/scspa" element={
                 <DashboardLayout>
                   <SCSPA />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/scspa/invoices/new" element={
+                <DashboardLayout>
+                  <SCSPANewInvoice />
                 </DashboardLayout>
               } />
               <Route path="/vendors/wccp" element={
@@ -157,9 +226,54 @@ function App() {
                   <WCCP />
                 </DashboardLayout>
               } />
+              <Route path="/vendors/wccp/invoices/new" element={
+                <DashboardLayout>
+                  <WCCPNewInvoice />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/wccp/invoices/:invoiceId/review" element={
+                <DashboardLayout>
+                  <WCCPInvoiceReview />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/wccp/invoice-line/:lineId" element={
+                <DashboardLayout>
+                  <WCCPInvoiceLineDetails />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/wccp/invoice-line/:lineId/dispute" element={
+                <DashboardLayout>
+                  <WCCPInvoiceLineDispute />
+                </DashboardLayout>
+              } />
               <Route path="/vendors/trac" element={
                 <DashboardLayout>
                   <TRAC />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoices/new" element={
+                <DashboardLayout>
+                  <TRACNewInvoice />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoices/:invoiceId/review" element={
+                <DashboardLayout>
+                  <TRACInvoiceReview />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoices/:invoiceId/validate" element={
+                <DashboardLayout>
+                  <TRACInvoiceValidate />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoice-line/:lineId" element={
+                <DashboardLayout>
+                  <TRACInvoiceLineDetails />
+                </DashboardLayout>
+              } />
+              <Route path="/vendors/trac/invoice-line/:lineId/dispute" element={
+                <DashboardLayout>
+                  <TRACInvoiceLineDispute />
                 </DashboardLayout>
               } />
               <Route path="/vendors/flexivan" element={
@@ -167,11 +281,33 @@ function App() {
                   <FLEXIVAN />
                 </DashboardLayout>
               } />
+              <Route path="/vendors/flexivan/invoices/new" element={
+                <DashboardLayout>
+                  <FLEXIVANNewInvoice />
+                </DashboardLayout>
+              } />
               
               {/* Settings Route */}
               <Route path="/settings" element={
                 <DashboardLayout>
                   <Settings />
+                </DashboardLayout>
+              } />
+              
+              {/* Invoice Validation Routes */}
+              <Route path="/invoices" element={
+                <DashboardLayout>
+                  <InvoicesList />
+                </DashboardLayout>
+              } />
+              <Route path="/invoices/:invoiceId/details/:lineId" element={
+                <DashboardLayout>
+                  <InvoiceLineDetails />
+                </DashboardLayout>
+              } />
+              <Route path="/invoices/:invoiceId/dispute/:lineId" element={
+                <DashboardLayout>
+                  <InvoiceLineDispute />
                 </DashboardLayout>
               } />
               

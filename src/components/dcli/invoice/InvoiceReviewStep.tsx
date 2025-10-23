@@ -4,12 +4,13 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle } from 'lucide-react';
 import { ExtractedData } from '@/pages/dcli/NewInvoice';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { formatDateValue } from '@/utils/dateUtils';
+import { Save } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface InvoiceReviewStepProps {
   extractedData: ExtractedData;
@@ -17,6 +18,7 @@ interface InvoiceReviewStepProps {
   onComplete: () => void;
   onBack: () => void;
   setHasUnsavedChanges: (value: boolean) => void;
+  onSaveDraft: () => void;
 }
 
 const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
@@ -25,6 +27,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
   onComplete,
   onBack,
   setHasUnsavedChanges,
+  onSaveDraft,
 }) => {
   const { toast } = useToast();
   const [invoice, setInvoice] = useState(extractedData.invoice);
@@ -43,60 +46,12 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
     });
   };
 
-  const handleLineItemChange = (index: number, field: string, value: any) => {
-    const updated = [...lineItems];
-    updated[index] = { ...updated[index], [field]: value };
-    setLineItems(updated);
-    setExtractedData({
-      ...extractedData,
-      line_items: updated,
-    });
-  };
-
-  const validateLineItem = (item: any) => {
-    const warnings = [];
-    if (!item.chassis_out) warnings.push('Missing chassis');
-    if (!item.container_out) warnings.push('Missing container');
-    if (!item.date_out || !item.date_in) warnings.push('Missing dates');
-    return warnings;
-  };
-
   const handleContinue = async () => {
-    try {
-      const stagingData = {
-        summary_invoice_id: invoice.summary_invoice_id,
-        billing_date: invoice.billing_date || null,
-        due_date: invoice.due_date || null,
-        account_code: invoice.account_code || null,
-        vendor: invoice.vendor || null,
-        total_amount: invoice.amount_due || null,
-        status: invoice.status || null,
-        currency: invoice.currency_code || null,
-        attachments: extractedData.attachments as any,
-        line_items: lineItems as any,
-        excel_headers: extractedData.excel_headers as any,
-      };
-
-      const { error } = await supabase
-        .from('dcli_invoice_staging')
-        .insert(stagingData);
-
-      if (error) throw error;
-
-      toast({
-        title: "Data Staged",
-        description: "Invoice data saved to staging table successfully.",
-      });
-
-      onComplete();
-    } catch (error) {
-      console.error('Error saving to staging table:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save data to staging table.",
-        variant: "destructive",
-      });
-    }
+    toast({
+      title: "Review Complete",
+      description: "Invoice data reviewed successfully.",
+    });
+    onComplete();
   };
 
   return (
@@ -132,25 +87,6 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
             />
           </div>
           <div>
-            <Label htmlFor="billing_terms">Billing Terms</Label>
-            <Input
-              id="billing_terms"
-              value={invoice.billing_terms}
-              onChange={(e) => handleInvoiceFieldChange('billing_terms', e.target.value)}
-            />
-          </div>
-          <div>
-            <Label htmlFor="vendor">Vendor</Label>
-            <Select value={invoice.vendor || "DCLI"} onValueChange={(v) => handleInvoiceFieldChange('vendor', v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="DCLI">DCLI</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
             <Label htmlFor="amount_due">Amount Due</Label>
             <Input
               id="amount_due"
@@ -160,50 +96,16 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
               onChange={(e) => handleInvoiceFieldChange('amount_due', parseFloat(e.target.value))}
             />
           </div>
-          <div>
-            <Label htmlFor="status">Status</Label>
-            <Select value={invoice.status || "Open"} onValueChange={(v) => handleInvoiceFieldChange('status', v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Open">Open</SelectItem>
-                <SelectItem value="Closed">Closed</SelectItem>
-                <SelectItem value="Credit">Credit</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="currency_code">Currency</Label>
-            <Input
-              id="currency_code"
-              value={invoice.currency_code}
-              onChange={(e) => handleInvoiceFieldChange('currency_code', e.target.value)}
-            />
-          </div>
         </div>
       </Card>
 
-      {/* Attachments */}
-      <Card className="p-6">
-        <h2 className="text-xl font-bold mb-4">Attachments</h2>
-        <div className="space-y-2">
-          {extractedData.attachments.map((att, idx) => (
-            <div key={idx} className="flex items-center gap-2 text-sm">
-              <Badge variant="outline">{att.name}</Badge>
-              <span className="text-muted-foreground">{att.path}</span>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Line Items Table - Full Excel Data */}
+      {/* Line Items Table */}
       <Card className="p-3">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl font-bold">Line Items - Full Data Review ({lineItems.length})</h2>
+          <h2 className="text-xl font-bold">Line Items ({lineItems.length})</h2>
         </div>
         <p className="text-sm text-muted-foreground mb-2">
-          Review all extracted data from the Excel file. Scroll horizontally to see all columns.
+          Review all extracted data from the Excel file.
         </p>
         <div className="overflow-auto border rounded-lg w-full" style={{ maxHeight: 'calc(100vh - 400px)', minHeight: '500px' }}>
           <table className="w-full border-collapse text-sm">
@@ -223,17 +125,8 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
                     const cellValue = item.row_data?.[header];
                     let displayValue = '—';
                     
-                    // Check if value exists and is not empty
                     if (cellValue !== undefined && cellValue !== null && cellValue !== '') {
-                      // Format dates if they look like Excel serial numbers
-                      if (typeof cellValue === 'number' && cellValue > 40000 && cellValue < 50000) {
-                        const date = new Date((cellValue - 25569) * 86400 * 1000);
-                        displayValue = date.toLocaleDateString();
-                      } else if (typeof cellValue === 'number' && cellValue === 0) {
-                        displayValue = '0';
-                      } else {
-                        displayValue = String(cellValue);
-                      }
+                      displayValue = formatDateValue(cellValue);
                     }
                     
                     return (
@@ -250,9 +143,10 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
       </Card>
 
       {/* Actions */}
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={onBack}>
-          Back to Upload
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onSaveDraft}>
+          <Save className="w-4 h-4 mr-2" />
+          Save Draft
         </Button>
         <Button onClick={handleContinue}>Continue to Validate</Button>
       </div>

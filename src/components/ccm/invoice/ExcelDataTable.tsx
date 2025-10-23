@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table } from "@/components/ui/table";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { ExcelDataItem } from './types';
 import ExcelTableHeader from './excel/ExcelTableHeader';
@@ -68,26 +68,22 @@ const ExcelDataTable: React.FC<ExcelDataTableProps> = ({
     page * rowsPerPage
   );
 
-  // Get all keys (columns) from data
-  const allKeys = new Set<string>();
-  filteredData.forEach(item => {
-    Object.keys(item.row_data).forEach(key => allKeys.add(key));
-  });
-  
-  // Convert to array and prioritize common column names
-  const priorityColumns = ['id', 'invoice_number', 'date', 'amount', 'description'];
-  const columns = Array.from(allKeys).sort((a, b) => {
-    const indexA = priorityColumns.findIndex(col => a.toLowerCase().includes(col.toLowerCase()));
-    const indexB = priorityColumns.findIndex(col => b.toLowerCase().includes(col.toLowerCase()));
+  // Get column order from stored headers or fallback to first row keys
+  const columns: string[] = [];
+  if (filteredData.length > 0) {
+    const firstItem = filteredData[0];
     
-    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-    if (indexA !== -1) return -1;
-    if (indexB !== -1) return 1;
-    return a.localeCompare(b);
-  });
+    // Try to use stored column_headers if available
+    if (firstItem.column_headers && Array.isArray(firstItem.column_headers) && firstItem.column_headers.length > 0) {
+      columns.push(...firstItem.column_headers);
+    } else {
+      // Fallback: Use the first row's keys to preserve the original column order from CSV
+      columns.push(...Object.keys(firstItem.row_data));
+    }
+  }
 
-  // Display a maximum of 8 columns
-  const displayColumns = columns.slice(0, 8);
+  // Show ALL columns for review - users need to verify against original invoice
+  const displayColumns = columns;
 
   // Handle refresh button click
   const handleRefresh = async () => {
@@ -127,17 +123,22 @@ const ExcelDataTable: React.FC<ExcelDataTableProps> = ({
         />
       </CardHeader>
       
-      <CardContent>
-        <div className="rounded-md border overflow-x-auto">
-          <Table>
-            <ExcelTableHeader displayColumns={displayColumns} />
-            <ExcelTableBody 
-              loading={loading} 
-              paginatedData={paginatedData} 
-              displayColumns={displayColumns}
-              searchTerm={searchTerm}
-            />
-          </Table>
+      <CardContent className="p-0">
+        <div className="rounded-md border">
+          <ScrollArea className="h-[600px] w-full overflow-auto">
+            <div className="min-w-max">
+              <Table className="relative">
+                <ExcelTableHeader displayColumns={displayColumns} />
+                <ExcelTableBody 
+                  loading={loading} 
+                  paginatedData={paginatedData} 
+                  displayColumns={displayColumns}
+                  searchTerm={searchTerm}
+                />
+              </Table>
+            </div>
+            <ScrollBar orientation="horizontal" className="h-4 bg-muted/30" />
+          </ScrollArea>
         </div>
         
         <ExcelPagination 

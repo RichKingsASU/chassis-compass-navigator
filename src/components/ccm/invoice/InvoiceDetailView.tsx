@@ -42,11 +42,16 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
       if (error) throw error;
 
       // Transform the data to match our ExcelDataItem type
-      const transformedData: ExcelDataItem[] = (data || []).map(item => ({
-        ...item,
+      const transformedData: ExcelDataItem[] = (data || []).map((item: any) => ({
+        id: String(item.id),
+        invoice_id: item.invoice_id,
+        sheet_name: item.sheet_name,
+        validated: item.validated,
         row_data: typeof item.row_data === 'object' && item.row_data !== null 
           ? item.row_data as Record<string, any>
-          : {}
+          : {},
+        created_at: item.created_at,
+        column_headers: item.column_headers,
       }));
 
       setLineItems(transformedData);
@@ -70,7 +75,7 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
           row_data: updatedData,
           validated: true
         })
-        .eq('id', lineId);
+        .eq('id', Number(lineId));
 
       if (error) throw error;
 
@@ -109,7 +114,7 @@ const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
 
     try {
       const { data, error } = await supabase.storage
-        .from('invoices')
+        .from('ccm-invoices')
         .download(invoice.file_path);
 
       if (error) throw error;
