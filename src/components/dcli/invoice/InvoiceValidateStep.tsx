@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { ExtractedData } from '@/pages/dcli/NewInvoice';
-import ValidationDrawer from './ValidationDrawer';
-import { excelDateToJSDate } from '@/utils/dateUtils';
 import { Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import ValidationDrawer from './ValidationDrawer';
+import { ExtractedData } from '@/pages/dcli/NewInvoice';
 
-import { Save } from 'lucide-react';
-
-interface InvoiceValidateStepProps {
+export interface InvoiceValidateStepProps {
   extractedData: ExtractedData;
   onBack: () => void;
   onComplete: () => void;
@@ -20,25 +17,18 @@ interface InvoiceValidateStepProps {
   onSaveDraft: () => void;
 }
 
-const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({ 
-  extractedData, 
+const InvoiceValidateStep = ({
+  extractedData,
   onBack,
   onComplete,
-  currentStep, 
   uploadedFiles,
-  onSaveDraft
-}) => {
+}: InvoiceValidateStepProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
-  
-  const navigationState = {
-    currentStep,
-    extractedData,
-    uploadedFiles
-  };
+  const [stagingId, setStagingId] = useState<string | null>(null);
 
   useEffect(() => {
     runValidation();
@@ -47,106 +37,36 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({
   const runValidation = async () => {
     setIsValidating(true);
     try {
-      // Helper to convert date field if it's an Excel serial number
-      const convertDateField = (value: any): any => {
-        if (typeof value === 'number' && value > 40000 && value < 50000) {
-          return excelDateToJSDate(value);
-        }
-        if (typeof value === 'string' && value.includes('T')) {
-          return value.split('T')[0]; // Return just the date part
-        }
-        return value;
-      };
+      // Insert into staging table first
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data: stagingInvoice, error: stagingError } = await supabase
+        .from('dcli_invoice_staging')
+        .insert({
+          summary_invoice_id: extractedData.invoice.summary_invoice_id,
+          billing_date: extractedData.invoice.billing_date,
+          due_date: extractedData.invoice.due_date,
+          billing_terms: extractedData.invoice.billing_terms,
+          vendor: extractedData.invoice.vendor,
+          currency_code: extractedData.invoice.currency_code,
+          amount_due: extractedData.invoice.amount_due,
+          account_code: extractedData.invoice.account_code,
+          pool: extractedData.invoice.pool,
+          created_by: user?.id,
+          validation_status: 'pending'
+        })
+        .select()
+        .single();
 
-      // Convert Excel dates in line items to proper date strings
-      const convertedLineItems = extractedData.line_items.map((item) => {
-        const rowData = item.row_data as any;
-        
-        if (!rowData) return item;
+      if (stagingError) throw stagingError;
+      setStagingId(stagingInvoice.id);
 
-        // Convert all fields in row_data that might be dates
-        const convertedRowData: any = {};
-        for (const [key, value] of Object.entries(rowData)) {
-          convertedRowData[key] = convertDateField(value);
-        }
-
-        return {
-          ...item,
-          row_data: convertedRowData
-        };
-      });
-
-      const { data, error } = await supabase.rpc('validate_dcli_invoice' as any, {
-        p_summary_invoice_id: extractedData.invoice.summary_invoice_id,
-        p_account_code: extractedData.invoice.account_code || '',
-        p_billing_date: extractedData.invoice.billing_date,
-        p_due_date: extractedData.invoice.due_date,
-        p_line_items: convertedLineItems as any,
-      });
-
-      if (error) throw error;
-
-      const validationData = data as any;
-      setValidationResult(validationData);
-
-      if (validationData) {
-        toast({
-          title: 'Validation Complete',
-          description: `Found ${validationData.summary.exact_matches} exact matches, ${validationData.summary.fuzzy_matches} fuzzy matches, ${validationData.summary.mismatches} mismatches.`,
-        });
-      }
-    } catch (error: any) {
-      console.error('Validation error:', error);
-      toast({
-        title: 'Validation Failed',
-        description: error.message || 'Failed to validate invoice.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      // Check for duplicates
-      const { data: existing, error: checkError } = await supabase
-        .from('dcli_invoice' as any)
-        .select('invoice_id')
-        .eq('invoice_id', extractedData.invoice.summary_invoice_id)
-        .maybeSingle();
-
-      if (checkError) throw checkError;
-
-      if (existing) {
-        toast({
-          title: 'Duplicate Invoice',
-          description: 'An invoice with this ID already exists.',
-          variant: 'destructive',
-        });
-        setIsSaving(false);
-        return;
-      }
-
-      // Insert header
-      const { error: headerError } = await supabase.from('dcli_invoice' as any).insert({
-        invoice_id: extractedData.invoice.summary_invoice_id,
-        invoice_date: extractedData.invoice.billing_date,
-        billing_date: extractedData.invoice.billing_date,
-        due_date: extractedData.invoice.due_date,
-        amount: extractedData.invoice.amount_due,
-        status: extractedData.invoice.status,
-        description: `DCLI Invoice ${extractedData.invoice.summary_invoice_id}`,
-      });
-
-      if (headerError) throw headerError;
-
-      // Insert line items
-      const lineItemsToInsert = extractedData.line_items.map((item) => ({
-        summary_invoice_id: extractedData.invoice.summary_invoice_id,
-        line_invoice_number: item.line_invoice_number,
+      // Insert line items into staging
+      const lineInserts = extractedData.line_items.map((item, index) => ({
+        staging_invoice_id: stagingInvoice.id,
+        line_index: index,
         invoice_type: item.invoice_type,
+        line_invoice_number: item.line_invoice_number,
         invoice_status: item.invoice_status,
         invoice_total: item.invoice_total,
         remaining_balance: item.remaining_balance,
@@ -157,64 +77,252 @@ const InvoiceValidateStep: React.FC<InvoiceValidateStepProps> = ({
         date_out: item.date_out,
         container_in: item.container_in,
         date_in: item.date_in,
-        attachments: extractedData.attachments,
+        raw: item.row_data
       }));
 
-      const { error: lineItemsError } = await supabase
-        .from('dcli_invoice_line_item' as any)
-        .insert(lineItemsToInsert);
+      const { error: lineError } = await supabase
+        .from('dcli_invoice_line_staging')
+        .insert(lineInserts);
 
-      if (lineItemsError) throw lineItemsError;
+      if (lineError) throw lineError;
+
+      // Perform TMS validation
+      const chassisNumbers = extractedData.line_items
+        .map(item => item.chassis_out)
+        .filter(Boolean);
+
+      // Query TMS data
+      const { data: tmsData, error: tmsError } = await supabase
+        .from('tms_mg')
+        .select('*')
+        .in('chassis_number', chassisNumbers);
+
+      if (tmsError) throw tmsError;
+
+      // Build validation results
+      const results: any[] = [];
+      let exactMatches = 0;
+      let fuzzyMatches = 0;
+      let mismatches = 0;
+
+      for (const lineItem of lineInserts) {
+        const tmsMatch = tmsData?.find(t => 
+          t.chassis_number === lineItem.chassis_out
+        );
+
+        if (tmsMatch) {
+          // Check container and date matches
+          const containerMatch = tmsMatch.container_number === lineItem.container_out;
+          const confidence = containerMatch ? 90 : 60;
+          
+          if (confidence >= 80) {
+            exactMatches++;
+          } else {
+            fuzzyMatches++;
+          }
+
+          results.push({
+            line_id: lineItem.line_index,
+            match_type: confidence >= 80 ? 'exact' : 'fuzzy',
+            match_confidence: confidence,
+            tms_match: tmsMatch
+          });
+
+          // Update staging line with match info
+          await supabase
+            .from('dcli_invoice_line_staging')
+            .update({
+              tms_match_id: tmsMatch.id,
+              tms_match_type: confidence >= 80 ? 'exact' : 'fuzzy',
+              tms_match_confidence: confidence,
+              validation_issues: []
+            })
+            .eq('staging_invoice_id', stagingInvoice.id)
+            .eq('line_index', lineItem.line_index);
+        } else {
+          mismatches++;
+          results.push({
+            line_id: lineItem.line_index,
+            match_type: 'mismatch',
+            match_confidence: 0
+          });
+
+          // Update staging line with mismatch
+          await supabase
+            .from('dcli_invoice_line_staging')
+            .update({
+              tms_match_type: 'mismatch',
+              tms_match_confidence: 0,
+              validation_issues: ['No matching TMS record found']
+            })
+            .eq('staging_invoice_id', stagingInvoice.id)
+            .eq('line_index', lineItem.line_index);
+        }
+      }
+
+      const summary = {
+        total_rows: results.length,
+        exact_matches: exactMatches,
+        fuzzy_matches: fuzzyMatches,
+        mismatches: mismatches
+      };
+
+      // Update staging invoice with validation results
+      await supabase
+        .from('dcli_invoice_staging')
+        .update({
+          validation_status: 'completed',
+          validation_results: { summary, results }
+        })
+        .eq('id', stagingInvoice.id);
+
+      setValidationResult({ summary, results });
 
       toast({
-        title: 'Invoice Created',
-        description: `Invoice ${extractedData.invoice.summary_invoice_id} has been saved.`,
+        title: "Validation Complete",
+        description: `${exactMatches} exact, ${fuzzyMatches} fuzzy, ${mismatches} mismatches`,
+      });
+    } catch (error: any) {
+      console.error('Validation error:', error);
+      toast({
+        title: "Validation Failed",
+        description: error.message || "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!stagingId) {
+      toast({
+        title: "Error",
+        description: "No staging data found",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Fetch staging data
+      const { data: staging, error: stagingError } = await supabase
+        .from('dcli_invoice_staging')
+        .select('*')
+        .eq('id', stagingId)
+        .single();
+
+      if (stagingError) throw stagingError;
+
+      // Fetch staging line items
+      const { data: lineItems, error: lineError } = await supabase
+        .from('dcli_invoice_line_staging')
+        .select('*')
+        .eq('staging_invoice_id', stagingId);
+
+      if (lineError) throw lineError;
+
+      // Insert into raw table
+      for (const line of lineItems || []) {
+        await supabase
+          .from('dcli_invoice_raw')
+          .insert({
+            invoice_id: stagingId,
+            line_index: line.line_index,
+            chassis: line.chassis_out,
+            on_hire_container: line.container_out,
+            off_hire_container: line.container_in,
+            on_hire_date: line.date_out,
+            off_hire_date: line.date_in,
+            invoice_number: line.line_invoice_number,
+            summary_invoice_number: staging.summary_invoice_id,
+            billing_date: staging.billing_date,
+            due_date: staging.due_date,
+            billing_terms: staging.billing_terms,
+            grand_total: line.invoice_total,
+            raw: line.raw
+          });
+      }
+
+      // Update staging status
+      await supabase
+        .from('dcli_invoice_staging')
+        .update({
+          status: 'approved',
+          processed_at: new Date().toISOString()
+        })
+        .eq('id', stagingId);
+
+      toast({
+        title: "Success",
+        description: "Invoice approved and saved to raw table",
       });
 
-      navigate(`/vendors/dcli`);
+      navigate('/vendors/dcli');
     } catch (error: any) {
       console.error('Save error:', error);
       toast({
-        title: 'Save Failed',
-        description: error.message || 'Failed to save invoice.',
-        variant: 'destructive',
+        title: "Save Failed",
+        description: error.message || "Unknown error",
+        variant: "destructive",
       });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const readyToSave =
-    validationResult &&
-    validationResult.summary.mismatches === 0 &&
-    validationResult.errors.length === 0;
+  const readyToSave = validationResult && 
+    validationResult.summary.mismatches === 0;
 
   return (
-    <div className="space-y-6">
-      <Card className="p-6">
-        <h2 className="text-2xl font-bold mb-6">Validation Results</h2>
-
+    <Card>
+      <CardHeader>
+        <CardTitle>Validation Results</CardTitle>
+      </CardHeader>
+      <CardContent>
         {isValidating ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="ml-3 text-lg">Validating against TMS data...</span>
+            <Loader2 className="w-8 h-8 animate-spin mr-3" />
+            <span>Validating against TMS data...</span>
           </div>
         ) : validationResult ? (
-          <ValidationDrawer validationResult={validationResult} navigationState={navigationState} />
+          <>
+            <ValidationDrawer 
+              validationResult={validationResult}
+              navigationState={{
+                currentStep: 3,
+                extractedData,
+                uploadedFiles
+              }}
+            />
+            
+            <div className="flex justify-between mt-6">
+              <Button variant="outline" onClick={onBack}>
+                Back to Review
+              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={handleSave}
+                  disabled={isSaving}
+                >
+                  {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save to Staging
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={!readyToSave || isSaving}
+                >
+                  {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Approve & Save to Raw
+                </Button>
+              </div>
+            </div>
+          </>
         ) : null}
-      </Card>
-
-      {/* Actions */}
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onSaveDraft}>
-          <Save className="w-4 h-4 mr-2" />
-          Save Draft
-        </Button>
-        <Button onClick={onComplete}>
-          Continue to Submit
-        </Button>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 
