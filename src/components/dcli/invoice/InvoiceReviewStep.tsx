@@ -56,13 +56,6 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
 
   return (
     <div className="space-y-6">
-      <Alert>
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          DCLI staging tables are not yet configured. Data cannot be saved to staging table.
-        </AlertDescription>
-      </Alert>
-
       {/* Header Fields */}
       <Card className="p-6">
         <h2 className="text-2xl font-bold mb-6">Invoice Header</h2>
