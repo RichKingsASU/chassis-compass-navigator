@@ -131,10 +131,7 @@ const NewInvoice = () => {
           <div className="lg:col-span-3">
             {currentStep === 1 && (
               <InvoiceUploadStep
-                uploadedFiles={uploadedFiles}
-                setUploadedFiles={setUploadedFiles}
-                onComplete={handleStepComplete}
-                setExtractedData={setExtractedData}
+                onNext={handleStepComplete}
               />
             )}
             {currentStep === 2 && extractedData && (
