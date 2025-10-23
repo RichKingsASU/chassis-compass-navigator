@@ -101,8 +101,8 @@ const InvoiceValidateStep = ({
         console.warn('TMS query error:', tmsError);
       }
 
-      // Build validation results
-      const results: any[] = [];
+      // Build validation results with correct structure for ValidationDrawer
+      const rows: any[] = [];
       let exactMatches = 0;
       let fuzzyMatches = 0;
       let mismatches = 0;
@@ -113,35 +113,43 @@ const InvoiceValidateStep = ({
           t.chassis_number === lineItem.chassis_out
         );
 
+        let matchType: 'exact' | 'fuzzy' | 'mismatch' = 'mismatch';
+        let confidence = 0;
+
         if (tmsMatch) {
           const containerMatch = tmsMatch.container_number === lineItem.container_out;
-          const confidence = containerMatch ? 95 : 70;
+          confidence = containerMatch ? 95 : 70;
           
           if (confidence >= 80) {
             exactMatches++;
+            matchType = 'exact';
           } else {
             fuzzyMatches++;
+            matchType = 'fuzzy';
           }
-
-          results.push({
-            line_id: i,
-            match_type: confidence >= 80 ? 'exact' : 'fuzzy',
-            match_confidence: confidence,
-            tms_match: tmsMatch
-          });
         } else {
           mismatches++;
-          results.push({
-            line_id: i,
-            match_type: 'mismatch',
-            match_confidence: 0,
-            tms_match: null
-          });
         }
+
+        rows.push({
+          line_invoice_number: lineItem.line_invoice_number || `Line ${i + 1}`,
+          chassis: lineItem.chassis_out,
+          container: lineItem.container_out,
+          match_type: matchType,
+          match_confidence: confidence,
+          tms_match: tmsMatch ? {
+            ...tmsMatch,
+            confidence,
+            match_reasons: tmsMatch ? [
+              tmsMatch.chassis_number === lineItem.chassis_out ? 'Chassis match' : null,
+              tmsMatch.container_number === lineItem.container_out ? 'Container match' : null
+            ].filter(Boolean) : []
+          } : null
+        });
       }
 
       const summary = {
-        total_rows: results.length,
+        total_rows: rows.length,
         exact_matches: exactMatches,
         fuzzy_matches: fuzzyMatches,
         mismatches: mismatches
@@ -152,11 +160,11 @@ const InvoiceValidateStep = ({
         .from('dcli_invoice_staging')
         .update({
           validation_status: 'completed',
-          validation_results: { summary, results }
+          validation_results: { summary, rows }
         })
         .eq('id', stagingInvoice.id);
 
-      setValidationResult({ summary, results });
+      setValidationResult({ summary, rows, errors: [] });
 
       toast({
         title: "Validation Complete",
