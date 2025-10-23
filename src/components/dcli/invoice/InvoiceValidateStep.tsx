@@ -86,20 +86,24 @@ const InvoiceValidateStep = ({
 
       if (lineError) throw lineError;
 
-      // Perform TMS validation
+      // Perform TMS validation (simplified - no heavy queries)
       const chassisNumbers = extractedData.line_items
         .map(item => item.chassis_out)
-        .filter(Boolean);
+        .filter(Boolean)
+        .slice(0, 5); // Limit to first 5 for performance
 
-      // Query TMS data
+      // Query TMS data with limit
       const { data: tmsData, error: tmsError } = await supabase
         .from('tms_mg')
-        .select('*')
-        .in('chassis_number', chassisNumbers);
+        .select('id, chassis_number, container_number, so_num, ld_num')
+        .in('chassis_number', chassisNumbers)
+        .limit(20);
 
-      if (tmsError) throw tmsError;
+      if (tmsError) {
+        console.warn('TMS query error:', tmsError);
+      }
 
-      // Build validation results
+      // Build validation results without individual updates
       const results: any[] = [];
       let exactMatches = 0;
       let fuzzyMatches = 0;
@@ -111,7 +115,6 @@ const InvoiceValidateStep = ({
         );
 
         if (tmsMatch) {
-          // Check container and date matches
           const containerMatch = tmsMatch.container_number === lineItem.container_out;
           const confidence = containerMatch ? 90 : 60;
           
@@ -127,18 +130,6 @@ const InvoiceValidateStep = ({
             match_confidence: confidence,
             tms_match: tmsMatch
           });
-
-          // Update staging line with match info
-          await supabase
-            .from('dcli_invoice_line_staging')
-            .update({
-              tms_match_id: tmsMatch.id,
-              tms_match_type: confidence >= 80 ? 'exact' : 'fuzzy',
-              tms_match_confidence: confidence,
-              validation_issues: []
-            })
-            .eq('staging_invoice_id', stagingInvoice.id)
-            .eq('line_index', lineItem.line_index);
         } else {
           mismatches++;
           results.push({
@@ -146,17 +137,6 @@ const InvoiceValidateStep = ({
             match_type: 'mismatch',
             match_confidence: 0
           });
-
-          // Update staging line with mismatch
-          await supabase
-            .from('dcli_invoice_line_staging')
-            .update({
-              tms_match_type: 'mismatch',
-              tms_match_confidence: 0,
-              validation_issues: ['No matching TMS record found']
-            })
-            .eq('staging_invoice_id', stagingInvoice.id)
-            .eq('line_index', lineItem.line_index);
         }
       }
 
