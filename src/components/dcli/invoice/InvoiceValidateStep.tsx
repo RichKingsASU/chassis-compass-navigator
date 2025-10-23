@@ -94,7 +94,7 @@ const InvoiceValidateStep = ({
       // Query TMS data using the indexed chassis_number column
       const { data: tmsData, error: tmsError } = await supabase
         .from('tms_mg')
-        .select('id, chassis_number, container_number, so_num, ld_num')
+        .select('id, chassis_number, container_number, so_num, ld_num, customer_name, acct_mg_name, carrier_name')
         .in('chassis_number', chassisNumbers);
 
       if (tmsError) {

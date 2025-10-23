@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CheckCircle2, AlertTriangle, XCircle, Info, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import SOPGuide from './SOPGuide';
 
 interface TMSMatch {
   ld_num: string;
@@ -17,6 +18,7 @@ interface TMSMatch {
   delivery_actual_date: string;
   carrier_name: string;
   customer_name: string;
+  acct_mg_name?: string;
   confidence: number;
   match_reasons: string[];
 }
@@ -46,6 +48,24 @@ const ValidationDrawer: React.FC<ValidationDrawerProps> = ({ validationResult, n
   const exactMatches = validationResult.rows.filter((r) => r.match_type === 'exact');
   const fuzzyMatches = validationResult.rows.filter((r) => r.match_type === 'fuzzy');
   const mismatches = validationResult.rows.filter((r) => r.match_type === 'mismatch');
+
+  // Derive SOP bucket from validation results
+  const sopBucket: 'ok' | 'no_load' | 'date_outside' | 'rate_variance' | 'duplicates' | 'pool_mismatch' =
+    mismatches.length > 0 ? 'no_load' : 'ok';
+
+  // Extract context from navigationState or first row
+  const firstRow = validationResult.rows[0];
+  const extractedData = navigationState?.extractedData;
+  const sopContext = {
+    invoice: extractedData?.invoice?.summary_invoice_id || '',
+    lineNumber: firstRow?.line_invoice_number || '',
+    chassisId: firstRow?.chassis || '',
+    containerId: firstRow?.container || '',
+    ldNum: firstRow?.tms_match?.ld_num || '',
+    soNum: firstRow?.tms_match?.so_num || '',
+    customerName: firstRow?.tms_match?.customer_name || '',
+    acctManager: firstRow?.tms_match?.acct_mg_name || '',
+  };
 
   return (
     <div>
@@ -97,7 +117,7 @@ const ValidationDrawer: React.FC<ValidationDrawerProps> = ({ validationResult, n
 
       {/* Tabs */}
       <Tabs defaultValue="exact" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="exact">
             Exact Matches ({exactMatches.length})
           </TabsTrigger>
@@ -106,6 +126,9 @@ const ValidationDrawer: React.FC<ValidationDrawerProps> = ({ validationResult, n
           </TabsTrigger>
           <TabsTrigger value="mismatches">
             Mismatches ({mismatches.length})
+          </TabsTrigger>
+          <TabsTrigger value="sop">
+            SOP
           </TabsTrigger>
         </TabsList>
 
@@ -119,6 +142,10 @@ const ValidationDrawer: React.FC<ValidationDrawerProps> = ({ validationResult, n
 
         <TabsContent value="mismatches" className="mt-4">
           <MatchTable matches={mismatches} type="mismatch" navigationState={navigationState} />
+        </TabsContent>
+
+        <TabsContent value="sop" className="mt-4">
+          <SOPGuide bucket={sopBucket} context={sopContext} />
         </TabsContent>
       </Tabs>
     </div>
