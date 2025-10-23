@@ -151,6 +151,24 @@ export type Database = {
           },
         ]
       }
+      charge_codes: {
+        Row: {
+          code: string
+          description: string | null
+          vendor_id: string | null
+        }
+        Insert: {
+          code: string
+          description?: string | null
+          vendor_id?: string | null
+        }
+        Update: {
+          code?: string
+          description?: string | null
+          vendor_id?: string | null
+        }
+        Relationships: []
+      }
       chassis_master: {
         Row: {
           charge_code_mg: string | null
@@ -225,6 +243,116 @@ export type Database = {
           week_off_hired?: string | null
         }
         Relationships: []
+      }
+      customers: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      damage_codes: {
+        Row: {
+          code: string
+          description: string | null
+        }
+        Insert: {
+          code: string
+          description?: string | null
+        }
+        Update: {
+          code?: string
+          description?: string | null
+        }
+        Relationships: []
+      }
+      dcli_invoice_line_staging: {
+        Row: {
+          attachment_count: number | null
+          chassis_out: string | null
+          container_in: string | null
+          container_out: string | null
+          created_at: string | null
+          date_in: string | null
+          date_out: string | null
+          dispute_status: string | null
+          id: number
+          invoice_status: string | null
+          invoice_total: number | null
+          invoice_type: string | null
+          line_index: number | null
+          line_invoice_number: string | null
+          raw: Json | null
+          remaining_balance: number | null
+          staging_invoice_id: string | null
+          tms_match_confidence: number | null
+          tms_match_id: string | null
+          tms_match_type: string | null
+          validation_issues: Json | null
+        }
+        Insert: {
+          attachment_count?: number | null
+          chassis_out?: string | null
+          container_in?: string | null
+          container_out?: string | null
+          created_at?: string | null
+          date_in?: string | null
+          date_out?: string | null
+          dispute_status?: string | null
+          id?: number
+          invoice_status?: string | null
+          invoice_total?: number | null
+          invoice_type?: string | null
+          line_index?: number | null
+          line_invoice_number?: string | null
+          raw?: Json | null
+          remaining_balance?: number | null
+          staging_invoice_id?: string | null
+          tms_match_confidence?: number | null
+          tms_match_id?: string | null
+          tms_match_type?: string | null
+          validation_issues?: Json | null
+        }
+        Update: {
+          attachment_count?: number | null
+          chassis_out?: string | null
+          container_in?: string | null
+          container_out?: string | null
+          created_at?: string | null
+          date_in?: string | null
+          date_out?: string | null
+          dispute_status?: string | null
+          id?: number
+          invoice_status?: string | null
+          invoice_total?: number | null
+          invoice_type?: string | null
+          line_index?: number | null
+          line_invoice_number?: string | null
+          raw?: Json | null
+          remaining_balance?: number | null
+          staging_invoice_id?: string | null
+          tms_match_confidence?: number | null
+          tms_match_id?: string | null
+          tms_match_type?: string | null
+          validation_issues?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dcli_invoice_line_staging_staging_invoice_id_fkey"
+            columns: ["staging_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "dcli_invoice_staging"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dcli_invoice_raw: {
         Row: {
@@ -414,6 +542,105 @@ export type Database = {
           },
         ]
       }
+      dcli_invoice_staging: {
+        Row: {
+          account_code: string | null
+          amount_due: number | null
+          billing_date: string | null
+          billing_terms: string | null
+          created_at: string | null
+          created_by: string | null
+          currency_code: string | null
+          due_date: string | null
+          excel_path: string | null
+          id: string
+          pdf_path: string | null
+          pool: string | null
+          processed_at: string | null
+          source_hash: string | null
+          status: string | null
+          summary_invoice_id: string | null
+          validation_results: Json | null
+          validation_status: string | null
+          vendor: string | null
+        }
+        Insert: {
+          account_code?: string | null
+          amount_due?: number | null
+          billing_date?: string | null
+          billing_terms?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency_code?: string | null
+          due_date?: string | null
+          excel_path?: string | null
+          id?: string
+          pdf_path?: string | null
+          pool?: string | null
+          processed_at?: string | null
+          source_hash?: string | null
+          status?: string | null
+          summary_invoice_id?: string | null
+          validation_results?: Json | null
+          validation_status?: string | null
+          vendor?: string | null
+        }
+        Update: {
+          account_code?: string | null
+          amount_due?: number | null
+          billing_date?: string | null
+          billing_terms?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          currency_code?: string | null
+          due_date?: string | null
+          excel_path?: string | null
+          id?: string
+          pdf_path?: string | null
+          pool?: string | null
+          processed_at?: string | null
+          source_hash?: string | null
+          status?: string | null
+          summary_invoice_id?: string | null
+          validation_results?: Json | null
+          validation_status?: string | null
+          vendor?: string | null
+        }
+        Relationships: []
+      }
+      defect_codes: {
+        Row: {
+          code: string
+          description: string | null
+        }
+        Insert: {
+          code: string
+          description?: string | null
+        }
+        Update: {
+          code?: string
+          description?: string | null
+        }
+        Relationships: []
+      }
+      drivers: {
+        Row: {
+          ext_ref: string | null
+          full_name: string
+          id: string
+        }
+        Insert: {
+          ext_ref?: string | null
+          full_name: string
+          id?: string
+        }
+        Update: {
+          ext_ref?: string | null
+          full_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
       gps_anytrek_log: {
         Row: {
           address: string | null
@@ -465,6 +692,24 @@ export type Database = {
           "Speed(mp/h)"?: string | null
           "state/province"?: string | null
           Vehicle?: string | null
+        }
+        Relationships: []
+      }
+      gps_providers: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -862,6 +1107,42 @@ export type Database = {
         }
         Relationships: []
       }
+      locations: {
+        Row: {
+          address: string | null
+          city: string | null
+          created_at: string | null
+          fence: unknown
+          geom: unknown
+          id: string
+          kind: string | null
+          name: string
+          state: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          created_at?: string | null
+          fence?: unknown
+          geom?: unknown
+          id?: string
+          kind?: string | null
+          name: string
+          state?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          created_at?: string | null
+          fence?: unknown
+          geom?: unknown
+          id?: string
+          kind?: string | null
+          name?: string
+          state?: string | null
+        }
+        Relationships: []
+      }
       logistics_shipments: {
         Row: {
           carrier_rate_charge: number | null
@@ -888,6 +1169,111 @@ export type Database = {
           so_num?: string | null
         }
         Relationships: []
+      }
+      master_chassis: {
+        Row: {
+          chassis_number: string
+          created_at: string
+          gps_device_id: string | null
+          gps_provider_id: string | null
+          id: string
+          in_service_date: string | null
+          last_ping_at: string | null
+          last_ping_loc: unknown
+          lease_vendor_id: string | null
+          notes: string | null
+          out_of_service_date: string | null
+          owner_vendor_id: string | null
+          pool_vendor_id: string | null
+          prefix: string | null
+          serial_number: string | null
+          size_ft: number | null
+          status: string | null
+          tms_reference: string | null
+          updated_at: string
+          yard_id: string | null
+        }
+        Insert: {
+          chassis_number: string
+          created_at?: string
+          gps_device_id?: string | null
+          gps_provider_id?: string | null
+          id?: string
+          in_service_date?: string | null
+          last_ping_at?: string | null
+          last_ping_loc?: unknown
+          lease_vendor_id?: string | null
+          notes?: string | null
+          out_of_service_date?: string | null
+          owner_vendor_id?: string | null
+          pool_vendor_id?: string | null
+          prefix?: string | null
+          serial_number?: string | null
+          size_ft?: number | null
+          status?: string | null
+          tms_reference?: string | null
+          updated_at?: string
+          yard_id?: string | null
+        }
+        Update: {
+          chassis_number?: string
+          created_at?: string
+          gps_device_id?: string | null
+          gps_provider_id?: string | null
+          id?: string
+          in_service_date?: string | null
+          last_ping_at?: string | null
+          last_ping_loc?: unknown
+          lease_vendor_id?: string | null
+          notes?: string | null
+          out_of_service_date?: string | null
+          owner_vendor_id?: string | null
+          pool_vendor_id?: string | null
+          prefix?: string | null
+          serial_number?: string | null
+          size_ft?: number | null
+          status?: string | null
+          tms_reference?: string | null
+          updated_at?: string
+          yard_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_chassis_gps_provider_id_fkey"
+            columns: ["gps_provider_id"]
+            isOneToOne: false
+            referencedRelation: "gps_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_chassis_lease_vendor_id_fkey"
+            columns: ["lease_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_chassis_owner_vendor_id_fkey"
+            columns: ["owner_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_chassis_pool_vendor_id_fkey"
+            columns: ["pool_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "master_chassis_yard_id_fkey"
+            columns: ["yard_id"]
+            isOneToOne: false
+            referencedRelation: "yards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       revenue_report: {
         Row: {
@@ -1033,6 +1419,51 @@ export type Database = {
           imported_at?: string
           object_name?: string
           row_number?: number
+        }
+        Relationships: []
+      }
+      tms_chassis_usage: {
+        Row: {
+          actual_rc_date: string | null
+          actual_ship: string | null
+          charge_code: string | null
+          chassis_number: string
+          container_number: string | null
+          id: string
+          loaded_at: string
+          quantity: number | null
+          rc_use_days: number | null
+          ship_use_days: number | null
+          source_file: string | null
+          total_use_days: number | null
+        }
+        Insert: {
+          actual_rc_date?: string | null
+          actual_ship?: string | null
+          charge_code?: string | null
+          chassis_number: string
+          container_number?: string | null
+          id?: string
+          loaded_at?: string
+          quantity?: number | null
+          rc_use_days?: number | null
+          ship_use_days?: number | null
+          source_file?: string | null
+          total_use_days?: number | null
+        }
+        Update: {
+          actual_rc_date?: string | null
+          actual_ship?: string | null
+          charge_code?: string | null
+          chassis_number?: string
+          container_number?: string | null
+          id?: string
+          loaded_at?: string
+          quantity?: number | null
+          rc_use_days?: number | null
+          ship_use_days?: number | null
+          source_file?: string | null
+          total_use_days?: number | null
         }
         Relationships: []
       }
@@ -1453,6 +1884,33 @@ export type Database = {
         }
         Relationships: []
       }
+      yards: {
+        Row: {
+          city: string | null
+          code: string | null
+          geom: unknown
+          id: string
+          name: string
+          state: string | null
+        }
+        Insert: {
+          city?: string | null
+          code?: string | null
+          geom?: unknown
+          id?: string
+          name: string
+          state?: string | null
+        }
+        Update: {
+          city?: string | null
+          code?: string | null
+          geom?: unknown
+          id?: string
+          name?: string
+          state?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       geography_columns: {
@@ -1494,6 +1952,17 @@ export type Database = {
           f_table_schema?: unknown
           srid?: number | null
           type?: string | null
+        }
+        Relationships: []
+      }
+      mv_chassis_utilization_monthly: {
+        Row: {
+          calc_days_only_for_month: number | null
+          chassis_number: string | null
+          days_in_month: number | null
+          month_ym: string | null
+          total_use_days_for_month: number | null
+          util_pct_total_use_days: number | null
         }
         Relationships: []
       }
@@ -1626,7 +2095,12 @@ export type Database = {
             }
             Returns: string
           }
+      approve_dcli_invoice_staging: {
+        Args: { p_staging_id: string }
+        Returns: Json
+      }
       bytea_to_text: { Args: { data: string }; Returns: string }
+      days_inclusive: { Args: { a: string; b: string }; Returns: number }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -1918,6 +2392,10 @@ export type Database = {
         }[]
       }
       match_line_to_revenue: { Args: { _line_id: number }; Returns: undefined }
+      month_overlap_days: {
+        Args: { month_ym: string; rc: string; ship: string }
+        Returns: number
+      }
       populate_geometry_columns:
         | { Args: { use_typmod?: boolean }; Returns: string }
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
@@ -2580,9 +3058,43 @@ export type Database = {
               error: true
             } & "Could not choose the best candidate function between: public.urlencode(string => bytea), public.urlencode(string => varchar). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
           }
+      validate_dcli_invoice_staging: {
+        Args: { p_staging_id: string }
+        Returns: Json
+      }
     }
     Enums: {
-      [_ in never]: never
+      chassis_state:
+        | "in_use"
+        | "idle_parked"
+        | "shop"
+        | "transit_empty"
+        | "in_pool"
+        | "lost"
+        | "oos"
+      hold_reason:
+        | "legal"
+        | "billing"
+        | "safety"
+        | "maintenance"
+        | "inventory"
+        | "other"
+      inspection_type: "DVIR" | "Periodic" | "DOT" | "Other"
+      liability_party:
+        | "unknown"
+        | "carrier"
+        | "customer"
+        | "vendor"
+        | "3rd_party"
+        | "self"
+      pass_fail: "pass" | "fail"
+      severity: "low" | "medium" | "high" | "critical"
+      wo_status:
+        | "open"
+        | "in_progress"
+        | "waiting_parts"
+        | "complete"
+        | "cancelled"
     }
     CompositeTypes: {
       geometry_dump: {
@@ -2734,6 +3246,42 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      chassis_state: [
+        "in_use",
+        "idle_parked",
+        "shop",
+        "transit_empty",
+        "in_pool",
+        "lost",
+        "oos",
+      ],
+      hold_reason: [
+        "legal",
+        "billing",
+        "safety",
+        "maintenance",
+        "inventory",
+        "other",
+      ],
+      inspection_type: ["DVIR", "Periodic", "DOT", "Other"],
+      liability_party: [
+        "unknown",
+        "carrier",
+        "customer",
+        "vendor",
+        "3rd_party",
+        "self",
+      ],
+      pass_fail: ["pass", "fail"],
+      severity: ["low", "medium", "high", "critical"],
+      wo_status: [
+        "open",
+        "in_progress",
+        "waiting_parts",
+        "complete",
+        "cancelled",
+      ],
+    },
   },
 } as const
