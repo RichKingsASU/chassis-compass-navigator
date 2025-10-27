@@ -623,6 +623,150 @@ export type Database = {
         }
         Relationships: []
       }
+      dim_customer: {
+        Row: {
+          customer_id: number
+          customer_name: string
+        }
+        Insert: {
+          customer_id?: never
+          customer_name: string
+        }
+        Update: {
+          customer_id?: never
+          customer_name?: string
+        }
+        Relationships: []
+      }
+      dim_ep: {
+        Row: {
+          ep_id: number
+          ep_name: string
+        }
+        Insert: {
+          ep_id?: never
+          ep_name: string
+        }
+        Update: {
+          ep_id?: never
+          ep_name?: string
+        }
+        Relationships: []
+      }
+      dim_lane: {
+        Row: {
+          destination_location_id: number | null
+          lane_id: number
+          origin_location_id: number | null
+        }
+        Insert: {
+          destination_location_id?: number | null
+          lane_id?: never
+          origin_location_id?: number | null
+        }
+        Update: {
+          destination_location_id?: number | null
+          lane_id?: never
+          origin_location_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dim_lane_destination_location_id_fkey"
+            columns: ["destination_location_id"]
+            isOneToOne: false
+            referencedRelation: "dim_location"
+            referencedColumns: ["location_id"]
+          },
+          {
+            foreignKeyName: "dim_lane_origin_location_id_fkey"
+            columns: ["origin_location_id"]
+            isOneToOne: false
+            referencedRelation: "dim_location"
+            referencedColumns: ["location_id"]
+          },
+        ]
+      }
+      dim_location: {
+        Row: {
+          city: string | null
+          location_id: number
+          region: string | null
+          state: string | null
+        }
+        Insert: {
+          city?: string | null
+          location_id?: never
+          region?: string | null
+          state?: string | null
+        }
+        Update: {
+          city?: string | null
+          location_id?: never
+          region?: string | null
+          state?: string | null
+        }
+        Relationships: []
+      }
+      dim_pool: {
+        Row: {
+          pool_id: number
+          pool_name: string
+        }
+        Insert: {
+          pool_id?: never
+          pool_name: string
+        }
+        Update: {
+          pool_id?: never
+          pool_name?: string
+        }
+        Relationships: []
+      }
+      dim_size: {
+        Row: {
+          size_id: number
+          size_label: string
+        }
+        Insert: {
+          size_id?: never
+          size_label: string
+        }
+        Update: {
+          size_id?: never
+          size_label?: string
+        }
+        Relationships: []
+      }
+      dim_ssl: {
+        Row: {
+          ssl_id: number
+          ssl_name: string
+        }
+        Insert: {
+          ssl_id?: never
+          ssl_name: string
+        }
+        Update: {
+          ssl_id?: never
+          ssl_name?: string
+        }
+        Relationships: []
+      }
+      dim_vendor: {
+        Row: {
+          vendor_id: number
+          vendor_name: string
+        }
+        Insert: {
+          vendor_id?: never
+          vendor_name: string
+        }
+        Update: {
+          vendor_id?: never
+          vendor_name?: string
+        }
+        Relationships: []
+      }
       drivers: {
         Row: {
           ext_ref: string | null
@@ -640,6 +784,214 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      fact_chassis_rate: {
+        Row: {
+          charge_description: string | null
+          created_at: string | null
+          daily_rate: number | null
+          effective_date: string | null
+          end_date: string | null
+          equipment_code: string | null
+          gate_in_fee: number | null
+          gate_out_fee: number | null
+          lane_id: number | null
+          notes: string | null
+          other_fee: number | null
+          pool_id: number | null
+          rate_id: number
+          size_id: number | null
+          source_row: number | null
+          source_sheet: string
+          total_fee: number | null
+          vendor_id: number | null
+        }
+        Insert: {
+          charge_description?: string | null
+          created_at?: string | null
+          daily_rate?: number | null
+          effective_date?: string | null
+          end_date?: string | null
+          equipment_code?: string | null
+          gate_in_fee?: number | null
+          gate_out_fee?: number | null
+          lane_id?: number | null
+          notes?: string | null
+          other_fee?: number | null
+          pool_id?: number | null
+          rate_id?: never
+          size_id?: number | null
+          source_row?: number | null
+          source_sheet: string
+          total_fee?: number | null
+          vendor_id?: number | null
+        }
+        Update: {
+          charge_description?: string | null
+          created_at?: string | null
+          daily_rate?: number | null
+          effective_date?: string | null
+          end_date?: string | null
+          equipment_code?: string | null
+          gate_in_fee?: number | null
+          gate_out_fee?: number | null
+          lane_id?: number | null
+          notes?: string | null
+          other_fee?: number | null
+          pool_id?: number | null
+          rate_id?: never
+          size_id?: number | null
+          source_row?: number | null
+          source_sheet?: string
+          total_fee?: number | null
+          vendor_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fact_chassis_rate_lane_id_fkey"
+            columns: ["lane_id"]
+            isOneToOne: false
+            referencedRelation: "dim_lane"
+            referencedColumns: ["lane_id"]
+          },
+          {
+            foreignKeyName: "fact_chassis_rate_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "dim_pool"
+            referencedColumns: ["pool_id"]
+          },
+          {
+            foreignKeyName: "fact_chassis_rate_size_id_fkey"
+            columns: ["size_id"]
+            isOneToOne: false
+            referencedRelation: "dim_size"
+            referencedColumns: ["size_id"]
+          },
+          {
+            foreignKeyName: "fact_chassis_rate_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "dim_vendor"
+            referencedColumns: ["vendor_id"]
+          },
+        ]
+      }
+      fact_chassis_rate_terms: {
+        Row: {
+          agreement_ep: string | null
+          agreement_ssl: string | null
+          all_in_rate: boolean | null
+          all_in_rate_so: number | null
+          carrier_chz_rate_ld_per_day: number | null
+          created_at: string | null
+          customer_id: number | null
+          effective_date: string | null
+          ep_id: number | null
+          flat_chz_rate: boolean | null
+          flat_chz_rate_so: number | null
+          free_time_days: number | null
+          id: number
+          import_export: string | null
+          lane_id: number | null
+          line_haul_so: number | null
+          notes: string | null
+          pool_chz_accepted: boolean | null
+          pool_chz_rate_so_per_day: number | null
+          private_chz_accepted: boolean | null
+          private_chz_rate_so: number | null
+          round_trip: boolean | null
+          single_trip: boolean | null
+          source_row: number | null
+          ssl_id: number | null
+          triaxle_chz_rate_so: number | null
+        }
+        Insert: {
+          agreement_ep?: string | null
+          agreement_ssl?: string | null
+          all_in_rate?: boolean | null
+          all_in_rate_so?: number | null
+          carrier_chz_rate_ld_per_day?: number | null
+          created_at?: string | null
+          customer_id?: number | null
+          effective_date?: string | null
+          ep_id?: number | null
+          flat_chz_rate?: boolean | null
+          flat_chz_rate_so?: number | null
+          free_time_days?: number | null
+          id?: never
+          import_export?: string | null
+          lane_id?: number | null
+          line_haul_so?: number | null
+          notes?: string | null
+          pool_chz_accepted?: boolean | null
+          pool_chz_rate_so_per_day?: number | null
+          private_chz_accepted?: boolean | null
+          private_chz_rate_so?: number | null
+          round_trip?: boolean | null
+          single_trip?: boolean | null
+          source_row?: number | null
+          ssl_id?: number | null
+          triaxle_chz_rate_so?: number | null
+        }
+        Update: {
+          agreement_ep?: string | null
+          agreement_ssl?: string | null
+          all_in_rate?: boolean | null
+          all_in_rate_so?: number | null
+          carrier_chz_rate_ld_per_day?: number | null
+          created_at?: string | null
+          customer_id?: number | null
+          effective_date?: string | null
+          ep_id?: number | null
+          flat_chz_rate?: boolean | null
+          flat_chz_rate_so?: number | null
+          free_time_days?: number | null
+          id?: never
+          import_export?: string | null
+          lane_id?: number | null
+          line_haul_so?: number | null
+          notes?: string | null
+          pool_chz_accepted?: boolean | null
+          pool_chz_rate_so_per_day?: number | null
+          private_chz_accepted?: boolean | null
+          private_chz_rate_so?: number | null
+          round_trip?: boolean | null
+          single_trip?: boolean | null
+          source_row?: number | null
+          ssl_id?: number | null
+          triaxle_chz_rate_so?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fact_chassis_rate_terms_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "dim_customer"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "fact_chassis_rate_terms_ep_id_fkey"
+            columns: ["ep_id"]
+            isOneToOne: false
+            referencedRelation: "dim_ep"
+            referencedColumns: ["ep_id"]
+          },
+          {
+            foreignKeyName: "fact_chassis_rate_terms_lane_id_fkey"
+            columns: ["lane_id"]
+            isOneToOne: false
+            referencedRelation: "dim_lane"
+            referencedColumns: ["lane_id"]
+          },
+          {
+            foreignKeyName: "fact_chassis_rate_terms_ssl_id_fkey"
+            columns: ["ssl_id"]
+            isOneToOne: false
+            referencedRelation: "dim_ssl"
+            referencedColumns: ["ssl_id"]
+          },
+        ]
       }
       gps_anytrek_log: {
         Row: {
@@ -1419,6 +1771,147 @@ export type Database = {
           imported_at?: string
           object_name?: string
           row_number?: number
+        }
+        Relationships: []
+      }
+      stg_chassis_rate_logic: {
+        Row: {
+          agreement_w__ep: string | null
+          agreement_w__ssl: string | null
+          "all_in_rate_(so_$)": number | null
+          "all_in_rate_(y_n)": string | null
+          "carrier_chz_rate_(ld__$_day)": string | null
+          customer: string | null
+          delivery_city: string | null
+          delivery_state: string | null
+          effective_date: string | null
+          ep: string | null
+          "flat_chz_rate_(so_$)": number | null
+          "flat_chz_rate_(y_n)": string | null
+          "free_time_(days)": number | null
+          id: number
+          import_export: string | null
+          lane: string | null
+          "line_haul_(so_$)": number | null
+          notes: string | null
+          outgate_pick_up_city: string | null
+          outgate_pick_up_state: string | null
+          "pool_chz_accepted_(y_n)": string | null
+          "pool_chz_rate_(so_$_day)": string | null
+          "private_chz_accepted_(y_n)": string | null
+          "private_chz_rate_(so_$)": number | null
+          "r_t_(y_n)": string | null
+          "s_t_(y_n)": string | null
+          ssl: string | null
+          "triaxle_chz_rate_(so_$)": number | null
+        }
+        Insert: {
+          agreement_w__ep?: string | null
+          agreement_w__ssl?: string | null
+          "all_in_rate_(so_$)"?: number | null
+          "all_in_rate_(y_n)"?: string | null
+          "carrier_chz_rate_(ld__$_day)"?: string | null
+          customer?: string | null
+          delivery_city?: string | null
+          delivery_state?: string | null
+          effective_date?: string | null
+          ep?: string | null
+          "flat_chz_rate_(so_$)"?: number | null
+          "flat_chz_rate_(y_n)"?: string | null
+          "free_time_(days)"?: number | null
+          id?: never
+          import_export?: string | null
+          lane?: string | null
+          "line_haul_(so_$)"?: number | null
+          notes?: string | null
+          outgate_pick_up_city?: string | null
+          outgate_pick_up_state?: string | null
+          "pool_chz_accepted_(y_n)"?: string | null
+          "pool_chz_rate_(so_$_day)"?: string | null
+          "private_chz_accepted_(y_n)"?: string | null
+          "private_chz_rate_(so_$)"?: number | null
+          "r_t_(y_n)"?: string | null
+          "s_t_(y_n)"?: string | null
+          ssl?: string | null
+          "triaxle_chz_rate_(so_$)"?: number | null
+        }
+        Update: {
+          agreement_w__ep?: string | null
+          agreement_w__ssl?: string | null
+          "all_in_rate_(so_$)"?: number | null
+          "all_in_rate_(y_n)"?: string | null
+          "carrier_chz_rate_(ld__$_day)"?: string | null
+          customer?: string | null
+          delivery_city?: string | null
+          delivery_state?: string | null
+          effective_date?: string | null
+          ep?: string | null
+          "flat_chz_rate_(so_$)"?: number | null
+          "flat_chz_rate_(y_n)"?: string | null
+          "free_time_(days)"?: number | null
+          id?: never
+          import_export?: string | null
+          lane?: string | null
+          "line_haul_(so_$)"?: number | null
+          notes?: string | null
+          outgate_pick_up_city?: string | null
+          outgate_pick_up_state?: string | null
+          "pool_chz_accepted_(y_n)"?: string | null
+          "pool_chz_rate_(so_$_day)"?: string | null
+          "private_chz_accepted_(y_n)"?: string | null
+          "private_chz_rate_(so_$)"?: number | null
+          "r_t_(y_n)"?: string | null
+          "s_t_(y_n)"?: string | null
+          ssl?: string | null
+          "triaxle_chz_rate_(so_$)"?: number | null
+        }
+        Relationships: []
+      }
+      stg_patrick_chassis_rate_list: {
+        Row: {
+          id: number
+          provided_by_patrick_march_of_2025: string | null
+          "unnamed:_1": string | null
+          "unnamed:_2": string | null
+          "unnamed:_3": string | null
+        }
+        Insert: {
+          id?: never
+          provided_by_patrick_march_of_2025?: string | null
+          "unnamed:_1"?: string | null
+          "unnamed:_2"?: string | null
+          "unnamed:_3"?: string | null
+        }
+        Update: {
+          id?: never
+          provided_by_patrick_march_of_2025?: string | null
+          "unnamed:_1"?: string | null
+          "unnamed:_2"?: string | null
+          "unnamed:_3"?: string | null
+        }
+        Relationships: []
+      }
+      stg_sheet2: {
+        Row: {
+          id: number
+          "unnamed:_0": string | null
+          "unnamed:_1": string | null
+          "unnamed:_2": string | null
+          "unnamed:_3": string | null
+        }
+        Insert: {
+          id?: never
+          "unnamed:_0"?: string | null
+          "unnamed:_1"?: string | null
+          "unnamed:_2"?: string | null
+          "unnamed:_3"?: string | null
+        }
+        Update: {
+          id?: never
+          "unnamed:_0"?: string | null
+          "unnamed:_1"?: string | null
+          "unnamed:_2"?: string | null
+          "unnamed:_3"?: string | null
         }
         Relationships: []
       }
@@ -2377,6 +2870,7 @@ export type Database = {
         Args: { curlopt: string; value: string }
         Returns: boolean
       }
+      load_fact_chassis_rate_terms: { Args: never; Returns: undefined }
       longtransactionsenabled: { Args: never; Returns: boolean }
       match_invoice_lines: {
         Args: {
@@ -3044,6 +3538,7 @@ export type Database = {
         }
         Returns: string
       }
+      upsert_vendor: { Args: { vendor: string }; Returns: number }
       urlencode:
         | { Args: { data: Json }; Returns: string }
         | {
