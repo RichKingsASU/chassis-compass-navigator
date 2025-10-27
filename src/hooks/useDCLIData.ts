@@ -40,10 +40,12 @@ export const useDCLIData = () => {
     try {
       setLoading(true);
       
-      // Fetch from dcli_invoice_staging (the actual table that exists)
+      // Fetch only validated/saved invoices from dcli_invoice_staging
       const { data, error } = await supabase
         .from('dcli_invoice_staging')
         .select('*')
+        .neq('status', 'pending_validation') // Exclude pending validation
+        .not('validation_status', 'is', null) // Must have validation status
         .order('created_at', { ascending: false });
 
       if (error) {
