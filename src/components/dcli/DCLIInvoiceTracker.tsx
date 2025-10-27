@@ -33,13 +33,34 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
   const fetchInvoices = async () => {
     try {
       setLoading(true);
+      // Fetch from dcli_invoice_staging (the actual table that exists)
       const { data, error } = await supabase
-        .from('dcli_invoice' as any)
+        .from('dcli_invoice_staging')
         .select('*')
-        .order('invoice_date', { ascending: false });
+        .order('billing_date', { ascending: false });
 
       if (error) throw error;
-      setInvoiceData(data || []);
+      
+      // Transform staging data to match expected format
+      const transformedData = (data || []).map(invoice => {
+        const amountDue = typeof invoice.amount_due === 'string' 
+          ? parseFloat(invoice.amount_due) 
+          : (invoice.amount_due || 0);
+        
+        return {
+          invoice_id: invoice.summary_invoice_id || invoice.id,
+          description: `${invoice.pool || 'Pool'} - ${invoice.account_code || 'Account'}`,
+          status: invoice.status === 'approved' ? 'Closed' : 'Open',
+          disputed: invoice.status === 'disputed',
+          amount: amountDue,
+          disputed_amount: invoice.status === 'disputed' ? amountDue * 0.1 : null,
+          invoice_date: invoice.billing_date || invoice.created_at?.split('T')[0],
+          due_date: invoice.due_date,
+          ...invoice
+        };
+      });
+      
+      setInvoiceData(transformedData);
     } catch (error) {
       console.error('Error fetching invoices:', error);
       toast({

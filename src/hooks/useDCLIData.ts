@@ -40,10 +40,11 @@ export const useDCLIData = () => {
     try {
       setLoading(true);
       
+      // Fetch from dcli_invoice_staging (the actual table that exists)
       const { data, error } = await supabase
-        .from('dcli_activity' as any)
+        .from('dcli_invoice_staging')
         .select('*')
-        .order('created_date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) {
         throw error;
@@ -51,8 +52,8 @@ export const useDCLIData = () => {
 
       if (data) {
         setActivityData(data);
-        // Transform activity data into invoice-like records
-        const transformedInvoiceData = transformActivityToInvoices(data);
+        // Transform staging data into invoice-like records
+        const transformedInvoiceData = transformStagingToInvoices(data);
         setInvoiceData(transformedInvoiceData);
         calculateDashboardMetrics(transformedInvoiceData);
       }
@@ -68,63 +69,46 @@ export const useDCLIData = () => {
     }
   };
 
-  // Transform dcli_activity data into invoice-like records
-  const transformActivityToInvoices = (activityData: any[]) => {
-    // Group activities by chassis and date ranges to create invoice-like records
-    const invoiceMap = new Map();
-    
-    activityData.forEach((activity, index) => {
-      // Create a unique invoice ID based on chassis and time period
-      const invoiceId = `INV-${activity.chassis || 'UNKNOWN'}-${activity.region || 'US'}-${index + 1000}`;
-      const chassisNumber = activity.chassis || `CH${Math.random().toString().substr(2, 6)}`;
+  // Transform dcli_invoice_staging data into invoice-like records
+  const transformStagingToInvoices = (stagingData: any[]) => {
+    return stagingData.map((staging) => {
+      const invoiceId = staging.summary_invoice_id || staging.id;
+      const amount = parseFloat(staging.amount_due) || 0;
       
-      // Calculate invoice amounts based on days and daily rates
-      const daysOut = activity.days_out || Math.floor(Math.random() * 30) + 1;
-      const dailyRate = 35 + Math.floor(Math.random() * 15); // $35-50 per day
-      const amount = daysOut * dailyRate;
-      
-      // Determine status based on activity data
+      // Determine status based on validation_status
       let status = 'Open';
-      if (activity.reservation_status === 'COMPLETE' || activity.date_in) {
-        status = Math.random() > 0.3 ? 'Closed' : 'Open';
+      if (staging.status === 'approved') {
+        status = 'Closed';
+      } else if (staging.status === 'disputed') {
+        status = 'Open';
       }
-      
-      // Create invoice date from activity data
-      const invoiceDate = activity.date_out || activity.created_date || new Date().toISOString();
-      const dueDate = new Date(invoiceDate);
-      dueDate.setDate(dueDate.getDate() + 30); // 30 days payment terms
       
       const invoiceRecord = {
         invoice_id: invoiceId,
-        description: `${activity.product || 'Chassis Usage'} - ${chassisNumber}`,
+        description: `${staging.pool || 'Pool'} - ${staging.account_code || 'Account'}`,
         status: status,
-        disputed: Math.random() > 0.9, // 10% chance of dispute
+        disputed: staging.status === 'disputed',
         amount: amount,
-        disputed_amount: Math.random() > 0.9 ? amount * 0.1 : null,
-        invoice_date: invoiceDate.split('T')[0], // Extract date part
-        due_date: dueDate.toISOString().split('T')[0],
-        // Additional fields from activity
-        chassis_number: chassisNumber,
-        container: activity.container,
-        region: activity.region,
-        market: activity.market,
-        days_out: daysOut,
-        daily_rate: dailyRate,
-        pick_up_location: activity.pick_up_location,
-        location_in: activity.location_in,
-        carrier_name: activity.motor_carrier_name,
-        carrier_scac: activity.motor_carrier_scac,
-        steamship_line: activity.steamship_line_name,
-        booking: activity.booking,
-        reservation_status: activity.reservation_status,
-        pool_contract: activity.pool_contract,
-        asset_type: activity.asset_type
+        disputed_amount: staging.status === 'disputed' ? amount * 0.1 : null,
+        invoice_date: staging.billing_date || staging.created_at?.split('T')[0],
+        due_date: staging.due_date,
+        // Additional fields from staging
+        summary_invoice_id: staging.summary_invoice_id,
+        pool: staging.pool,
+        account_code: staging.account_code,
+        billing_date: staging.billing_date,
+        validation_status: staging.validation_status,
+        vendor: staging.vendor,
+        currency_code: staging.currency_code,
+        billing_terms: staging.billing_terms,
+        pdf_path: staging.pdf_path,
+        excel_path: staging.excel_path,
+        created_at: staging.created_at,
+        processed_at: staging.processed_at
       };
       
-      invoiceMap.set(invoiceId, invoiceRecord);
+      return invoiceRecord;
     });
-    
-    return Array.from(invoiceMap.values());
   };
 
   const calculateDashboardMetrics = (data: any[]) => {
