@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, MapPin, Truck, Hammer, DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Lock, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, TrendingUp, DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, subDays } from 'date-fns';
@@ -16,6 +16,7 @@ import FinancialsTab from '@/components/chassis/FinancialsTab';
 import { ChassisMapView } from '@/components/chassis/ChassisMapView';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import TMSDetailView from '@/components/tms/TMSDetailView';
+import UtilizationTab from '@/components/chassis/UtilizationTab';
 
 interface Asset {
   id: string;
@@ -468,9 +469,9 @@ const ChassisDetail = () => {
               <Truck className="h-4 w-4" />
               TMS
             </TabsTrigger>
-            <TabsTrigger value="repairs" className="gap-2">
-              <Hammer className="h-4 w-4" />
-              Repairs
+            <TabsTrigger value="utilization" className="gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Utilization
             </TabsTrigger>
             <TabsTrigger value="financials" className="gap-2">
               <DollarSign className="h-4 w-4" />
@@ -835,43 +836,9 @@ const ChassisDetail = () => {
             )}
           </TabsContent>
 
-          {/* Repairs Tab */}
-          <TabsContent value="repairs">
-            <Card>
-              <CardHeader>
-                <CardTitle>Repair History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {repairs.length === 0 ? (
-                    <div className="text-center text-muted-foreground py-8">
-                      No repair records found
-                    </div>
-                  ) : (
-                    repairs.map((repair) => (
-                      <Card key={repair.id}>
-                        <CardContent className="pt-6">
-                          <div className="flex items-start justify-between">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-lg">
-                                  ${repair.cost_usd.toFixed(2)}
-                                </span>
-                                {getRepairStatusBadge(repair.repair_status)}
-                              </div>
-                              <div className="text-sm">{repair.description}</div>
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {format(new Date(repair.timestamp_utc), 'PPp')}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+          {/* Utilization Tab */}
+          <TabsContent value="utilization">
+            <UtilizationTab chassisId={asset.identifier} tmsData={tmsData} />
           </TabsContent>
 
           {/* Financials Tab */}
