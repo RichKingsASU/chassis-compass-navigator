@@ -1,4 +1,4 @@
-import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
+import { GoogleMap, Marker, Polyline, LoadScript } from '@react-google-maps/api';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -129,25 +129,10 @@ export const ChassisMapView = ({ locationHistory, currentChassisId }: ChassisMap
     };
   }, []);
 
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: apiKeyData?.apiKey || '',
-  });
-
   if (isLoadingKey) {
     return (
       <div className="h-[400px] flex items-center justify-center bg-muted rounded-lg">
         <p className="text-muted-foreground">Loading Google Maps...</p>
-      </div>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <div className="h-[400px] flex items-center justify-center bg-destructive/10 rounded-lg border border-destructive/20">
-        <p className="text-destructive text-sm px-4">
-          Google Maps error: {loadError.message}
-        </p>
       </div>
     );
   }
@@ -175,14 +160,6 @@ export const ChassisMapView = ({ locationHistory, currentChassisId }: ChassisMap
     lng: coord.lng
   }));
 
-  if (!isLoaded) {
-    return (
-      <div className="h-[400px] flex items-center justify-center bg-muted rounded-lg">
-        <p className="text-muted-foreground">Loading map...</p>
-      </div>
-    );
-  }
-
   const mapCenter = coordinates.length > 0
     ? coordinates[coordinates.length - 1]
     : fleetAssets.length > 0
@@ -190,25 +167,26 @@ export const ChassisMapView = ({ locationHistory, currentChassisId }: ChassisMap
     : { lat: 33.7701, lng: -118.1937 };
 
   return (
-    <div className="relative">
-      {/* Update GPS Button */}
-      <div className="absolute top-2 left-2 z-10">
-        <Button
-          onClick={updateGps}
-          disabled={isUpdating}
-          size="sm"
-          variant="secondary"
-          className="shadow-lg"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isUpdating ? 'animate-spin' : ''}`} />
-          Update GPS
-        </Button>
-      </div>
+    <LoadScript googleMapsApiKey={apiKeyData.apiKey}>
+      <div className="relative">
+        {/* Update GPS Button */}
+        <div className="absolute top-2 left-2 z-10">
+          <Button
+            onClick={updateGps}
+            disabled={isUpdating}
+            size="sm"
+            variant="secondary"
+            className="shadow-lg"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isUpdating ? 'animate-spin' : ''}`} />
+            Update GPS
+          </Button>
+        </div>
 
-      <GoogleMap
-        mapContainerStyle={mapContainerStyle}
-        center={mapCenter}
-        zoom={10}
+        <GoogleMap
+          mapContainerStyle={mapContainerStyle}
+          center={mapCenter}
+          zoom={10}
       options={{
         styles: [
           // Industry-optimized map style for logistics
@@ -349,7 +327,8 @@ export const ChassisMapView = ({ locationHistory, currentChassisId }: ChassisMap
           />
         );
       })}
-    </GoogleMap>
-    </div>
+      </GoogleMap>
+      </div>
+    </LoadScript>
   );
 };
