@@ -15,6 +15,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import FinancialsTab from '@/components/chassis/FinancialsTab';
 import { ChassisMapView } from '@/components/chassis/ChassisMapView';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import TMSDetailView from '@/components/tms/TMSDetailView';
 
 interface Asset {
   id: string;
@@ -94,6 +95,7 @@ const ChassisDetail = () => {
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [selectedMarker, setSelectedMarker] = useState<number | null>(null);
   const [expandedCharges, setExpandedCharges] = useState<Set<string>>(new Set());
+  const [selectedTMSRecord, setSelectedTMSRecord] = useState<TMSData | null>(null);
 
   // Helper functions for charge parsing and formatting
   const parseCharge = (value: string | number | null | undefined): number => {
@@ -539,6 +541,13 @@ const ChassisDetail = () => {
 
           {/* TMS Tab */}
           <TabsContent value="tms" className="space-y-4">
+            {selectedTMSRecord ? (
+              <TMSDetailView 
+                record={selectedTMSRecord} 
+                onBack={() => setSelectedTMSRecord(null)} 
+              />
+            ) : (
+              <>
             {/* Summary KPIs */}
             {tmsData.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -607,7 +616,11 @@ const ChassisDetail = () => {
                       const isExpanded = expandedCharges.has(tms.id);
 
                       return (
-                        <Card key={tms.id} className="border-l-4 border-l-primary">
+                        <Card 
+                          key={tms.id} 
+                          className="border-l-4 border-l-primary cursor-pointer hover:shadow-md transition-shadow"
+                          onClick={() => setSelectedTMSRecord(tms)}
+                        >
                           <CardContent className="pt-4">
                             <div className="space-y-3">
                               {/* Header with LD/SO and Status */}
@@ -818,6 +831,8 @@ const ChassisDetail = () => {
                 </div>
               </CardContent>
             </Card>
+            </>
+            )}
           </TabsContent>
 
           {/* Repairs Tab */}
