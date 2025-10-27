@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, DollarSign, TrendingUp, Clock } from 'lucide-react';
-import { format, differenceInDays, parseISO } from 'date-fns';
+import { format, differenceInDays, parseISO, isValid } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
+import { excelDateToJSDate, isExcelSerialDate } from '@/utils/dateUtils';
 
 interface TMSData {
   id: string;
@@ -43,6 +44,34 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
     }).format(num);
   };
 
+  // Helper function to safely parse dates
+  const safeParseDate = (dateValue: any): Date | null => {
+    if (!dateValue) return null;
+    
+    // Handle Excel serial dates
+    if (isExcelSerialDate(dateValue)) {
+      const dateStr = excelDateToJSDate(dateValue);
+      if (dateStr) {
+        const date = parseISO(dateStr);
+        return isValid(date) ? date : null;
+      }
+      return null;
+    }
+    
+    // Handle regular date strings
+    if (typeof dateValue === 'string') {
+      const date = parseISO(dateValue);
+      return isValid(date) ? date : null;
+    }
+    
+    // Handle Date objects
+    if (dateValue instanceof Date) {
+      return isValid(dateValue) ? dateValue : null;
+    }
+    
+    return null;
+  };
+
   // Calculate utilization metrics
   const utilizationMetrics = React.useMemo(() => {
     if (tmsData.length === 0) {
@@ -68,13 +97,11 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
     let totalDays = 0;
     tmsData.forEach(tms => {
       if (tms.pickup_actual_date && tms.delivery_actual_date) {
-        try {
-          const pickup = parseISO(tms.pickup_actual_date);
-          const delivery = parseISO(tms.delivery_actual_date);
+        const pickup = safeParseDate(tms.pickup_actual_date);
+        const delivery = safeParseDate(tms.delivery_actual_date);
+        if (pickup && delivery) {
           const days = differenceInDays(delivery, pickup);
           totalDays += Math.max(days, 0);
-        } catch (e) {
-          // Skip invalid dates
         }
       }
     });
@@ -85,8 +112,8 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
     const monthlyData: { [key: string]: { loads: number; revenue: number; cost: number; days: number } } = {};
     tmsData.forEach(tms => {
       if (tms.created_date) {
-        try {
-          const date = parseISO(tms.created_date);
+        const date = safeParseDate(tms.created_date);
+        if (date) {
           const monthKey = format(date, 'MMM yyyy');
           if (!monthlyData[monthKey]) {
             monthlyData[monthKey] = { loads: 0, revenue: 0, cost: 0, days: 0 };
@@ -96,12 +123,12 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
           monthlyData[monthKey].cost += parseCharge(tms.carrier_invoice_charge);
           
           if (tms.pickup_actual_date && tms.delivery_actual_date) {
-            const pickup = parseISO(tms.pickup_actual_date);
-            const delivery = parseISO(tms.delivery_actual_date);
-            monthlyData[monthKey].days += Math.max(differenceInDays(delivery, pickup), 0);
+            const pickup = safeParseDate(tms.pickup_actual_date);
+            const delivery = safeParseDate(tms.delivery_actual_date);
+            if (pickup && delivery) {
+              monthlyData[monthKey].days += Math.max(differenceInDays(delivery, pickup), 0);
+            }
           }
-        } catch (e) {
-          // Skip invalid dates
         }
       }
     });
@@ -114,11 +141,12 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
       margin: monthlyData[month].revenue - monthlyData[month].cost,
       days: monthlyData[month].days
     })).sort((a, b) => {
-      try {
-        return parseISO(`01 ${a.month}`).getTime() - parseISO(`01 ${b.month}`).getTime();
-      } catch {
-        return 0;
+      const dateA = safeParseDate(`01 ${a.month}`);
+      const dateB = safeParseDate(`01 ${b.month}`);
+      if (dateA && dateB) {
+        return dateA.getTime() - dateB.getTime();
       }
+      return 0;
     });
 
     // Get recent loads with calculations
@@ -128,12 +156,10 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
       const margin = revenue - cost;
       let days = 0;
       if (tms.pickup_actual_date && tms.delivery_actual_date) {
-        try {
-          const pickup = parseISO(tms.pickup_actual_date);
-          const delivery = parseISO(tms.delivery_actual_date);
+        const pickup = safeParseDate(tms.pickup_actual_date);
+        const delivery = safeParseDate(tms.delivery_actual_date);
+        if (pickup && delivery) {
           days = Math.max(differenceInDays(delivery, pickup), 0);
-        } catch (e) {
-          // Skip
         }
       }
       return { ...tms, revenue, cost, margin, days };
@@ -310,10 +336,12 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
                     </TableCell>
                   </TableRow>
                 ) : (
-                  utilizationMetrics.recentLoads.map((load) => (
+                  utilizationMetrics.recentLoads.map((load) => {
+                    const createdDate = safeParseDate(load.created_date);
+                    return (
                     <TableRow key={load.id}>
                       <TableCell>
-                        {load.created_date ? format(parseISO(load.created_date), 'PP') : 'N/A'}
+                        {createdDate ? format(createdDate, 'PP') : 'N/A'}
                       </TableCell>
                       <TableCell className="font-medium">{load.ld_num || 'N/A'}</TableCell>
                       <TableCell className="text-xs">{load.container_number || 'N/A'}</TableCell>
@@ -334,7 +362,8 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
                         </Badge>
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
