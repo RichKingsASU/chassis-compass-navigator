@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useQuery } from '@tanstack/react-query';
 
 interface LocationHistory {
   id: number;
@@ -37,7 +38,17 @@ export const ChassisMapView = ({ locationHistory, currentChassisId }: ChassisMap
   const [fleetAssets, setFleetAssets] = useState<FleetAsset[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "";
+
+  // Fetch API key from Supabase edge function
+  const { data: apiKeyData, isLoading: isLoadingKey } = useQuery({
+    queryKey: ['google-maps-key'],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('get-maps-key');
+      if (error) throw error;
+      return data as { apiKey: string };
+    },
+    staleTime: 1000 * 60 * 60, // Cache for 1 hour
+  });
 
   // Load all fleet assets for the map
   const loadFleetMarkers = async () => {
@@ -120,8 +131,16 @@ export const ChassisMapView = ({ locationHistory, currentChassisId }: ChassisMap
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: apiKey
+    googleMapsApiKey: apiKeyData?.apiKey || '',
   });
+
+  if (isLoadingKey) {
+    return (
+      <div className="h-[400px] flex items-center justify-center bg-muted rounded-lg">
+        <p className="text-muted-foreground">Loading Google Maps...</p>
+      </div>
+    );
+  }
 
   if (loadError) {
     return (
@@ -133,11 +152,11 @@ export const ChassisMapView = ({ locationHistory, currentChassisId }: ChassisMap
     );
   }
 
-  if (!apiKey) {
+  if (!apiKeyData?.apiKey) {
     return (
       <div className="h-[400px] flex items-center justify-center bg-destructive/10 rounded-lg border border-destructive/20">
         <p className="text-destructive text-sm px-4">
-          Missing VITE_GOOGLE_MAPS_API_KEY
+          Google Maps API key not configured in Supabase secrets
         </p>
       </div>
     );
