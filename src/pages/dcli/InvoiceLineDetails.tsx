@@ -2,9 +2,10 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Flag } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import ValidationDrawer from '@/components/dcli/invoice/ValidationDrawer';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
 const InvoiceLineDetails = () => {
@@ -97,6 +98,68 @@ const InvoiceLineDetails = () => {
     );
   }
 
+  const lineItem = validationData?.rows[0];
+
+  // Mock audit data - replace with real data fetching later
+  const auditData = {
+    validationChecks: {
+      daysUsed: { status: "pass", details: "TMS Used Days (30) matches Invoice Gross Days (30)." },
+      billedDay: { status: "pass", details: "Calculated Billed Days (25) matches TMS Rated-Quantity (25)." },
+      carrierPaid: { status: "fail", details: "Carrier Paid Amount ($150) does not match Rate (5) * Qty (28) = $140." },
+      duplicateCharge: { status: "pass", details: "No exact match found on previous invoices." },
+      usageCoverage: { status: "warn", details: "2 days are not covered by LD/SO records." },
+      customerContract: { status: "inactive", details: "This check is not activated." },
+    },
+    infoSections: {
+      dispute: { "Dispute #": "D-456", "Status": "Pending", "Reason": "Overcharged", "Amount": "$10.00" },
+      credit: { "Credit Provided by EP ($ Amount)": "$0.00" },
+      absorption: { "Category": "None" },
+      amPaidCarrier: { "Amount": "$150.00", "Rate": "$5.00", "Quantity": "28", "Reason": "Original quote" },
+      amBilledCarrier: { "Vendor Credit/Invoice #": "VC-789", "Amount": "$0.00" },
+    },
+  };
+
+  const ValidationCheck = ({ title, status, details }: { title: string; status: string; details: string }) => {
+    const getIcon = () => {
+      switch (status) {
+        case "pass":
+          return <CheckCircle className="h-5 w-5 text-green-500" />;
+        case "fail":
+          return <XCircle className="h-5 w-5 text-red-500" />;
+        case "warn":
+          return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
+        case "inactive":
+          return <Flag className="h-5 w-5 text-gray-400" />;
+        default:
+          return <HelpCircle className="h-5 w-5 text-gray-400" />;
+      }
+    };
+    return (
+      <div className="flex items-center space-x-3 mb-3">
+        <div>{getIcon()}</div>
+        <div className="flex-1">
+          <p className="font-medium">{title}</p>
+          <p className="text-sm text-muted-foreground">{details}</p>
+        </div>
+      </div>
+    );
+  };
+
+  const InfoTab = ({ data }: { data: any }) => {
+    return (
+      <div className="p-4 border rounded-md bg-muted/50">
+        <ul className="space-y-2">
+          {Object.entries(data).map(([key, value]) => (
+            <li key={key} className="flex justify-between">
+              <span className="text-muted-foreground">{key}:</span>
+              <span className="font-medium">{String(value)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-4">
@@ -104,26 +167,101 @@ const InvoiceLineDetails = () => {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <h1 className="text-3xl font-bold">Invoice Line Validation</h1>
+        <h1 className="text-3xl font-bold">Line Item Troubleshooting</h1>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Line Item #{lineId}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {validationData ? (
-            <ValidationDrawer 
-              validationResult={validationData} 
-              navigationState={location.state}
-            />
-          ) : (
+      {!validationData || !lineItem ? (
+        <Card>
+          <CardContent className="pt-6">
             <div className="text-center py-12 text-muted-foreground">
               No validation data found for this line item. Please validate the invoice first.
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column: Validation Checks */}
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <CardTitle>Validation Checks</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ValidationCheck title="Days Used Check" {...auditData.validationChecks.daysUsed} />
+              <ValidationCheck title="Billed Day Check" {...auditData.validationChecks.billedDay} />
+              <ValidationCheck title="Carrier Paid Check" {...auditData.validationChecks.carrierPaid} />
+              <ValidationCheck title="Duplicate Charge Check" {...auditData.validationChecks.duplicateCharge} />
+              <ValidationCheck title="Usage Coverage Check" {...auditData.validationChecks.usageCoverage} />
+              <ValidationCheck title="Customer Contract Check" {...auditData.validationChecks.customerContract} />
+            </CardContent>
+          </Card>
+
+          {/* Right Column: Line Item Info & Informational Tabs */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Line Item Details */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Line Item #{lineId}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <span className="text-sm text-muted-foreground">Chassis:</span>
+                    <p className="font-medium">{lineItem.chassis || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Container:</span>
+                    <p className="font-medium">{lineItem.container || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Match Type:</span>
+                    <Badge variant={lineItem.match_type === 'exact' ? 'default' : lineItem.match_type === 'fuzzy' ? 'secondary' : 'destructive'}>
+                      {lineItem.match_type}
+                    </Badge>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Confidence:</span>
+                    <p className="font-medium">{lineItem.match_confidence}%</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Informational Fields Tabs */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Informational Fields</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Tabs defaultValue="dispute">
+                  <TabsList className="grid w-full grid-cols-5">
+                    <TabsTrigger value="dispute">Dispute</TabsTrigger>
+                    <TabsTrigger value="credit">Credit</TabsTrigger>
+                    <TabsTrigger value="absorption">Absorption</TabsTrigger>
+                    <TabsTrigger value="paidCarrier">Paid Carrier</TabsTrigger>
+                    <TabsTrigger value="billedCarrier">Billed Carrier</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="dispute">
+                    <InfoTab data={auditData.infoSections.dispute} />
+                  </TabsContent>
+                  <TabsContent value="credit">
+                    <InfoTab data={auditData.infoSections.credit} />
+                  </TabsContent>
+                  <TabsContent value="absorption">
+                    <InfoTab data={auditData.infoSections.absorption} />
+                  </TabsContent>
+                  <TabsContent value="paidCarrier">
+                    <InfoTab data={auditData.infoSections.amPaidCarrier} />
+                  </TabsContent>
+                  <TabsContent value="billedCarrier">
+                    <InfoTab data={auditData.infoSections.amBilledCarrier} />
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
