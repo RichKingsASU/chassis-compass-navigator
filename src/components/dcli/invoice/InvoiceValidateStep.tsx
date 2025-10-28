@@ -86,20 +86,40 @@ const InvoiceValidateStep = ({
 
       if (lineError) throw lineError;
 
-      // Perform TMS validation with indexed queries
-      const chassisNumbers = extractedData.line_items
-        .map(item => item.chassis_out)
-        .filter(Boolean);
-
-      // Query TMS data using the indexed chassis_number column
+      // Fetch ALL TMS data for flexible matching
       const { data: tmsData, error: tmsError } = await supabase
         .from('tms_mg')
-        .select('id, chassis_number, container_number, so_num, ld_num, customer_name, acct_mg_name, carrier_name')
-        .in('chassis_number', chassisNumbers);
+        .select('id, chassis_number, container_number, so_num, ld_num, customer_name, acct_mg_name, carrier_name');
 
       if (tmsError) {
         console.warn('TMS query error:', tmsError);
       }
+
+      // Helper function for flexible chassis matching
+      const normalizeChassisNumber = (chassis: string | null | undefined): string => {
+        if (!chassis) return '';
+        return chassis.toUpperCase().trim().replace(/^0+/, '').replace(/\s+/g, '');
+      };
+
+      // Helper function to calculate string similarity (0-100)
+      const calculateSimilarity = (str1: string, str2: string): number => {
+        const s1 = normalizeChassisNumber(str1);
+        const s2 = normalizeChassisNumber(str2);
+        
+        if (s1 === s2) return 100;
+        
+        // Check if one is substring of other
+        if (s1.includes(s2) || s2.includes(s1)) {
+          const longer = Math.max(s1.length, s2.length);
+          const shorter = Math.min(s1.length, s2.length);
+          return Math.round((shorter / longer) * 85);
+        }
+        
+        // Simple character overlap similarity
+        const commonChars = s1.split('').filter(c => s2.includes(c)).length;
+        const maxLength = Math.max(s1.length, s2.length);
+        return Math.round((commonChars / maxLength) * 70);
+      };
 
       // Build validation results with correct structure for ValidationDrawer
       const rows: any[] = [];
@@ -109,23 +129,48 @@ const InvoiceValidateStep = ({
 
       for (let i = 0; i < extractedData.line_items.length; i++) {
         const lineItem = extractedData.line_items[i];
-        const tmsMatch = tmsData?.find(t => 
-          t.chassis_number === lineItem.chassis_out
-        );
+        
+        // Find best matching TMS record
+        let bestMatch: any = null;
+        let bestScore = 0;
+        let matchReasons: string[] = [];
+
+        if (tmsData && tmsData.length > 0) {
+          for (const tms of tmsData) {
+            const chassisSimilarity = calculateSimilarity(lineItem.chassis_out, tms.chassis_number);
+            const containerSimilarity = lineItem.container_out && tms.container_number 
+              ? calculateSimilarity(lineItem.container_out, tms.container_number)
+              : 0;
+            
+            // Combined score: 70% chassis, 30% container
+            const score = (chassisSimilarity * 0.7) + (containerSimilarity * 0.3);
+            
+            if (score > bestScore && chassisSimilarity >= 60) {
+              bestScore = score;
+              bestMatch = tms;
+              matchReasons = [
+                chassisSimilarity >= 95 ? 'Exact chassis match' : 
+                chassisSimilarity >= 80 ? 'Strong chassis match' : 'Partial chassis match',
+                containerSimilarity >= 95 ? 'Exact container match' :
+                containerSimilarity >= 80 ? 'Strong container match' :
+                containerSimilarity > 0 ? 'Partial container match' : null
+              ].filter(Boolean) as string[];
+            }
+          }
+        }
 
         let matchType: 'exact' | 'fuzzy' | 'mismatch' = 'mismatch';
-        let confidence = 0;
+        let confidence = Math.round(bestScore);
 
-        if (tmsMatch) {
-          const containerMatch = tmsMatch.container_number === lineItem.container_out;
-          confidence = containerMatch ? 95 : 70;
-          
-          if (confidence >= 80) {
+        if (bestMatch) {
+          if (confidence >= 85) {
             exactMatches++;
             matchType = 'exact';
-          } else {
+          } else if (confidence >= 60) {
             fuzzyMatches++;
             matchType = 'fuzzy';
+          } else {
+            mismatches++;
           }
         } else {
           mismatches++;
@@ -137,13 +182,10 @@ const InvoiceValidateStep = ({
           container: lineItem.container_out,
           match_type: matchType,
           match_confidence: confidence,
-          tms_match: tmsMatch ? {
-            ...tmsMatch,
+          tms_match: bestMatch ? {
+            ...bestMatch,
             confidence,
-            match_reasons: tmsMatch ? [
-              tmsMatch.chassis_number === lineItem.chassis_out ? 'Chassis match' : null,
-              tmsMatch.container_number === lineItem.container_out ? 'Container match' : null
-            ].filter(Boolean) : []
+            match_reasons: matchReasons
           } : null
         });
       }
