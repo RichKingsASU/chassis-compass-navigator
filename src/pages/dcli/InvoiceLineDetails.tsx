@@ -2,7 +2,8 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Flag } from 'lucide-react';
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Flag, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,9 @@ const InvoiceLineDetails = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [validationData, setValidationData] = useState<any>(null);
+  const [comment, setComment] = useState('');
+  const [comments, setComments] = useState<any[]>([]);
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   useEffect(() => {
     const fetchValidationData = async () => {
@@ -79,6 +83,40 @@ const InvoiceLineDetails = () => {
 
     fetchValidationData();
   }, [lineId, toast]);
+
+  const handleSubmitComment = async () => {
+    if (!comment.trim() || !lineId) return;
+
+    setSubmittingComment(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const newComment = {
+        line_invoice_number: lineId,
+        comment: comment.trim(),
+        created_by: user?.email || 'Anonymous',
+        created_at: new Date().toISOString(),
+      };
+
+      // Add to local state immediately for better UX
+      setComments([newComment, ...comments]);
+      setComment('');
+
+      toast({
+        title: "Comment Added",
+        description: "Your comment has been saved successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error adding comment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add comment",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   const navigateBack = () => {
     // Pass back the navigation state to preserve invoice data
@@ -257,6 +295,59 @@ const InvoiceLineDetails = () => {
                     <InfoTab data={auditData.infoSections.amBilledCarrier} />
                   </TabsContent>
                 </Tabs>
+              </CardContent>
+            </Card>
+
+            {/* Comments Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Comments & Notes</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Textarea
+                    placeholder="Add a comment or note about this line item..."
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    rows={3}
+                    className="resize-none"
+                  />
+                  <div className="flex justify-end">
+                    <Button 
+                      onClick={handleSubmitComment}
+                      disabled={!comment.trim() || submittingComment}
+                      size="sm"
+                    >
+                      {submittingComment ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Send className="h-4 w-4 mr-2" />
+                      )}
+                      Post Comment
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Comments List */}
+                <div className="space-y-3 mt-6">
+                  {comments.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground text-sm">
+                      No comments yet. Be the first to add a note!
+                    </div>
+                  ) : (
+                    comments.map((c, idx) => (
+                      <div key={idx} className="border-l-2 border-primary pl-4 py-2">
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="text-sm font-medium">{c.created_by}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(c.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{c.comment}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
