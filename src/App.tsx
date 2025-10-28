@@ -40,7 +40,7 @@ import TRACInvoiceLineDispute from "./pages/trac/InvoiceLineDispute";
 import WCCP from "./pages/vendors/WCCP";
 import SCSPA from "./pages/vendors/SCSPA";
 import VendorValidation from "./pages/VendorValidation";
-import InvoiceValidation from "./pages/dcli/InvoiceValidation";
+import NewInvoice from "./pages/dcli/NewInvoice";
 import InvoiceReview from "./pages/dcli/InvoiceReview";
 import DCLIInvoiceDetail from "./pages/dcli/InvoiceDetail";
 import DCLIInvoiceLineDetails from "./pages/dcli/InvoiceLineDetails";
@@ -173,7 +173,7 @@ function App() {
               } />
               <Route path="/vendors/dcli/invoices/new" element={
                 <DashboardLayout>
-                  <InvoiceValidation />
+                  <NewInvoice />
                 </DashboardLayout>
               } />
               <Route path="/vendors/dcli/invoices/:invoiceId/review" element={
