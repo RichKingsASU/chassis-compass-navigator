@@ -244,6 +244,33 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_contract: {
+        Row: {
+          chassis_allowed: boolean | null
+          customer_name: string | null
+          effective_from: string | null
+          effective_to: string | null
+          id: number
+          ssl: string | null
+        }
+        Insert: {
+          chassis_allowed?: boolean | null
+          customer_name?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: number
+          ssl?: string | null
+        }
+        Update: {
+          chassis_allowed?: boolean | null
+          customer_name?: string | null
+          effective_from?: string | null
+          effective_to?: string | null
+          id?: number
+          ssl?: string | null
+        }
+        Relationships: []
+      }
       customers: {
         Row: {
           id: string
@@ -605,6 +632,30 @@ export type Database = {
           validation_results?: Json | null
           validation_status?: string | null
           vendor?: string | null
+        }
+        Relationships: []
+      }
+      dcli_line_comments: {
+        Row: {
+          comment: string
+          created_at: string
+          created_by: string
+          id: string
+          line_invoice_number: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string
+          created_by: string
+          id?: string
+          line_invoice_number: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          line_invoice_number?: string
         }
         Relationships: []
       }
@@ -1146,6 +1197,36 @@ export type Database = {
           etag?: string | null
           object_name?: string
           processed_at?: string
+        }
+        Relationships: []
+      }
+      invoice_line_audit: {
+        Row: {
+          action: string | null
+          created_at: string | null
+          created_by: string | null
+          delta_amount: number | null
+          id: number
+          invoice_line_id: number
+          reason: string | null
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          delta_amount?: number | null
+          id?: number
+          invoice_line_id: number
+          reason?: string | null
+        }
+        Update: {
+          action?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          delta_amount?: number | null
+          id?: number
+          invoice_line_id?: number
+          reason?: string | null
         }
         Relationships: []
       }
@@ -1915,6 +1996,27 @@ export type Database = {
         }
         Relationships: []
       }
+      tms_backfill_cfg: {
+        Row: {
+          chassis_col: string | null
+          container_col: string | null
+          start_cols: string[] | null
+          table_name: string
+        }
+        Insert: {
+          chassis_col?: string | null
+          container_col?: string | null
+          start_cols?: string[] | null
+          table_name: string
+        }
+        Update: {
+          chassis_col?: string | null
+          container_col?: string | null
+          start_cols?: string[] | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       tms_chassis_usage: {
         Row: {
           actual_rc_date: string | null
@@ -1960,7 +2062,7 @@ export type Database = {
         }
         Relationships: []
       }
-      tms_mg: {
+      tms_mg_curr: {
         Row: {
           acct_mg_name: string | null
           actual_rc_date: string | null
@@ -2049,6 +2151,7 @@ export type Database = {
           mbl_format: string | null
           mcnumber: string | null
           miles: string | null
+          movement_start_date: string | null
           origin_code_region: string | null
           pickup_actual_date: string | null
           pickup_addr_1: string | null
@@ -2180,6 +2283,7 @@ export type Database = {
           mbl_format?: string | null
           mcnumber?: string | null
           miles?: string | null
+          movement_start_date?: string | null
           origin_code_region?: string | null
           pickup_actual_date?: string | null
           pickup_addr_1?: string | null
@@ -2311,6 +2415,406 @@ export type Database = {
           mbl_format?: string | null
           mcnumber?: string | null
           miles?: string | null
+          movement_start_date?: string | null
+          origin_code_region?: string | null
+          pickup_actual_date?: string | null
+          pickup_addr_1?: string | null
+          pickup_addr_2?: string | null
+          pickup_appmt_end?: string | null
+          pickup_appmt_start?: string | null
+          pickup_city?: string | null
+          pickup_loc_code?: string | null
+          pickup_loc_name?: string | null
+          pickup_region?: string | null
+          pickup_state?: string | null
+          pickup_zipcode?: string | null
+          pod_added_date?: string | null
+          pod_received?: string | null
+          pod_status?: string | null
+          quantity?: string | null
+          quantity_type?: string | null
+          return_empty_container_update_date?: string | null
+          returned_empty_container_create_date?: string | null
+          sales_person?: string | null
+          service?: string | null
+          service_codes?: string | null
+          servicemode?: string | null
+          shipment_number?: string | null
+          shipment_reference_number?: string | null
+          shipmentid?: string | null
+          so_num?: string | null
+          so_num_format?: string | null
+          source_file_key?: string | null
+          status?: string | null
+          steamshipline?: string | null
+          syncentrydatetime?: string | null
+          tendered_date?: string | null
+          transport_type?: string | null
+          unbilledflag?: string | null
+          updated_by?: string | null
+          updated_date?: string | null
+          ups_shipment_number?: string | null
+          vessel_eta?: string | null
+          vessel_name?: string | null
+          weight?: string | null
+          zero_rev?: string | null
+        }
+        Relationships: []
+      }
+      tms_mg_hist: {
+        Row: {
+          acct_mg_name: string | null
+          actual_rc_date: string | null
+          available_at_port_date: string | null
+          carrier_invoice_charge: string | null
+          carrier_invoice_date: string | null
+          carrier_invoice_num: string | null
+          carrier_name: string | null
+          carrier_rate_charge: string | null
+          carrier_scac_code: string | null
+          carrier_total_accessorials_rate: string | null
+          carrier_total_invoice_detention: string | null
+          carrier_total_invoice_fuel: string | null
+          carrier_total_invoice_linehaul: string | null
+          carrier_total_invoice_other: string | null
+          carrier_total_rate_detention: string | null
+          carrier_total_rate_fuel: string | null
+          carrier_total_rate_linehaul: string | null
+          carrier_total_rate_other: string | null
+          chassis_description: string | null
+          chassis_number: string | null
+          chassis_number_format: string | null
+          chassis_type: string | null
+          container_at_port: string | null
+          container_number: string | null
+          container_number_format: string | null
+          container_type: string | null
+          created_by: string | null
+          created_date: string | null
+          cust_invoice_charge: string | null
+          cust_invoice_date: string | null
+          cust_invoice_num: string | null
+          cust_rate_charge: string | null
+          cust_total_invoice_detention: string | null
+          cust_total_invoice_fuel: string | null
+          cust_total_invoice_linehaul: string | null
+          cust_total_invoice_other: string | null
+          cust_total_rate_detention: string | null
+          cust_total_rate_fuel: string | null
+          cust_total_rate_linehaul: string | null
+          customer_account_number: string | null
+          customer_invoice_requested_date: string | null
+          customer_name: string | null
+          customer_reference_number: string | null
+          customer_total_accessorials_rate: string | null
+          customer_total_invoice_accessorials: string | null
+          cycle_create_tendered: string | null
+          cycle_delivery_custinvreq: string | null
+          cycle_delivery_pod: string | null
+          cycle_delivery_rc: string | null
+          cycle_pickup_delivery: string | null
+          cycle_tendered_pickup: string | null
+          delivery_actual_date: string | null
+          delivery_addr_1: string | null
+          delivery_addr_2: string | null
+          delivery_appmt_end: string | null
+          delivery_appmt_start: string | null
+          delivery_city: string | null
+          delivery_create_date: string | null
+          delivery_loc_code: string | null
+          delivery_loc_name: string | null
+          delivery_region: string | null
+          delivery_state: string | null
+          delivery_zipcode: string | null
+          departed_rail_date: string | null
+          direct_nvo: string | null
+          domestic_move: string | null
+          dotnumber: string | null
+          dropandpull: string | null
+          empty_pickup_date: string | null
+          entreprise_num: string | null
+          future_actual_delivery: string | null
+          future_custinvreqdate: string | null
+          future_pod_date: string | null
+          future_rc_date: string | null
+          id: string | null
+          isemptyatyard: string | null
+          isemptycontainerpickup: string | null
+          item_description: string | null
+          last_free_date: string | null
+          ld_num: string | null
+          ld_num_format: string | null
+          load_complexity: string | null
+          masterbolkey: string | null
+          mbl: string | null
+          mbl_format: string | null
+          mcnumber: string | null
+          miles: string | null
+          movement_start_date: string | null
+          origin_code_region: string | null
+          pickup_actual_date: string | null
+          pickup_addr_1: string | null
+          pickup_addr_2: string | null
+          pickup_appmt_end: string | null
+          pickup_appmt_start: string | null
+          pickup_city: string | null
+          pickup_loc_code: string | null
+          pickup_loc_name: string | null
+          pickup_region: string | null
+          pickup_state: string | null
+          pickup_zipcode: string | null
+          pod_added_date: string | null
+          pod_received: string | null
+          pod_status: string | null
+          quantity: string | null
+          quantity_type: string | null
+          return_empty_container_update_date: string | null
+          returned_empty_container_create_date: string | null
+          sales_person: string | null
+          service: string | null
+          service_codes: string | null
+          servicemode: string | null
+          shipment_number: string | null
+          shipment_reference_number: string | null
+          shipmentid: string | null
+          so_num: string | null
+          so_num_format: string | null
+          source_file_key: string | null
+          status: string | null
+          steamshipline: string | null
+          syncentrydatetime: string | null
+          tendered_date: string | null
+          transport_type: string | null
+          unbilledflag: string | null
+          updated_by: string | null
+          updated_date: string | null
+          ups_shipment_number: string | null
+          vessel_eta: string | null
+          vessel_name: string | null
+          weight: string | null
+          zero_rev: string | null
+        }
+        Insert: {
+          acct_mg_name?: string | null
+          actual_rc_date?: string | null
+          available_at_port_date?: string | null
+          carrier_invoice_charge?: string | null
+          carrier_invoice_date?: string | null
+          carrier_invoice_num?: string | null
+          carrier_name?: string | null
+          carrier_rate_charge?: string | null
+          carrier_scac_code?: string | null
+          carrier_total_accessorials_rate?: string | null
+          carrier_total_invoice_detention?: string | null
+          carrier_total_invoice_fuel?: string | null
+          carrier_total_invoice_linehaul?: string | null
+          carrier_total_invoice_other?: string | null
+          carrier_total_rate_detention?: string | null
+          carrier_total_rate_fuel?: string | null
+          carrier_total_rate_linehaul?: string | null
+          carrier_total_rate_other?: string | null
+          chassis_description?: string | null
+          chassis_number?: string | null
+          chassis_number_format?: string | null
+          chassis_type?: string | null
+          container_at_port?: string | null
+          container_number?: string | null
+          container_number_format?: string | null
+          container_type?: string | null
+          created_by?: string | null
+          created_date?: string | null
+          cust_invoice_charge?: string | null
+          cust_invoice_date?: string | null
+          cust_invoice_num?: string | null
+          cust_rate_charge?: string | null
+          cust_total_invoice_detention?: string | null
+          cust_total_invoice_fuel?: string | null
+          cust_total_invoice_linehaul?: string | null
+          cust_total_invoice_other?: string | null
+          cust_total_rate_detention?: string | null
+          cust_total_rate_fuel?: string | null
+          cust_total_rate_linehaul?: string | null
+          customer_account_number?: string | null
+          customer_invoice_requested_date?: string | null
+          customer_name?: string | null
+          customer_reference_number?: string | null
+          customer_total_accessorials_rate?: string | null
+          customer_total_invoice_accessorials?: string | null
+          cycle_create_tendered?: string | null
+          cycle_delivery_custinvreq?: string | null
+          cycle_delivery_pod?: string | null
+          cycle_delivery_rc?: string | null
+          cycle_pickup_delivery?: string | null
+          cycle_tendered_pickup?: string | null
+          delivery_actual_date?: string | null
+          delivery_addr_1?: string | null
+          delivery_addr_2?: string | null
+          delivery_appmt_end?: string | null
+          delivery_appmt_start?: string | null
+          delivery_city?: string | null
+          delivery_create_date?: string | null
+          delivery_loc_code?: string | null
+          delivery_loc_name?: string | null
+          delivery_region?: string | null
+          delivery_state?: string | null
+          delivery_zipcode?: string | null
+          departed_rail_date?: string | null
+          direct_nvo?: string | null
+          domestic_move?: string | null
+          dotnumber?: string | null
+          dropandpull?: string | null
+          empty_pickup_date?: string | null
+          entreprise_num?: string | null
+          future_actual_delivery?: string | null
+          future_custinvreqdate?: string | null
+          future_pod_date?: string | null
+          future_rc_date?: string | null
+          id?: string | null
+          isemptyatyard?: string | null
+          isemptycontainerpickup?: string | null
+          item_description?: string | null
+          last_free_date?: string | null
+          ld_num?: string | null
+          ld_num_format?: string | null
+          load_complexity?: string | null
+          masterbolkey?: string | null
+          mbl?: string | null
+          mbl_format?: string | null
+          mcnumber?: string | null
+          miles?: string | null
+          movement_start_date?: string | null
+          origin_code_region?: string | null
+          pickup_actual_date?: string | null
+          pickup_addr_1?: string | null
+          pickup_addr_2?: string | null
+          pickup_appmt_end?: string | null
+          pickup_appmt_start?: string | null
+          pickup_city?: string | null
+          pickup_loc_code?: string | null
+          pickup_loc_name?: string | null
+          pickup_region?: string | null
+          pickup_state?: string | null
+          pickup_zipcode?: string | null
+          pod_added_date?: string | null
+          pod_received?: string | null
+          pod_status?: string | null
+          quantity?: string | null
+          quantity_type?: string | null
+          return_empty_container_update_date?: string | null
+          returned_empty_container_create_date?: string | null
+          sales_person?: string | null
+          service?: string | null
+          service_codes?: string | null
+          servicemode?: string | null
+          shipment_number?: string | null
+          shipment_reference_number?: string | null
+          shipmentid?: string | null
+          so_num?: string | null
+          so_num_format?: string | null
+          source_file_key?: string | null
+          status?: string | null
+          steamshipline?: string | null
+          syncentrydatetime?: string | null
+          tendered_date?: string | null
+          transport_type?: string | null
+          unbilledflag?: string | null
+          updated_by?: string | null
+          updated_date?: string | null
+          ups_shipment_number?: string | null
+          vessel_eta?: string | null
+          vessel_name?: string | null
+          weight?: string | null
+          zero_rev?: string | null
+        }
+        Update: {
+          acct_mg_name?: string | null
+          actual_rc_date?: string | null
+          available_at_port_date?: string | null
+          carrier_invoice_charge?: string | null
+          carrier_invoice_date?: string | null
+          carrier_invoice_num?: string | null
+          carrier_name?: string | null
+          carrier_rate_charge?: string | null
+          carrier_scac_code?: string | null
+          carrier_total_accessorials_rate?: string | null
+          carrier_total_invoice_detention?: string | null
+          carrier_total_invoice_fuel?: string | null
+          carrier_total_invoice_linehaul?: string | null
+          carrier_total_invoice_other?: string | null
+          carrier_total_rate_detention?: string | null
+          carrier_total_rate_fuel?: string | null
+          carrier_total_rate_linehaul?: string | null
+          carrier_total_rate_other?: string | null
+          chassis_description?: string | null
+          chassis_number?: string | null
+          chassis_number_format?: string | null
+          chassis_type?: string | null
+          container_at_port?: string | null
+          container_number?: string | null
+          container_number_format?: string | null
+          container_type?: string | null
+          created_by?: string | null
+          created_date?: string | null
+          cust_invoice_charge?: string | null
+          cust_invoice_date?: string | null
+          cust_invoice_num?: string | null
+          cust_rate_charge?: string | null
+          cust_total_invoice_detention?: string | null
+          cust_total_invoice_fuel?: string | null
+          cust_total_invoice_linehaul?: string | null
+          cust_total_invoice_other?: string | null
+          cust_total_rate_detention?: string | null
+          cust_total_rate_fuel?: string | null
+          cust_total_rate_linehaul?: string | null
+          customer_account_number?: string | null
+          customer_invoice_requested_date?: string | null
+          customer_name?: string | null
+          customer_reference_number?: string | null
+          customer_total_accessorials_rate?: string | null
+          customer_total_invoice_accessorials?: string | null
+          cycle_create_tendered?: string | null
+          cycle_delivery_custinvreq?: string | null
+          cycle_delivery_pod?: string | null
+          cycle_delivery_rc?: string | null
+          cycle_pickup_delivery?: string | null
+          cycle_tendered_pickup?: string | null
+          delivery_actual_date?: string | null
+          delivery_addr_1?: string | null
+          delivery_addr_2?: string | null
+          delivery_appmt_end?: string | null
+          delivery_appmt_start?: string | null
+          delivery_city?: string | null
+          delivery_create_date?: string | null
+          delivery_loc_code?: string | null
+          delivery_loc_name?: string | null
+          delivery_region?: string | null
+          delivery_state?: string | null
+          delivery_zipcode?: string | null
+          departed_rail_date?: string | null
+          direct_nvo?: string | null
+          domestic_move?: string | null
+          dotnumber?: string | null
+          dropandpull?: string | null
+          empty_pickup_date?: string | null
+          entreprise_num?: string | null
+          future_actual_delivery?: string | null
+          future_custinvreqdate?: string | null
+          future_pod_date?: string | null
+          future_rc_date?: string | null
+          id?: string | null
+          isemptyatyard?: string | null
+          isemptycontainerpickup?: string | null
+          item_description?: string | null
+          last_free_date?: string | null
+          ld_num?: string | null
+          ld_num_format?: string | null
+          load_complexity?: string | null
+          masterbolkey?: string | null
+          mbl?: string | null
+          mbl_format?: string | null
+          mcnumber?: string | null
+          miles?: string | null
+          movement_start_date?: string | null
           origin_code_region?: string | null
           pickup_actual_date?: string | null
           pickup_addr_1?: string | null
@@ -2459,6 +2963,251 @@ export type Database = {
         }
         Relationships: []
       }
+      tms_mg: {
+        Row: {
+          acct_mg_name: string | null
+          actual_rc_date: string | null
+          available_at_port_date: string | null
+          carrier_invoice_charge: string | null
+          carrier_invoice_date: string | null
+          carrier_invoice_num: string | null
+          carrier_name: string | null
+          carrier_rate_charge: string | null
+          carrier_scac_code: string | null
+          carrier_total_accessorials_rate: string | null
+          carrier_total_invoice_detention: string | null
+          carrier_total_invoice_fuel: string | null
+          carrier_total_invoice_linehaul: string | null
+          carrier_total_invoice_other: string | null
+          carrier_total_rate_detention: string | null
+          carrier_total_rate_fuel: string | null
+          carrier_total_rate_linehaul: string | null
+          carrier_total_rate_other: string | null
+          chassis_description: string | null
+          chassis_number: string | null
+          chassis_number_format: string | null
+          chassis_type: string | null
+          container_at_port: string | null
+          container_number: string | null
+          container_number_format: string | null
+          container_type: string | null
+          created_by: string | null
+          created_date: string | null
+          cust_invoice_charge: string | null
+          cust_invoice_date: string | null
+          cust_invoice_num: string | null
+          cust_rate_charge: string | null
+          cust_total_invoice_detention: string | null
+          cust_total_invoice_fuel: string | null
+          cust_total_invoice_linehaul: string | null
+          cust_total_invoice_other: string | null
+          cust_total_rate_detention: string | null
+          cust_total_rate_fuel: string | null
+          cust_total_rate_linehaul: string | null
+          customer_account_number: string | null
+          customer_invoice_requested_date: string | null
+          customer_name: string | null
+          customer_reference_number: string | null
+          customer_total_accessorials_rate: string | null
+          customer_total_invoice_accessorials: string | null
+          cycle_create_tendered: string | null
+          cycle_delivery_custinvreq: string | null
+          cycle_delivery_pod: string | null
+          cycle_delivery_rc: string | null
+          cycle_pickup_delivery: string | null
+          cycle_tendered_pickup: string | null
+          delivery_actual_date: string | null
+          delivery_addr_1: string | null
+          delivery_addr_2: string | null
+          delivery_appmt_end: string | null
+          delivery_appmt_start: string | null
+          delivery_city: string | null
+          delivery_create_date: string | null
+          delivery_loc_code: string | null
+          delivery_loc_name: string | null
+          delivery_region: string | null
+          delivery_state: string | null
+          delivery_zipcode: string | null
+          departed_rail_date: string | null
+          direct_nvo: string | null
+          domestic_move: string | null
+          dotnumber: string | null
+          dropandpull: string | null
+          empty_pickup_date: string | null
+          entreprise_num: string | null
+          future_actual_delivery: string | null
+          future_custinvreqdate: string | null
+          future_pod_date: string | null
+          future_rc_date: string | null
+          id: string | null
+          isemptyatyard: string | null
+          isemptycontainerpickup: string | null
+          item_description: string | null
+          last_free_date: string | null
+          ld_num: string | null
+          ld_num_format: string | null
+          load_complexity: string | null
+          masterbolkey: string | null
+          mbl: string | null
+          mbl_format: string | null
+          mcnumber: string | null
+          miles: string | null
+          movement_start_date: string | null
+          origin_code_region: string | null
+          pickup_actual_date: string | null
+          pickup_addr_1: string | null
+          pickup_addr_2: string | null
+          pickup_appmt_end: string | null
+          pickup_appmt_start: string | null
+          pickup_city: string | null
+          pickup_loc_code: string | null
+          pickup_loc_name: string | null
+          pickup_region: string | null
+          pickup_state: string | null
+          pickup_zipcode: string | null
+          pod_added_date: string | null
+          pod_received: string | null
+          pod_status: string | null
+          quantity: string | null
+          quantity_type: string | null
+          return_empty_container_update_date: string | null
+          returned_empty_container_create_date: string | null
+          sales_person: string | null
+          service: string | null
+          service_codes: string | null
+          servicemode: string | null
+          shipment_number: string | null
+          shipment_reference_number: string | null
+          shipmentid: string | null
+          so_num: string | null
+          so_num_format: string | null
+          source_file_key: string | null
+          status: string | null
+          steamshipline: string | null
+          syncentrydatetime: string | null
+          tendered_date: string | null
+          transport_type: string | null
+          unbilledflag: string | null
+          updated_by: string | null
+          updated_date: string | null
+          ups_shipment_number: string | null
+          vessel_eta: string | null
+          vessel_name: string | null
+          weight: string | null
+          zero_rev: string | null
+        }
+        Relationships: []
+      }
+      tms_mg_proj_curr: {
+        Row: {
+          canonical_charge: string | null
+          charge_text: string | null
+          chassis_norm: string | null
+          container_norm: string | null
+          drange: unknown
+          pickup_date: string | null
+          return_date: string | null
+        }
+        Relationships: []
+      }
+      v_invoice_line_checks: {
+        Row: {
+          billed_days: number | null
+          chassis_match: boolean | null
+          chassis_norm: string | null
+          container_match: boolean | null
+          container_norm: string | null
+          customer_name: string | null
+          date_sane: boolean | null
+          dr: unknown
+          dup_move_exact: boolean | null
+          dup_move_partial: boolean | null
+          exact_pickup_date_match: boolean | null
+          exact_return_date_match: boolean | null
+          has_contract: boolean | null
+          invoice_amt: number | null
+          invoice_consistent: boolean | null
+          invoice_id: string | null
+          invoice_line_id: number | null
+          invoice_qty: number | null
+          invoice_rate: number | null
+          invoice_used_days: number | null
+          off_hire_date: string | null
+          on_hire_date: string | null
+          rated_amt: number | null
+          rated_consistent: boolean | null
+          rated_qty: number | null
+          rated_rate: number | null
+          scac_misuse: boolean | null
+          ssl: string | null
+          tms_candidates: Json | null
+          tms_overlap_count: number | null
+          tms_pickup_date: string | null
+          tms_return_date: string | null
+          tms_used_days: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dcli_invoice_line_staging_staging_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "dcli_invoice_staging"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_invoice_line_enriched: {
+        Row: {
+          chassis_norm: string | null
+          container_norm: string | null
+          customer_name: string | null
+          invoice_amt: number | null
+          invoice_id: string | null
+          invoice_line_id: number | null
+          invoice_qty: number | null
+          invoice_rate: number | null
+          off_hire_date: string | null
+          on_hire_date: string | null
+          rated_amt: number | null
+          rated_qty: number | null
+          rated_rate: number | null
+          ssl: string | null
+          tms_candidates: Json | null
+          tms_overlap_count: number | null
+          tms_pickup_date: string | null
+          tms_return_date: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dcli_invoice_line_staging_staging_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "dcli_invoice_staging"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_invoice_line_verdict: {
+        Row: {
+          chassis_norm: string | null
+          checks: Json | null
+          confidence_score: number | null
+          container_norm: string | null
+          invoice_id: string | null
+          invoice_line_id: number | null
+          off_hire_date: string | null
+          on_hire_date: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dcli_invoice_line_staging_staging_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "dcli_invoice_staging"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _postgis_deprecate: {
@@ -2592,8 +3341,51 @@ export type Database = {
         Args: { p_staging_id: string }
         Returns: Json
       }
+      backfill_movement_start_date_executor: {
+        Args: {
+          p_any_not_null_expr: string
+          p_batch_size: number
+          p_coalesce_expr: string
+          p_table: unknown
+        }
+        Returns: number
+      }
       bytea_to_text: { Args: { data: string }; Returns: string }
       days_inclusive: { Args: { a: string; b: string }; Returns: number }
+      dblink: { Args: { "": string }; Returns: Record<string, unknown>[] }
+      dblink_cancel_query: { Args: { "": string }; Returns: string }
+      dblink_close: { Args: { "": string }; Returns: string }
+      dblink_connect: { Args: { "": string }; Returns: string }
+      dblink_connect_u: { Args: { "": string }; Returns: string }
+      dblink_current_query: { Args: never; Returns: string }
+      dblink_disconnect:
+        | { Args: { "": string }; Returns: string }
+        | { Args: never; Returns: string }
+      dblink_error_message: { Args: { "": string }; Returns: string }
+      dblink_exec: { Args: { "": string }; Returns: string }
+      dblink_fdw_validator: {
+        Args: { catalog: unknown; options: string[] }
+        Returns: undefined
+      }
+      dblink_get_connections: { Args: never; Returns: string[] }
+      dblink_get_notify:
+        | { Args: never; Returns: Record<string, unknown>[] }
+        | { Args: { conname: string }; Returns: Record<string, unknown>[] }
+      dblink_get_pkey: {
+        Args: { "": string }
+        Returns: Database["public"]["CompositeTypes"]["dblink_pkey_results"][]
+        SetofOptions: {
+          from: "*"
+          to: "dblink_pkey_results"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      dblink_get_result: {
+        Args: { "": string }
+        Returns: Record<string, unknown>[]
+      }
+      dblink_is_busy: { Args: { "": string }; Returns: number }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -2627,6 +3419,31 @@ export type Database = {
           }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      fn_add_invoice_comment: {
+        Args: {
+          p_comment: string
+          p_invoice_line_id: number
+          p_user_email?: string
+        }
+        Returns: undefined
+      }
+      fn_record_invoice_action: {
+        Args: {
+          p_action: string
+          p_delta: number
+          p_invoice_line_id: number
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      fn_tms_candidates_json: {
+        Args: { p_chassis: string; p_offhire: string; p_onhire: string }
+        Returns: Json
+      }
+      fn_tms_overlap_count: {
+        Args: { p_chassis: string; p_offhire: string; p_onhire: string }
+        Returns: number
+      }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
         Args: { geom1: unknown; geom2: unknown }
@@ -2890,6 +3707,7 @@ export type Database = {
         Args: { month_ym: string; rc: string; ship: string }
         Returns: number
       }
+      norm: { Args: { v: string }; Returns: string }
       populate_geometry_columns:
         | { Args: { use_typmod?: boolean }; Returns: string }
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
@@ -2930,6 +3748,7 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      run_backfill_loop: { Args: never; Returns: number }
       search_invoice_lines: {
         Args: {
           match_count?: number
@@ -2945,6 +3764,8 @@ export type Database = {
           vendor_name: string
         }[]
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       st_3dclosestpoint: {
         Args: { geom1: unknown; geom2: unknown }
         Returns: unknown
@@ -3527,6 +4348,8 @@ export type Database = {
         Returns: unknown
       }
       text_to_bytea: { Args: { data: string }; Returns: string }
+      tms_mg_monthly_archive: { Args: never; Returns: undefined }
+      try_date: { Args: { p: string }; Returns: string }
       unlockrows: { Args: { "": string }; Returns: number }
       updategeometrysrid: {
         Args: {
@@ -3592,6 +4415,10 @@ export type Database = {
         | "cancelled"
     }
     CompositeTypes: {
+      dblink_pkey_results: {
+        position: number | null
+        colname: string | null
+      }
       geometry_dump: {
         path: number[] | null
         geom: unknown

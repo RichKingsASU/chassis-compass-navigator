@@ -23,57 +23,63 @@ const InvoiceLineDetails = () => {
   useEffect(() => {
     const fetchValidationData = async () => {
       if (!lineId) return;
-
+      
       try {
         setLoading(true);
-        
-        // Query dcli_invoice_staging for validation results containing this line
-        const { data, error } = await supabase
-          .from('dcli_invoice_staging')
-          .select('validation_results')
-          .not('validation_results', 'is', null);
 
-        if (error) throw error;
+        // Fetch line item data from staging
+        const { data: lineData, error: lineError } = await supabase
+          .from('dcli_invoice_line_staging')
+          .select('*, staging_invoice_id')
+          .eq('line_invoice_number', lineId)
+          .single();
 
-        // Find the invoice that contains this line item
-        let foundValidation = null;
-        for (const invoice of data || []) {
-          const results = invoice.validation_results as any;
-          if (results?.rows) {
-            const matchingRow = results.rows.find((row: any) => 
-              row.line_invoice_number === lineId
-            );
-            if (matchingRow) {
-              // Create a filtered validation result for just this line
-              foundValidation = {
-                summary: {
-                  exact_matches: matchingRow.match_type === 'exact' ? 1 : 0,
-                  fuzzy_matches: matchingRow.match_type === 'fuzzy' ? 1 : 0,
-                  mismatches: matchingRow.match_type === 'mismatch' ? 1 : 0,
-                  total_rows: 1,
-                },
-                rows: [matchingRow],
-                errors: results.errors || [],
-              };
-              break;
-            }
-          }
-        }
+        if (lineError) throw lineError;
 
-        setValidationData(foundValidation);
+        // Fetch validation results from staging invoice
+        if (lineData?.staging_invoice_id) {
+          const { data: invoiceData, error: invoiceError } = await supabase
+            .from('dcli_invoice_staging')
+            .select('validation_results')
+            .eq('id', lineData.staging_invoice_id)
+            .single();
 
-        if (!foundValidation) {
-          toast({
-            title: "Line Not Found",
-            description: "This line item has not been validated yet.",
-            variant: "destructive",
+          if (invoiceError) throw invoiceError;
+
+          // Find the specific line's validation results
+          const validationResults = invoiceData?.validation_results as any;
+          const lineValidation = validationResults?.rows?.find(
+            (row: any) => row.line_invoice_number === lineId
+          );
+
+          setValidationData({
+            lineItem: lineData,
+            validation: lineValidation || null,
+            summary: validationResults?.summary || null
+          });
+        } else {
+          setValidationData({
+            lineItem: lineData,
+            validation: null,
+            summary: null
           });
         }
+
+        // Fetch comments for this line item
+        const { data: commentsData, error: commentsError } = await supabase
+          .from('dcli_line_comments')
+          .select('*')
+          .eq('line_invoice_number', lineId)
+          .order('created_at', { ascending: false });
+
+        if (commentsError) throw commentsError;
+        setComments(commentsData || []);
+
       } catch (error: any) {
         console.error('Error fetching validation data:', error);
         toast({
           title: "Error",
-          description: error.message || "Failed to load validation data",
+          description: "Failed to load line item details",
           variant: "destructive",
         });
       } finally {
@@ -95,11 +101,19 @@ const InvoiceLineDetails = () => {
         line_invoice_number: lineId,
         comment: comment.trim(),
         created_by: user?.email || 'Anonymous',
-        created_at: new Date().toISOString(),
       };
 
-      // Add to local state immediately for better UX
-      setComments([newComment, ...comments]);
+      // Insert into database
+      const { data, error } = await supabase
+        .from('dcli_line_comments')
+        .insert(newComment)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add to local state
+      setComments([data, ...comments]);
       setComment('');
 
       toast({
