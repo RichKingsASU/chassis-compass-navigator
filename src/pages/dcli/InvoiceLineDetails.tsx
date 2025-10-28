@@ -80,7 +80,11 @@ const InvoiceLineDetails = () => {
   }, [lineId, toast]);
 
   const navigateBack = () => {
-    navigate('/vendors/dcli/invoices/new', { replace: false });
+    // Pass back the navigation state to preserve invoice data
+    navigate('/vendors/dcli/invoices/new', { 
+      state: location.state,
+      replace: false 
+    });
   };
 
   if (loading) {
