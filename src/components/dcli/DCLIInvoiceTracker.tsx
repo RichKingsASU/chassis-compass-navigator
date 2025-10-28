@@ -33,13 +33,12 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      // Fetch only validated/saved invoices from dcli_invoice_staging
-      // Filter out pending_validation and incomplete records
+      // Fetch validated invoices from dcli_invoice_staging
+      // Show invoices that have completed validation
       const { data, error } = await supabase
         .from('dcli_invoice_staging')
         .select('*')
-        .neq('status', 'pending_validation') // Exclude pending validation
-        .not('validation_status', 'is', null) // Must have validation status
+        .eq('validation_status', 'completed') // Only show completed validations
         .order('billing_date', { ascending: false });
 
       if (error) throw error;
