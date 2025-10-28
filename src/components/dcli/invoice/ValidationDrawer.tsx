@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { CheckCircle2, AlertTriangle, XCircle, Info, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import SOPGuide from './SOPGuide';
+import { AuditModal } from './AuditModal';
 
 interface TMSMatch {
   ld_num: string;
@@ -162,6 +163,20 @@ const MatchTable = ({
   navigationState?: any;
 }) => {
   const navigate = useNavigate();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedLineItem, setSelectedLineItem] = useState<any>(null);
+
+  const handleDetailsClick = (match: any) => {
+    setSelectedLineItem({
+      lineInvoiceNum: match.line_invoice_number,
+      chassis: match.chassis,
+      container: match.container,
+      matchConfidence: match.match_confidence,
+      matchType: match.match_type,
+      tmsMatch: match.tms_match,
+    });
+    setIsModalOpen(true);
+  };
 
   if (matches.length === 0) {
     return (
@@ -270,9 +285,7 @@ const MatchTable = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate(`/vendors/dcli/invoice-line/${match.line_invoice_number}`, {
-                    state: navigationState
-                  })}
+                  onClick={() => handleDetailsClick(match)}
                 >
                   <Eye className="h-4 w-4 mr-1" />
                   Details
@@ -282,6 +295,12 @@ const MatchTable = ({
           ))}
         </TableBody>
       </Table>
+      
+      <AuditModal
+        isOpen={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        lineItem={selectedLineItem}
+      />
     </div>
   );
 };
