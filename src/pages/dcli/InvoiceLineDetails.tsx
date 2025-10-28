@@ -150,7 +150,7 @@ const InvoiceLineDetails = () => {
     );
   }
 
-  const lineItem = validationData?.rows[0];
+  const lineItem = validationData?.lineItem;
 
   // Mock audit data - replace with real data fetching later
   const auditData = {
