@@ -47,13 +47,18 @@ const InvoiceLineDetails = () => {
       try {
         setLoading(true);
 
-        const { data: lineData, error: lineError } = await supabase
+        const { data: lineDataArray, error: lineError } = await supabase
           .from('dcli_invoice_line_staging')
           .select('*, staging_invoice_id')
           .eq('line_invoice_number', lineId)
-          .single();
+          .limit(1);
 
         if (lineError) throw lineError;
+        
+        const lineData = lineDataArray?.[0];
+        if (!lineData) {
+          throw new Error('Line item not found');
+        }
 
         if (lineData?.staging_invoice_id) {
           const { data: invoiceData, error: invoiceError } = await supabase
