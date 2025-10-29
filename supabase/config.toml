@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.chat-vendors]
 verify_jwt = false
+
+[functions.extract-csv]
+verify_jwt = false
