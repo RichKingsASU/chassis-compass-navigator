@@ -271,11 +271,11 @@ const InvoiceLineDetails = () => {
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Customer</dt>
-                  <dd className="mt-1 text-sm font-semibold">GlobalTranz</dd>
+                  <dd className="mt-1 text-sm font-semibold">{validationData?.validation?.tms_match?.customer_name || 'N/A'}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Account Manager</dt>
-                  <dd className="mt-1 text-sm font-semibold">Rich King</dd>
+                  <dd className="mt-1 text-sm font-semibold">{validationData?.validation?.tms_match?.acct_mg_name || 'N/A'}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Confidence</dt>
