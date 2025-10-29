@@ -6,11 +6,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, CheckCircle, XCircle, AlertTriangle, FileText, Clock, Mail, Send, Paperclip, Upload } from 'lucide-react';
+import { ArrowLeft, Loader2, CheckCircle, XCircle, AlertTriangle, FileText, Clock, Mail, Send, Paperclip, Upload, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
 type ActionType = 'dispute' | 'credit' | 'absorption' | 'vendor-credit' | null;
@@ -27,6 +27,11 @@ const InvoiceLineDetails = () => {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeAction, setActiveAction] = useState<ActionType>(null);
+  const [selectedCheck, setSelectedCheck] = useState<any>(null);
+  const [checkDialogOpen, setCheckDialogOpen] = useState(false);
+  const [overrideStatus, setOverrideStatus] = useState("");
+  const [overrideComment, setOverrideComment] = useState("");
+  const [overrideFile, setOverrideFile] = useState<File | null>(null);
 
   useEffect(() => {
     const fetchValidationData = async () => {
@@ -151,6 +156,23 @@ const InvoiceLineDetails = () => {
     });
   };
 
+  const handleCheckClick = (check: any) => {
+    setSelectedCheck(check);
+    setOverrideStatus(check.overrideStatus || "");
+    setOverrideComment("");
+    setOverrideFile(null);
+    setCheckDialogOpen(true);
+  };
+
+  const handleSaveOverride = async () => {
+    // TODO: Save override to database
+    toast({
+      title: "Override Saved",
+      description: "Validation check override has been saved successfully.",
+    });
+    setCheckDialogOpen(false);
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto p-6">
@@ -165,24 +187,31 @@ const InvoiceLineDetails = () => {
 
   const validationChecks = [
     {
+      id: 'days-used',
       title: "Days Used Check",
       status: "pass",
       summary: "TMS duration matches invoice duration.",
       data: [
         { label: "TMS Dates (30d)", value: "10/01 - 10/30" },
         { label: "Invoice Dates (30d)", value: "10/01 - 10/30" }
-      ]
+      ],
+      logic: "Compares the start and end dates from TMS records against the invoice billing period to ensure they align.",
+      overrideOptions: ['Mark as Pass', 'Mark as Fail', 'Ignore This Check']
     },
     {
+      id: 'billed-days',
       title: "Billed Days Check",
       status: "pass",
       summary: "TMS quantity matches invoice quantity.",
       data: [
         { label: "TMS Billed Qty", value: "25 Days" },
         { label: "Invoice Billed Qty", value: "25 Days" }
-      ]
+      ],
+      logic: "Validates that the number of days billed on the invoice matches the calculated days from TMS records.",
+      overrideOptions: ['Mark as Pass', 'Mark as Fail', 'Ignore This Check']
     },
     {
+      id: 'carrier-paid',
       title: "Carrier Paid Check",
       status: "fail",
       summary: "Amount paid ($150) does not match Rate (5) * Qty (28) = $140.",
@@ -190,32 +219,43 @@ const InvoiceLineDetails = () => {
         { label: "TMS Days", value: "28" },
         { label: "TMS Rate", value: "$5.00" },
         { label: "TMS Paid Amount", value: "$150.00", highlight: true }
-      ]
+      ],
+      logic: "Verifies that the amount paid to carrier (TMS) matches the expected calculation: Rate × Quantity. A mismatch may indicate overbilling or a rate discrepancy.",
+      overrideOptions: ['Accept Discrepancy', 'Mark as Pass', 'Ignore This Check']
     },
     {
+      id: 'duplicate-charge',
       title: "Duplicate Charge Check",
       status: "pass",
       summary: "No exact duplicates found on previous invoices.",
       data: [
         { label: "Overlapping Dates", value: "None" }
-      ]
+      ],
+      logic: "Searches historical invoices for identical charges (same chassis, container, dates) to prevent double-billing.",
+      overrideOptions: ['Mark as Pass', 'Mark as Fail', 'Ignore This Check']
     },
     {
+      id: 'usage-coverage',
       title: "Usage Coverage Check",
       status: "warn",
       summary: "2 days of invoice period are not covered by TMS LD/SO records.",
       data: [
         { label: "Uncovered Days", value: "2", highlight: true },
         { label: "Uncovered Dates", value: "10/14, 10/28" }
-      ]
+      ],
+      logic: "Cross-references invoice billing dates against TMS shipment records to ensure every billed day has corresponding usage documentation.",
+      overrideOptions: ['Accept Gap', 'Mark as Pass', 'Ignore This Check']
     },
     {
+      id: 'customer-contract',
       title: "Customer Contract Check",
       status: "inactive",
       summary: "This check is not activated for this customer.",
       data: [
         { label: "Status", value: "Inactive" }
-      ]
+      ],
+      logic: "Validates invoice rates against customer contract terms. Currently disabled for this customer.",
+      overrideOptions: ['Enable Check', 'Keep Inactive']
     }
   ];
 
@@ -336,10 +376,17 @@ const InvoiceLineDetails = () => {
                       }[check.status] || { bg: "bg-muted/50", border: "border-border", icon: <FileText className="h-6 w-6" /> };
 
                       return (
-                        <div key={idx} className={`border rounded-lg p-4 ${statusConfig.bg} ${statusConfig.border}`}>
-                          <div className="flex items-center space-x-2 mb-2">
-                            {statusConfig.icon}
-                            <h4 className="text-base font-semibold">{check.title}</h4>
+                        <div 
+                          key={idx} 
+                          className={`border rounded-lg p-4 ${statusConfig.bg} ${statusConfig.border} cursor-pointer hover:shadow-md transition-shadow`}
+                          onClick={() => handleCheckClick(check)}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              {statusConfig.icon}
+                              <h4 className="text-base font-semibold">{check.title}</h4>
+                            </div>
+                            <Info className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <p className="text-sm text-muted-foreground mb-3">{check.summary}</p>
                           <dl className="space-y-2 text-sm">
@@ -599,6 +646,134 @@ const InvoiceLineDetails = () => {
           <DialogFooter>
             <Button variant="outline" onClick={closeDrawer}>Cancel</Button>
             <Button onClick={closeDrawer}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Validation Check Detail Dialog */}
+      <Dialog open={checkDialogOpen} onOpenChange={setCheckDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              {selectedCheck && (() => {
+                const statusConfig: any = {
+                  pass: { icon: CheckCircle, iconColor: 'text-green-500' },
+                  fail: { icon: XCircle, iconColor: 'text-red-500' },
+                  warn: { icon: AlertTriangle, iconColor: 'text-yellow-500' },
+                  inactive: { icon: FileText, iconColor: 'text-muted-foreground' }
+                };
+                const config = statusConfig[selectedCheck.status as keyof typeof statusConfig];
+                const Icon = config.icon;
+                return (
+                  <>
+                    <Icon className={`h-6 w-6 ${config.iconColor}`} />
+                    {selectedCheck.title}
+                  </>
+                );
+              })()}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedCheck?.summary}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedCheck && (
+            <div className="space-y-6 py-4">
+              {/* Validation Logic */}
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Validation Logic</h4>
+                <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                  {selectedCheck.logic}
+                </p>
+              </div>
+
+              {/* Current Values */}
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Current Values</h4>
+                <dl className="space-y-2 text-sm bg-muted p-3 rounded-md">
+                  {selectedCheck.data.map((detail: any, idx: number) => (
+                    <div key={idx} className="flex justify-between">
+                      <dt className="text-muted-foreground">{detail.label}:</dt>
+                      <dd className={`font-medium ${detail.highlight ? (selectedCheck.status === 'fail' ? 'text-red-600' : 'text-yellow-700') : ''}`}>
+                        {detail.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+
+              {/* Override Options */}
+              <div>
+                <Label htmlFor="override-status" className="text-sm font-semibold">
+                  Override Status
+                </Label>
+                <Select value={overrideStatus} onValueChange={setOverrideStatus}>
+                  <SelectTrigger id="override-status" className="mt-2">
+                    <SelectValue placeholder="Select override action..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {selectedCheck.overrideOptions?.map((option: string) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Override Comment */}
+              <div>
+                <Label htmlFor="override-comment" className="text-sm font-semibold">
+                  Comment / Justification
+                </Label>
+                <Textarea
+                  id="override-comment"
+                  rows={3}
+                  className="mt-2"
+                  placeholder="Explain why you're overriding this check..."
+                  value={overrideComment}
+                  onChange={(e) => setOverrideComment(e.target.value)}
+                />
+              </div>
+
+              {/* File Upload */}
+              <div>
+                <Label htmlFor="override-file" className="text-sm font-semibold">
+                  Supporting Documentation
+                </Label>
+                <div className="mt-2 border-2 border-dashed border-muted rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                  <Input
+                    id="override-file"
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => setOverrideFile(e.target.files?.[0] || null)}
+                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xlsx,.xls"
+                  />
+                  <label htmlFor="override-file" className="cursor-pointer">
+                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                    {overrideFile ? (
+                      <p className="text-sm font-medium text-primary">{overrideFile.name}</p>
+                    ) : (
+                      <>
+                        <p className="text-sm font-medium text-primary">Upload a file</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          PDF, PNG, JPG, DOC, or Excel up to 10MB
+                        </p>
+                      </>
+                    )}
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCheckDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveOverride}>
+              Save Override
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
