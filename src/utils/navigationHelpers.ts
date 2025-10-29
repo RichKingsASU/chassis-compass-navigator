@@ -9,6 +9,20 @@ interface NavItem {
  * Determines the page title based on the current location pathname and navigation items
  */
 export const getPageTitle = (pathname: string, navItems: NavItem[]): string => {
+  // Check for invoice line item detail pages
+  const invoiceLineMatch = pathname.match(/\/vendors\/[^/]+\/invoice-line\/([^/]+)/);
+  if (invoiceLineMatch) {
+    const lineId = invoiceLineMatch[1];
+    return lineId;
+  }
+  
+  // Check for invoice review/detail pages
+  const invoiceReviewMatch = pathname.match(/\/vendors\/[^/]+\/invoices\/([^/]+)\/(review|detail|validate)/);
+  if (invoiceReviewMatch) {
+    const invoiceId = invoiceReviewMatch[1];
+    return invoiceId;
+  }
+  
   // First, look for direct matches with main nav items
   const directMatch = navItems.find(item => item.path === pathname);
   if (directMatch) return directMatch.title;
