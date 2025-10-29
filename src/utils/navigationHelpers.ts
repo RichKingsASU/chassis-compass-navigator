@@ -8,12 +8,11 @@ interface NavItem {
 /**
  * Determines the page title based on the current location pathname and navigation items
  */
-export const getPageTitle = (pathname: string, navItems: NavItem[]): string => {
-  // Check for invoice line item detail pages
+export const getPageTitle = (pathname: string, navItems: NavItem[], locationState?: any): string => {
+  // Check for invoice line item detail pages - use invoice number from state if available
   const invoiceLineMatch = pathname.match(/\/vendors\/[^/]+\/invoice-line\/([^/]+)/);
   if (invoiceLineMatch) {
-    const lineId = invoiceLineMatch[1];
-    return lineId;
+    return locationState?.invoiceNumber || 'Loading...';
   }
   
   // Check for invoice review/detail pages

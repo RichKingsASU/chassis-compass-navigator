@@ -22,6 +22,7 @@ const InvoiceLineDetails = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [validationData, setValidationData] = useState<any>(null);
+  const [invoiceNumber, setInvoiceNumber] = useState<string>('');
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState<any[]>([]);
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -32,6 +33,12 @@ const InvoiceLineDetails = () => {
   const [overrideStatus, setOverrideStatus] = useState("");
   const [overrideComment, setOverrideComment] = useState("");
   const [overrideFile, setOverrideFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (invoiceNumber && location.pathname.includes('/invoice-line/')) {
+      navigate(location.pathname, { state: { invoiceNumber }, replace: true });
+    }
+  }, [invoiceNumber, location.pathname, navigate]);
 
   useEffect(() => {
     const fetchValidationData = async () => {
@@ -51,11 +58,15 @@ const InvoiceLineDetails = () => {
         if (lineData?.staging_invoice_id) {
           const { data: invoiceData, error: invoiceError } = await supabase
             .from('dcli_invoice_staging')
-            .select('validation_results')
+            .select('validation_results, summary_invoice_id')
             .eq('id', lineData.staging_invoice_id)
             .single();
 
           if (invoiceError) throw invoiceError;
+
+          if (invoiceData?.summary_invoice_id) {
+            setInvoiceNumber(invoiceData.summary_invoice_id);
+          }
 
           const validationResults = invoiceData?.validation_results as any;
           const lineValidation = validationResults?.rows?.find(
@@ -282,7 +293,7 @@ const InvoiceLineDetails = () => {
       <div className="space-y-2">
         <Button variant="ghost" size="sm" onClick={navigateBack} className="gap-2">
           <ArrowLeft className="h-4 w-4" />
-          Back to Invoice #1043381
+          Back to Invoice #{invoiceNumber || 'Loading...'}
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">Line Item Audit: #{lineId}</h1>
       </div>

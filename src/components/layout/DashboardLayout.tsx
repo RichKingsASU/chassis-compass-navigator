@@ -66,7 +66,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const location = useLocation();
   const [unreadNotifications, setUnreadNotifications] = useState(3);
   
-  const pageTitle = getPageTitle(location.pathname, navItems);
+  const pageTitle = getPageTitle(location.pathname, navItems, location.state);
 
   return (
     <SidebarProvider>
