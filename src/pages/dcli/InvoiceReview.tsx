@@ -53,11 +53,14 @@ const InvoiceReview = () => {
     try {
       setLoading(true);
       
-      // First try staging table
+      // Check if invoiceId is a UUID (staging_invoice_id) or invoice number (summary_invoice_id)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(invoiceId || '');
+      
+      // Try staging table
       const { data: stagingData, error: stagingError } = await supabase
         .from('dcli_invoice_staging' as any)
         .select('*')
-        .eq('summary_invoice_id', invoiceId)
+        .eq(isUUID ? 'id' : 'summary_invoice_id', invoiceId)
         .maybeSingle();
 
       if (stagingData && !stagingError) {
