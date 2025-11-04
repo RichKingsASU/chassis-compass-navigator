@@ -209,7 +209,7 @@ export function extractInvoiceNumberFromFilename(fileName: string): string | nul
   const patterns = [
     /invoice[_-]?(\d{6,})/i,
     /(\d{6,})[_-]?invoice/i,
-    /[_-](\d{6,})[_-\.]/i,
+    /[_.-](\d{6,})[_.-]/i,
   ];
 
   for (const pattern of patterns) {
@@ -220,6 +220,27 @@ export function extractInvoiceNumberFromFilename(fileName: string): string | nul
   }
 
   return null;
+}
+
+/**
+ * Get public URL for a file in storage
+ */
+export async function getPublicUrl(filePath: string): Promise<string | null> {
+  const { data } = await supabase.storage
+    .from('invoices')
+    .getPublicUrl(filePath);
+  return data?.publicUrl || null;
+}
+
+/**
+ * Format file size in human-readable format
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 }
 
 /**

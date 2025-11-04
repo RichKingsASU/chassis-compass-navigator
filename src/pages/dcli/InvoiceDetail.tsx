@@ -2,12 +2,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download, CheckCircle, Play } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { ArrowLeft, Download, CheckCircle, Play, Eye, FileText, Table as TableIcon, Mail, Image as ImageIcon, File } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import InvoiceStatusManager from '@/components/dcli/invoice/InvoiceStatusManager';
 import LineItemsTable from '@/components/dcli/invoice/LineItemsTable';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getPublicUrl, formatFileSize, type InvoiceAttachment } from '@/lib/invoiceStorage';
 
 interface InvoiceHeader {
   id: string;
@@ -108,6 +110,20 @@ const InvoiceDetail = () => {
     } catch (error: any) {
       console.error('Error updating status:', error);
       toast.error('Failed to update status');
+    }
+  };
+
+  const handleView = async (filePath: string) => {
+    try {
+      const publicUrl = await getPublicUrl(filePath);
+      if (publicUrl) {
+        window.open(publicUrl, '_blank');
+      } else {
+        toast.error('Unable to open file for viewing');
+      }
+    } catch (error: any) {
+      console.error('Error viewing file:', error);
+      toast.error('Failed to open file for viewing');
     }
   };
 
@@ -219,31 +235,70 @@ const InvoiceDetail = () => {
           <h1 className="text-3xl font-bold">Invoice {invoice.summary_invoice_id}</h1>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {/* Show all attachments if available */}
+          {/* Quick access buttons for PDF/Excel */}
           {invoice.attachments && Array.isArray(invoice.attachments) && invoice.attachments.length > 0 ? (
-            invoice.attachments.map((attachment: any, idx: number) => (
-              <Button
-                key={idx}
-                variant="outline"
-                size="sm"
-                onClick={() => handleDownload(attachment.path, attachment.name)}
-                title={attachment.name}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                {attachment.name}
-              </Button>
-            ))
-          ) : (
             <>
-              {invoice.pdf_path && (
+              {invoice.attachments.some((att: InvoiceAttachment) => att.type === 'pdf') && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const pdfAttachment = invoice.attachments.find((att: InvoiceAttachment) => att.type === 'pdf');
+                      if (pdfAttachment) handleView(pdfAttachment.path);
+                    }}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View PDF
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const pdfAttachment = invoice.attachments.find((att: InvoiceAttachment) => att.type === 'pdf');
+                      if (pdfAttachment) handleDownload(pdfAttachment.path, pdfAttachment.name);
+                    }}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </>
+              )}
+              {invoice.attachments.some((att: InvoiceAttachment) => att.type === 'excel') && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleDownload(invoice.pdf_path!, `${invoice.summary_invoice_id}.pdf`)}
+                  onClick={() => {
+                    const excelAttachment = invoice.attachments.find((att: InvoiceAttachment) => att.type === 'excel');
+                    if (excelAttachment) handleDownload(excelAttachment.path, excelAttachment.name);
+                  }}
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  PDF
+                  Excel
                 </Button>
+              )}
+            </>
+          ) : (
+            <>
+              {invoice.pdf_path && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleView(invoice.pdf_path!)}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View PDF
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownload(invoice.pdf_path!, `${invoice.summary_invoice_id}.pdf`)}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    PDF
+                  </Button>
+                </>
               )}
               {invoice.excel_path && (
                 <Button
@@ -318,6 +373,68 @@ const InvoiceDetail = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Attachments Section */}
+      {invoice.attachments && Array.isArray(invoice.attachments) && invoice.attachments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Attachments ({invoice.attachments.length} files)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3">
+              {invoice.attachments.map((attachment: InvoiceAttachment, index: number) => {
+                const getFileIcon = (type: string) => {
+                  switch (type) {
+                    case 'pdf': return <FileText className="h-5 w-5 text-red-500" />;
+                    case 'excel': return <TableIcon className="h-5 w-5 text-green-600" />;
+                    case 'email': return <Mail className="h-5 w-5 text-blue-500" />;
+                    case 'image': return <ImageIcon className="h-5 w-5 text-purple-500" />;
+                    case 'document': return <FileText className="h-5 w-5 text-orange-500" />;
+                    default: return <File className="h-5 w-5 text-muted-foreground" />;
+                  }
+                };
+
+                const isViewable = ['pdf', 'image'].includes(attachment.type);
+
+                return (
+                  <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {getFileIcon(attachment.type)}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{attachment.name}</p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Badge variant="outline" className="capitalize">{attachment.type}</Badge>
+                          <span>{formatFileSize(attachment.size_bytes)}</span>
+                          <span>•</span>
+                          <span>{new Date(attachment.uploaded_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isViewable && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleView(attachment.path)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownload(attachment.path, attachment.name)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Line Items Table */}
       <Card>
