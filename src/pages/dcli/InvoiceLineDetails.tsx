@@ -166,13 +166,8 @@ const InvoiceLineDetails = () => {
   };
 
   const navigateBack = () => {
-    if (validationData?.lineItem?.staging_invoice_id) {
-      navigate(`/vendors/dcli/invoices/${validationData.lineItem.staging_invoice_id}/review`, { 
-        replace: false 
-      });
-    } else {
-      navigate('/vendors/dcli', { replace: false });
-    }
+    // Use browser history to go back to the previous page
+    navigate(-1);
   };
 
   const handleCheckClick = (check: any) => {
