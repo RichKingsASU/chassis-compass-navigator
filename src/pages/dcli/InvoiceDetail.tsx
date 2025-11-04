@@ -80,6 +80,14 @@ const InvoiceDetail = () => {
       if (invoiceError) throw invoiceError;
       setInvoice(invoiceData);
 
+      // Update navigation state with invoice number for the header
+      if (invoiceData?.summary_invoice_id) {
+        navigate(window.location.pathname, {
+          state: { invoiceNumber: `Invoice ${invoiceData.summary_invoice_id}` },
+          replace: true
+        });
+      }
+
       // Fetch line items
       const { data: linesData, error: linesError } = await supabase
         .from('dcli_invoice_line_staging')

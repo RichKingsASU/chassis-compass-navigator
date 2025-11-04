@@ -15,11 +15,10 @@ export const getPageTitle = (pathname: string, navItems: NavItem[], locationStat
     return locationState?.invoiceNumber || 'Loading...';
   }
   
-  // Check for invoice review/detail pages
+  // Check for invoice review/detail pages - use invoice number from state if available
   const invoiceReviewMatch = pathname.match(/\/vendors\/[^/]+\/invoices\/([^/]+)\/(review|detail|validate)/);
   if (invoiceReviewMatch) {
-    const invoiceId = invoiceReviewMatch[1];
-    return invoiceId;
+    return locationState?.invoiceNumber || locationState?.summary_invoice_id || 'Invoice Details';
   }
   
   // First, look for direct matches with main nav items
