@@ -61,6 +61,12 @@ const InvoiceDetail = () => {
     }
   }, [invoiceId]);
 
+  useEffect(() => {
+    if (invoice?.summary_invoice_id) {
+      document.title = `Invoice ${invoice.summary_invoice_id} - DCLI`;
+    }
+  }, [invoice]);
+
   const fetchInvoiceData = async () => {
     setLoading(true);
     try {
