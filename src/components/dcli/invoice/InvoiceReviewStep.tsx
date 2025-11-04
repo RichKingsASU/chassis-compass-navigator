@@ -93,7 +93,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
       // Insert invoice header into staging table
       const { data: stagingInvoice, error: stagingError } = await supabase
         .from('dcli_invoice_staging')
-        .insert({
+        .insert([{
           summary_invoice_id: invoice.summary_invoice_id,
           billing_date: invoice.billing_date,
           due_date: invoice.due_date,
@@ -103,12 +103,13 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
           amount_due: invoice.amount_due,
           account_code: invoice.account_code,
           pool: invoice.pool,
-          pdf_path: extractedData.attachments.find(a => a.name.toLowerCase().endsWith('.pdf'))?.path,
-          excel_path: extractedData.attachments.find(a => a.name.toLowerCase().includes('.xls'))?.path,
+          pdf_path: extractedData.attachments.find(a => a.type === 'pdf')?.path,
+          excel_path: extractedData.attachments.find(a => a.type === 'excel')?.path,
+          attachments: extractedData.attachments || [],
           created_by: user?.id || null,
           validation_status: 'pending',
           status: 'pending_validation'
-        })
+        }] as any)
         .select()
         .single();
 
@@ -175,6 +176,26 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
 
   return (
     <div className="space-y-6">
+      {/* Attachments Section */}
+      {extractedData.attachments && extractedData.attachments.length > 0 && (
+        <Card className="p-6">
+          <h2 className="text-xl font-bold mb-4">Uploaded Files ({extractedData.attachments.length})</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {extractedData.attachments.map((attachment, idx) => (
+              <div key={idx} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                <Badge variant="outline" className="capitalize">{attachment.type}</Badge>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{attachment.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(attachment.size_bytes / 1024).toFixed(1)} KB
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Header Fields */}
       <Card className="p-6">
         <h2 className="text-2xl font-bold mb-6">Invoice Header</h2>

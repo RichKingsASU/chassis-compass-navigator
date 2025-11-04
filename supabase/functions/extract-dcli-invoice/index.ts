@@ -13,10 +13,16 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { pdf_path, xlsx_path, tenant_id: _tenant_id, uploader_user_id: _uploader_user_id } =
-      await req.json();
+    const { 
+      pdf_path, 
+      xlsx_path, 
+      invoice_number,
+      all_attachments,
+      tenant_id: _tenant_id, 
+      uploader_user_id: _uploader_user_id 
+    } = await req.json();
 
-    console.log("Extracting DCLI invoice from:", { pdf_path, xlsx_path });
+    console.log("Extracting DCLI invoice from:", { pdf_path, xlsx_path, invoice_number, attachment_count: all_attachments?.length });
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -197,7 +203,7 @@ Deno.serve(async (req) => {
 
     const extractedData = {
       invoice: {
-        summary_invoice_id: invoiceId,
+        summary_invoice_id: invoice_number || invoiceId,
         billing_date: billingDate,
         due_date: dueDate,
         billing_terms: "BFB 21 Days",
@@ -225,9 +231,21 @@ Deno.serve(async (req) => {
           date_in: new Date().toISOString(),
         },
       ],
-      attachments: [
-        { name: pdf_path.split("/").pop(), path: pdf_path },
-        { name: xlsx_path.split("/").pop(), path: xlsx_path },
+      attachments: all_attachments || [
+        { 
+          name: pdf_path.split("/").pop(), 
+          path: pdf_path, 
+          type: "pdf",
+          uploaded_at: new Date().toISOString(),
+          size_bytes: 0
+        },
+        { 
+          name: xlsx_path.split("/").pop(), 
+          path: xlsx_path,
+          type: "excel",
+          uploaded_at: new Date().toISOString(),
+          size_bytes: 0
+        },
       ],
       warnings: lineItems.length === 0
         ? ["No line items found in Excel file. Please check the file format."]

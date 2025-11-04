@@ -22,6 +22,7 @@ interface InvoiceHeader {
   status: string;
   pdf_path: string | null;
   excel_path: string | null;
+  attachments: any;
   validation_results: any;
   created_at: string;
 }
@@ -113,7 +114,7 @@ const InvoiceDetail = () => {
   const handleDownload = async (path: string, fileName: string) => {
     try {
       const { data, error } = await supabase.storage
-        .from('wccp-invoices')
+        .from('invoices')
         .download(path);
 
       if (error) throw error;
@@ -217,26 +218,44 @@ const InvoiceDetail = () => {
           </Button>
           <h1 className="text-3xl font-bold">Invoice {invoice.summary_invoice_id}</h1>
         </div>
-        <div className="flex gap-2">
-          {invoice.pdf_path && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleDownload(invoice.pdf_path!, `${invoice.summary_invoice_id}.pdf`)}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              PDF
-            </Button>
-          )}
-          {invoice.excel_path && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleDownload(invoice.excel_path!, `${invoice.summary_invoice_id}.xlsx`)}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Excel
-            </Button>
+        <div className="flex gap-2 flex-wrap">
+          {/* Show all attachments if available */}
+          {invoice.attachments && Array.isArray(invoice.attachments) && invoice.attachments.length > 0 ? (
+            invoice.attachments.map((attachment: any, idx: number) => (
+              <Button
+                key={idx}
+                variant="outline"
+                size="sm"
+                onClick={() => handleDownload(attachment.path, attachment.name)}
+                title={attachment.name}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {attachment.name}
+              </Button>
+            ))
+          ) : (
+            <>
+              {invoice.pdf_path && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownload(invoice.pdf_path!, `${invoice.summary_invoice_id}.pdf`)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+              )}
+              {invoice.excel_path && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDownload(invoice.excel_path!, `${invoice.summary_invoice_id}.xlsx`)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Excel
+                </Button>
+              )}
+            </>
           )}
           <Button variant="outline" size="sm" onClick={handleRunValidation}>
             <Play className="h-4 w-4 mr-2" />

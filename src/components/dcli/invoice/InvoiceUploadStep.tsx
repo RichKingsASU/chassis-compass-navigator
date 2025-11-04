@@ -1,11 +1,29 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, FileSpreadsheet, X, AlertCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Upload, FileText, FileSpreadsheet, X, AlertCircle, FolderOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ExtractedData } from '@/pages/dcli/NewInvoice';
 import { Progress } from '@/components/ui/progress';
+import { 
+  uploadFileToInvoiceFolder, 
+  checkInvoiceFolderExists, 
+  extractInvoiceNumberFromFilename,
+  type InvoiceAttachment 
+} from '@/lib/invoiceStorage';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface InvoiceUploadStepProps {
   uploadedFiles: { pdf: File | null; excel: File | null };
@@ -25,6 +43,11 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [allFiles, setAllFiles] = useState<File[]>([]);
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [showInvoicePrompt, setShowInvoicePrompt] = useState(false);
+  const [showExistingFolderDialog, setShowExistingFolderDialog] = useState(false);
+  const [existingFolder, setExistingFolder] = useState<{ exists: boolean; files: InvoiceAttachment[]; invoice_number: string } | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -112,61 +135,81 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
     return { Icon: Upload, color: 'text-blue-500' };
   };
 
-  const handleContinue = async () => {
-    if (allFiles.length === 0) {
+  const handleInvoiceNumberSubmit = async () => {
+    if (!invoiceNumber.trim()) {
       toast({
-        title: 'No Files',
-        description: 'Please upload at least one file to continue.',
+        title: 'Invoice Number Required',
+        description: 'Please enter an invoice number to organize files.',
         variant: 'destructive',
       });
       return;
     }
 
+    // Check if folder exists
+    const folderCheck = await checkInvoiceFolderExists('dcli', invoiceNumber);
+    
+    if (folderCheck.exists && folderCheck.files.length > 0) {
+      setExistingFolder(folderCheck);
+      setShowExistingFolderDialog(true);
+      setShowInvoicePrompt(false);
+    } else {
+      // Folder doesn't exist, proceed with upload
+      setShowInvoicePrompt(false);
+      proceedWithUpload(false);
+    }
+  };
+
+  const handleAddToExisting = () => {
+    setShowExistingFolderDialog(false);
+    proceedWithUpload(false);
+  };
+
+  const handleReplaceAll = () => {
+    setShowExistingFolderDialog(false);
+    proceedWithUpload(true);
+  };
+
+  const proceedWithUpload = async (replaceExisting: boolean) => {
     setIsUploading(true);
     setUploadProgress(10);
 
     try {
-      // Find PDF and Excel files from all uploaded files
-      const pdfFile = allFiles.find(f => f.name.toLowerCase().endsWith('.pdf'));
-      const excelFile = allFiles.find(f => f.name.toLowerCase().match(/\.(xlsx|xls|csv)$/));
+      const uploadedAttachments: InvoiceAttachment[] = [];
+      const progressPerFile = 80 / allFiles.length;
 
-      if (!pdfFile || !excelFile) {
+      // Upload all files to invoice-specific folders
+      for (let i = 0; i < allFiles.length; i++) {
+        const file = allFiles[i];
+        const attachment = await uploadFileToInvoiceFolder('dcli', invoiceNumber, file);
+        uploadedAttachments.push(attachment);
+        setUploadProgress(10 + (i + 1) * progressPerFile);
+      }
+
+      setUploadProgress(90);
+
+      // Find PDF and Excel for extraction
+      const pdfAttachment = uploadedAttachments.find(a => a.type === 'pdf');
+      const excelAttachment = uploadedAttachments.find(a => a.type === 'excel');
+
+      if (!pdfAttachment || !excelAttachment) {
         toast({
           title: 'Missing Required Files',
-          description: 'Please upload at least one PDF and one Excel/CSV file.',
+          description: 'At least one PDF and one Excel file are required for extraction.',
           variant: 'destructive',
         });
         setIsUploading(false);
         return;
       }
 
-      // Upload PDF
-      const pdfFileName = `dcli/${Date.now()}_${pdfFile.name}`;
-      setUploadProgress(20);
-      const { data: pdfData, error: pdfError } = await supabase.storage
-        .from('invoices')
-        .upload(pdfFileName, pdfFile);
-
-      if (pdfError) throw pdfError;
-
-      // Upload Excel
-      const excelFileName = `dcli/${Date.now()}_${excelFile.name}`;
-      setUploadProgress(40);
-      const { data: excelData, error: excelError } = await supabase.storage
-        .from('invoices')
-        .upload(excelFileName, excelFile);
-
-      if (excelError) throw excelError;
-
-      setUploadProgress(60);
-
-      // Call extraction function
+      // Call extraction function with all file paths
       const { data: extractResult, error: extractError } = await supabase.functions.invoke(
         'extract-dcli-invoice',
         {
           body: {
-            pdf_path: pdfData.path,
-            xlsx_path: excelData.path,
+            invoice_number: invoiceNumber,
+            pdf_path: pdfAttachment.path,
+            xlsx_path: excelAttachment.path,
+            all_attachments: uploadedAttachments,
           },
         }
       );
@@ -174,11 +217,22 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       if (extractError) throw extractError;
 
       setUploadProgress(100);
-      setExtractedData(extractResult);
+      
+      // Add attachments to extracted data
+      const dataWithAttachments = {
+        ...extractResult,
+        attachments: uploadedAttachments,
+        invoice: {
+          ...extractResult.invoice,
+          summary_invoice_id: invoiceNumber,
+        },
+      };
+      
+      setExtractedData(dataWithAttachments);
 
       toast({
         title: 'Files Uploaded',
-        description: 'Invoice data extracted successfully.',
+        description: `${uploadedAttachments.length} files uploaded and organized in invoice ${invoiceNumber}.`,
       });
 
       onComplete();
@@ -193,6 +247,42 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
       setIsUploading(false);
       setUploadProgress(0);
     }
+  };
+
+  const handleContinue = async () => {
+    if (allFiles.length === 0) {
+      toast({
+        title: 'No Files',
+        description: 'Please upload at least one file to continue.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Check if we have at least PDF and Excel
+    const hasPdf = allFiles.some(f => f.name.toLowerCase().endsWith('.pdf'));
+    const hasExcel = allFiles.some(f => f.name.toLowerCase().match(/\.(xlsx|xls|csv)$/));
+
+    if (!hasPdf || !hasExcel) {
+      toast({
+        title: 'Missing Required Files',
+        description: 'Please upload at least one PDF and one Excel/CSV file.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Try to extract invoice number from PDF filename
+    const pdfFile = allFiles.find(f => f.name.toLowerCase().endsWith('.pdf'));
+    if (pdfFile) {
+      const extractedNumber = extractInvoiceNumberFromFilename(pdfFile.name);
+      if (extractedNumber) {
+        setInvoiceNumber(extractedNumber);
+      }
+    }
+
+    // Show prompt for invoice number
+    setShowInvoicePrompt(true);
   };
 
   return (
@@ -295,6 +385,7 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
                 <li>Upload any file type (PDF, Excel, CSV, images, documents, etc.)</li>
                 <li>Multiple files supported</li>
                 <li>Drag and drop or browse to select files</li>
+                <li>Files will be organized by invoice number in separate folders</li>
               </ul>
               <p className="text-xs text-blue-700 dark:text-blue-300">
                 Maximum file size: 50MB per file
@@ -303,6 +394,70 @@ const InvoiceUploadStep: React.FC<InvoiceUploadStepProps> = ({
           </div>
         </div>
       </CardContent>
+
+      {/* Invoice Number Dialog */}
+      <AlertDialog open={showInvoicePrompt} onOpenChange={setShowInvoicePrompt}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Enter Invoice Number</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please provide the invoice number to organize these files properly.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Label htmlFor="invoice-number">Invoice Number</Label>
+            <Input
+              id="invoice-number"
+              value={invoiceNumber}
+              onChange={(e) => setInvoiceNumber(e.target.value)}
+              placeholder="e.g., 1043381"
+              className="mt-2"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleInvoiceNumberSubmit}>
+              Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Existing Folder Dialog */}
+      <AlertDialog open={showExistingFolderDialog} onOpenChange={setShowExistingFolderDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FolderOpen className="h-5 w-5 text-yellow-500" />
+              Invoice Folder Already Exists
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Invoice {existingFolder?.invoice_number} already has {existingFolder?.files.length || 0} uploaded file(s).
+              What would you like to do?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <p className="text-sm font-semibold mb-2">Existing files:</p>
+            <ul className="text-sm space-y-1 text-muted-foreground">
+              {existingFolder?.files.slice(0, 5).map((file, idx) => (
+                <li key={idx}>• {file.name} ({(file.size_bytes / 1024).toFixed(1)} KB)</li>
+              ))}
+              {existingFolder && existingFolder.files.length > 5 && (
+                <li>• ... and {existingFolder.files.length - 5} more</li>
+              )}
+            </ul>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button variant="outline" onClick={handleAddToExisting}>
+              Add Files
+            </Button>
+            <Button variant="destructive" onClick={handleReplaceAll}>
+              Replace All
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import InvoiceUploadStep from '@/components/dcli/invoice/InvoiceUploadStep';
 import InvoiceReviewStep from '@/components/dcli/invoice/InvoiceReviewStep';
 import InvoiceSummaryCard from '@/components/dcli/invoice/InvoiceSummaryCard';
+import { InvoiceAttachment } from '@/lib/invoiceStorage';
 
 export interface InvoiceData {
   summary_invoice_id: string;
@@ -41,7 +42,7 @@ export interface LineItem {
 export interface ExtractedData {
   invoice: InvoiceData;
   line_items: LineItem[];
-  attachments: Array<{ name: string; path: string }>;
+  attachments: InvoiceAttachment[];
   warnings: string[];
   source_hash: string;
   excel_headers?: string[];
