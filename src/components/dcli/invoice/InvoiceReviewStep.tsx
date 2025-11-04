@@ -87,12 +87,8 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
 
     setIsSaving(true);
     try {
-      // Get authenticated user
+      // Get authenticated user (optional for now)
       const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
 
       // Insert invoice header into staging table
       const { data: stagingInvoice, error: stagingError } = await supabase
@@ -109,7 +105,7 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
           pool: invoice.pool,
           pdf_path: extractedData.attachments.find(a => a.name.toLowerCase().endsWith('.pdf'))?.path,
           excel_path: extractedData.attachments.find(a => a.name.toLowerCase().includes('.xls'))?.path,
-          created_by: user.id,
+          created_by: user?.id || null,
           validation_status: 'pending',
           status: 'pending_validation'
         })
