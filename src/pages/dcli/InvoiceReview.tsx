@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Send, Mail, MessageSquare, User, Clock } from 'lucide-react';
 import ValidationDrawer from '@/components/dcli/invoice/ValidationDrawer';
+import LineItemsTable from '@/components/dcli/invoice/LineItemsTable';
 
 interface Comment {
   id: string;
@@ -41,6 +42,7 @@ const InvoiceReview = () => {
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [showEmailForm, setShowEmailForm] = useState(false);
+  const [selectedLines, setSelectedLines] = useState<number[]>([]);
 
   useEffect(() => {
     if (invoiceId) {
@@ -64,8 +66,23 @@ const InvoiceReview = () => {
         .maybeSingle();
 
       if (stagingData && !stagingError) {
-        setInvoiceData(stagingData as unknown as InvoiceData);
-        await runValidation(stagingData as unknown as InvoiceData);
+        // Fetch line items for staging invoice
+        const { data: lineItems } = await supabase
+          .from('dcli_invoice_line_staging' as any)
+          .select('*')
+          .eq('staging_invoice_id', (stagingData as any).id);
+        
+        const fullStagingData: InvoiceData = {
+          summary_invoice_id: (stagingData as any).summary_invoice_id || (stagingData as any).id || '',
+          billing_date: (stagingData as any).billing_date || '',
+          due_date: (stagingData as any).due_date || '',
+          status: (stagingData as any).status || 'pending',
+          line_items: lineItems || [],
+          attachments: (stagingData as any).attachments || []
+        };
+        
+        setInvoiceData(fullStagingData);
+        await runValidation(fullStagingData);
       } else {
         // Try main invoice table
         const { data: invoiceHeader, error: invoiceError } = await supabase
@@ -247,6 +264,20 @@ const InvoiceReview = () => {
         <Card className="p-6">
           <h2 className="text-2xl font-bold mb-6">Validation Results</h2>
           <ValidationDrawer validationResult={validationResult} />
+        </Card>
+      )}
+
+      {/* Line Items Table */}
+      {invoiceData.line_items && invoiceData.line_items.length > 0 && (
+        <Card className="p-6">
+          <h2 className="text-2xl font-bold mb-6">
+            Line Items ({invoiceData.line_items.length})
+          </h2>
+          <LineItemsTable 
+            data={invoiceData.line_items}
+            selectedLines={selectedLines}
+            onSelectionChange={setSelectedLines}
+          />
         </Card>
       )}
 
