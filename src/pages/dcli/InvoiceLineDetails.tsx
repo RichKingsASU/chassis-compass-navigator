@@ -355,7 +355,8 @@ const InvoiceLineDetails = () => {
             <CardContent className="pt-6">
               <div className="flex flex-wrap items-center gap-4">
                 <span className="text-base font-semibold">Take Action:</span>
-                <Button onClick={() => openDrawer('dispute')}>Add Dispute</Button>
+                <Button>Approved</Button>
+                <Button onClick={() => openDrawer('dispute')}>Dispute</Button>
                 <Button variant="outline" onClick={() => openDrawer('credit')}>Add Credit</Button>
                 <Button variant="outline" onClick={() => openDrawer('absorption')}>Add Absorption</Button>
                 <Button variant="outline" onClick={() => openDrawer('vendor-credit')}>Add Vendor Credit</Button>
