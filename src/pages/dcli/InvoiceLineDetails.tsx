@@ -37,9 +37,15 @@ const InvoiceLineDetails = () => {
 
   useEffect(() => {
     if (invoiceNumber && location.pathname.includes('/invoice-line/')) {
-      navigate(location.pathname, { state: { invoiceNumber }, replace: true });
+      navigate(location.pathname, { 
+        state: { 
+          ...location.state,  // Preserve existing state (invoiceId, returnRoute)
+          invoiceNumber       // Add invoiceNumber
+        }, 
+        replace: true 
+      });
     }
-  }, [invoiceNumber, location.pathname, navigate]);
+  }, [invoiceNumber, location.pathname, navigate, location.state]);
 
   useEffect(() => {
     const fetchValidationData = async () => {
