@@ -167,8 +167,12 @@ const InvoiceLineDetails = () => {
   };
 
   const navigateBack = () => {
-    if (validationData?.lineItem?.staging_invoice_id) {
-      navigate(`/vendors/dcli/invoices/${validationData.lineItem.staging_invoice_id}/review`);
+    const invoiceIdFromState = location.state?.invoiceId;
+    const invoiceIdFromDb = validationData?.lineItem?.staging_invoice_id;
+    const invoiceId = invoiceIdFromState || invoiceIdFromDb;
+    
+    if (invoiceId) {
+      navigate(`/vendors/dcli/invoices/${invoiceId}/review`);
     } else {
       navigate('/vendors/dcli');
     }

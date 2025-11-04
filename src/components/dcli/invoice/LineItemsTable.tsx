@@ -28,6 +28,7 @@ interface LineItemsTableProps {
   data: LineItem[];
   selectedLines: number[];
   onSelectionChange: (selected: number[]) => void;
+  invoiceId?: string;
 }
 
 const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -38,7 +39,7 @@ const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destr
   return 'outline';
 };
 
-const LineItemsTable = ({ data, selectedLines, onSelectionChange }: LineItemsTableProps) => {
+const LineItemsTable = ({ data, selectedLines, onSelectionChange, invoiceId }: LineItemsTableProps) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<keyof LineItem>('line_invoice_number');
@@ -92,7 +93,7 @@ const LineItemsTable = ({ data, selectedLines, onSelectionChange }: LineItemsTab
 
   const handleViewDetails = (lineInvoiceNumber: string) => {
     navigate(`/vendors/dcli/invoice-line/${lineInvoiceNumber}`, {
-      state: { invoiceNumber: lineInvoiceNumber }
+      state: { invoiceId }
     });
   };
 

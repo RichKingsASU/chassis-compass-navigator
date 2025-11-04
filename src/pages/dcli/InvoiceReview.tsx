@@ -278,6 +278,7 @@ const InvoiceReview = () => {
           <LineItemsTable 
             data={invoiceData.line_items}
             selectedLines={selectedLines}
+            invoiceId={invoiceId}
             onSelectionChange={setSelectedLines}
           />
         </Card>
