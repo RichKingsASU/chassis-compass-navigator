@@ -10,7 +10,6 @@ import { AlertCircle, Loader2 } from 'lucide-react';
 import { ExtractedData } from '@/pages/dcli/NewInvoice';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateValue } from '@/utils/dateUtils';
-import { Save } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -20,7 +19,6 @@ interface InvoiceReviewStepProps {
   onComplete: () => void;
   onBack: () => void;
   setHasUnsavedChanges: (value: boolean) => void;
-  onSaveDraft: () => void;
 }
 
 const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
@@ -29,7 +27,6 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
   onComplete,
   onBack,
   setHasUnsavedChanges,
-  onSaveDraft,
 }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -51,6 +48,43 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
   };
 
   const handleContinue = async () => {
+    // Validate required fields
+    if (!invoice.summary_invoice_id?.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Summary Invoice ID is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!invoice.billing_date) {
+      toast({
+        title: "Validation Error",
+        description: "Billing Date is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!invoice.due_date) {
+      toast({
+        title: "Validation Error",
+        description: "Due Date is required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!invoice.amount_due || invoice.amount_due <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "Amount Due must be greater than 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Get authenticated user
@@ -121,9 +155,21 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
       
     } catch (error: any) {
       console.error('Error saving invoice:', error);
+      
+      // Provide specific error messages
+      let errorMessage = error.message || "Failed to save invoice. Please try again.";
+      
+      if (error.message?.includes('duplicate')) {
+        errorMessage = "An invoice with this ID already exists. Please check existing invoices.";
+      } else if (error.message?.includes('foreign key')) {
+        errorMessage = "Missing required reference data. Please contact support.";
+      } else if (error.code === '23505') {
+        errorMessage = "Duplicate invoice detected. This invoice may already exist.";
+      }
+      
       toast({
         title: "Save Failed",
-        description: error.message || "Failed to save invoice. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -221,10 +267,6 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
 
       {/* Actions */}
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onSaveDraft}>
-          <Save className="w-4 h-4 mr-2" />
-          Save Draft
-        </Button>
         <Button onClick={handleContinue} disabled={isSaving}>
           {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
           {isSaving ? 'Saving...' : 'Save & Complete'}

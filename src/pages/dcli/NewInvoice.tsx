@@ -98,16 +98,6 @@ const NewInvoice = () => {
     }
   };
 
-  const handleSaveDraft = async () => {
-    if (!extractedData) return;
-    
-    toast({
-      title: "Draft Not Saved",
-      description: "dcli_invoice_staging table is not configured",
-      variant: "destructive"
-    });
-  };
-
 
   return (
     <div className="min-h-screen bg-background">
@@ -172,11 +162,10 @@ const NewInvoice = () => {
               <InvoiceReviewStep
                 extractedData={extractedData}
                 setExtractedData={setExtractedData}
-                onComplete={handleStepComplete}
-                onBack={handleStepBack}
-                setHasUnsavedChanges={setHasUnsavedChanges}
-                onSaveDraft={handleSaveDraft}
-              />
+              onComplete={handleStepComplete}
+              onBack={handleStepBack}
+              setHasUnsavedChanges={setHasUnsavedChanges}
+            />
             )}
           </div>
 
