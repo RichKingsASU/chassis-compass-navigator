@@ -128,7 +128,7 @@ const InvoiceReview = () => {
 
   const runValidation = async (data: InvoiceData) => {
     try {
-      const { data: validationData, error } = await supabase.rpc('validate_dcli_invoice' as any, {
+      const { data: validationData, error } = await supabase.rpc('validate_dcli_invoice_staging' as any, {
         p_summary_invoice_id: data.summary_invoice_id,
         p_account_code: '',
         p_billing_date: data.billing_date,
