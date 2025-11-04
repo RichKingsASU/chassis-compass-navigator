@@ -29,6 +29,7 @@ interface LineItemsTableProps {
   selectedLines: number[];
   onSelectionChange: (selected: number[]) => void;
   invoiceId?: string;
+  returnRoute?: 'detail' | 'review';
 }
 
 const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
@@ -39,7 +40,7 @@ const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destr
   return 'outline';
 };
 
-const LineItemsTable = ({ data, selectedLines, onSelectionChange, invoiceId }: LineItemsTableProps) => {
+const LineItemsTable = ({ data, selectedLines, onSelectionChange, invoiceId, returnRoute = 'review' }: LineItemsTableProps) => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<keyof LineItem>('line_invoice_number');
@@ -93,7 +94,7 @@ const LineItemsTable = ({ data, selectedLines, onSelectionChange, invoiceId }: L
 
   const handleViewDetails = (lineInvoiceNumber: string) => {
     navigate(`/vendors/dcli/invoice-line/${lineInvoiceNumber}`, {
-      state: { invoiceId }
+      state: { invoiceId, returnRoute }
     });
   };
 

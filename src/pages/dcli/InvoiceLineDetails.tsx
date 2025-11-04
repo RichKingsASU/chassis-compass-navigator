@@ -170,9 +170,10 @@ const InvoiceLineDetails = () => {
     const invoiceIdFromState = location.state?.invoiceId;
     const invoiceIdFromDb = validationData?.lineItem?.staging_invoice_id;
     const invoiceId = invoiceIdFromState || invoiceIdFromDb;
+    const returnRoute = location.state?.returnRoute || 'review';
     
     if (invoiceId) {
-      navigate(`/vendors/dcli/invoices/${invoiceId}/review`);
+      navigate(`/vendors/dcli/invoices/${invoiceId}/${returnRoute}`);
     } else {
       navigate('/vendors/dcli');
     }

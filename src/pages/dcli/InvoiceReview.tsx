@@ -279,6 +279,7 @@ const InvoiceReview = () => {
             data={invoiceData.line_items}
             selectedLines={selectedLines}
             invoiceId={invoiceId}
+            returnRoute="review"
             onSelectionChange={setSelectedLines}
           />
         </Card>

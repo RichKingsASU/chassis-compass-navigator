@@ -446,6 +446,8 @@ const InvoiceDetail = () => {
             data={lineItems}
             selectedLines={selectedLines}
             onSelectionChange={setSelectedLines}
+            invoiceId={invoiceId}
+            returnRoute="detail"
           />
         </CardContent>
       </Card>
