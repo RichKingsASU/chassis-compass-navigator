@@ -166,8 +166,11 @@ const InvoiceLineDetails = () => {
   };
 
   const navigateBack = () => {
-    // Use browser history to go back to the previous page
-    navigate(-1);
+    if (validationData?.lineItem?.staging_invoice_id) {
+      navigate(`/vendors/dcli/invoices/${validationData.lineItem.staging_invoice_id}/review`);
+    } else {
+      navigate('/vendors/dcli');
+    }
   };
 
   const handleCheckClick = (check: any) => {
