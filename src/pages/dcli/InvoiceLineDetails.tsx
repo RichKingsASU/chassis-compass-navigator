@@ -36,7 +36,7 @@ const InvoiceLineDetails = () => {
   const [overrideFile, setOverrideFile] = useState<File | null>(null);
 
   useEffect(() => {
-    if (invoiceNumber && location.pathname.includes('/invoice-line/')) {
+    if (invoiceNumber && location.pathname.includes('/invoice-line/') && location.state?.invoiceNumber !== invoiceNumber) {
       navigate(location.pathname, { 
         state: { 
           ...location.state,  // Preserve existing state (invoiceId, returnRoute)
@@ -45,7 +45,7 @@ const InvoiceLineDetails = () => {
         replace: true 
       });
     }
-  }, [invoiceNumber, location.pathname, navigate, location.state]);
+  }, [invoiceNumber, location.pathname, navigate]);
 
   useEffect(() => {
     const fetchValidationData = async () => {
