@@ -65,8 +65,8 @@ const InvoiceDetail = () => {
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('dcli_invoice_staging')
         .select('*')
-        .eq('summary_invoice_id', invoiceId)
-        .single();
+        .eq('id', invoiceId)
+        .maybeSingle();
 
       if (invoiceError) throw invoiceError;
       setInvoice(invoiceData);

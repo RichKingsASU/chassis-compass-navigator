@@ -102,6 +102,7 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
       
       return {
         ...invoice,
+        id: invoice.id, // Include UUID for navigation
         invoiceNumber: invoice.invoice_id,
         billingDate: invoice.invoice_date,
         invoiceType: invoice.description,
@@ -340,7 +341,7 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
                       <td className="p-3">
                         <div className="flex items-center space-x-1 text-sm">
                           <button 
-                            onClick={() => navigate(`/vendors/dcli/invoices/${record.invoiceNumber}/detail`)}
+                            onClick={() => navigate(`/vendors/dcli/invoices/${record.id}/detail`)}
                             className="text-blue-600 hover:text-blue-800 hover:underline"
                           >
                             View
