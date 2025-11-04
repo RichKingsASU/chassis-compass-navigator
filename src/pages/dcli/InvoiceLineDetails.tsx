@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
-type ActionType = 'dispute' | 'credit' | 'absorption' | 'vendor-credit' | null;
+type ActionType = 'approved' | 'dispute' | 'credit' | 'absorption' | 'vendor-credit' | null;
 
 const InvoiceLineDetails = () => {
   const navigate = useNavigate();
@@ -28,6 +28,7 @@ const InvoiceLineDetails = () => {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeAction, setActiveAction] = useState<ActionType>(null);
+  const [selectedAction, setSelectedAction] = useState<ActionType>(null);
   const [selectedCheck, setSelectedCheck] = useState<any>(null);
   const [checkDialogOpen, setCheckDialogOpen] = useState(false);
   const [overrideStatus, setOverrideStatus] = useState("");
@@ -355,11 +356,48 @@ const InvoiceLineDetails = () => {
             <CardContent className="pt-6">
               <div className="flex flex-wrap items-center gap-4">
                 <span className="text-base font-semibold">Take Action:</span>
-                <Button>Approved</Button>
-                <Button onClick={() => openDrawer('dispute')}>Dispute</Button>
-                <Button variant="outline" onClick={() => openDrawer('credit')}>Add Credit</Button>
-                <Button variant="outline" onClick={() => openDrawer('absorption')}>Add Absorption</Button>
-                <Button variant="outline" onClick={() => openDrawer('vendor-credit')}>Add Vendor Credit</Button>
+                <Button 
+                  variant={selectedAction === 'approved' ? 'default' : 'outline'}
+                  onClick={() => setSelectedAction('approved')}
+                >
+                  Approved
+                </Button>
+                <Button 
+                  variant={selectedAction === 'dispute' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setSelectedAction('dispute');
+                    openDrawer('dispute');
+                  }}
+                >
+                  Dispute
+                </Button>
+                <Button 
+                  variant={selectedAction === 'credit' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setSelectedAction('credit');
+                    openDrawer('credit');
+                  }}
+                >
+                  Add Credit
+                </Button>
+                <Button 
+                  variant={selectedAction === 'absorption' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setSelectedAction('absorption');
+                    openDrawer('absorption');
+                  }}
+                >
+                  Add Absorption
+                </Button>
+                <Button 
+                  variant={selectedAction === 'vendor-credit' ? 'default' : 'outline'}
+                  onClick={() => {
+                    setSelectedAction('vendor-credit');
+                    openDrawer('vendor-credit');
+                  }}
+                >
+                  Add Vendor Credit
+                </Button>
               </div>
             </CardContent>
           </Card>
