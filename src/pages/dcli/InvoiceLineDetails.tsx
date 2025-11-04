@@ -172,6 +172,15 @@ const InvoiceLineDetails = () => {
     const invoiceId = invoiceIdFromState || invoiceIdFromDb;
     const returnRoute = location.state?.returnRoute || 'review';
     
+    console.log('Navigation debug:', {
+      invoiceIdFromState,
+      invoiceIdFromDb,
+      invoiceId,
+      returnRoute,
+      locationState: location.state,
+      targetPath: invoiceId ? `/vendors/dcli/invoices/${invoiceId}/${returnRoute}` : '/vendors/dcli'
+    });
+    
     if (invoiceId) {
       navigate(`/vendors/dcli/invoices/${invoiceId}/${returnRoute}`);
     } else {

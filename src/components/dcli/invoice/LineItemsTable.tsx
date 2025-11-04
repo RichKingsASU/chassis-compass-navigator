@@ -93,6 +93,12 @@ const LineItemsTable = ({ data, selectedLines, onSelectionChange, invoiceId, ret
   };
 
   const handleViewDetails = (lineInvoiceNumber: string) => {
+    console.log('LineItemsTable navigation:', {
+      lineInvoiceNumber,
+      invoiceId,
+      returnRoute,
+      targetPath: `/vendors/dcli/invoice-line/${lineInvoiceNumber}`
+    });
     navigate(`/vendors/dcli/invoice-line/${lineInvoiceNumber}`, {
       state: { invoiceId, returnRoute }
     });
