@@ -7,8 +7,6 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import InvoiceUploadStep from '@/components/dcli/invoice/InvoiceUploadStep';
 import InvoiceReviewStep from '@/components/dcli/invoice/InvoiceReviewStep';
-import InvoiceValidateStep from '@/components/dcli/invoice/InvoiceValidateStep';
-import InvoiceSubmitStep from '@/components/dcli/invoice/InvoiceSubmitStep';
 import InvoiceSummaryCard from '@/components/dcli/invoice/InvoiceSummaryCard';
 
 export interface InvoiceData {
@@ -51,9 +49,7 @@ export interface ExtractedData {
 
 const steps = [
   { id: 1, name: 'Upload', description: 'PDF + Excel' },
-  { id: 2, name: 'Review', description: 'Prefill & Edit' },
-  { id: 3, name: 'Validate', description: 'Match Data' },
-  { id: 4, name: 'Submit', description: 'Review & Submit' },
+  { id: 2, name: 'Review', description: 'Review & Save' },
 ];
 
 const NewInvoice = () => {
@@ -179,23 +175,6 @@ const NewInvoice = () => {
                 onComplete={handleStepComplete}
                 onBack={handleStepBack}
                 setHasUnsavedChanges={setHasUnsavedChanges}
-                onSaveDraft={handleSaveDraft}
-              />
-            )}
-            {currentStep === 3 && extractedData && (
-              <InvoiceValidateStep
-                extractedData={extractedData}
-                onBack={handleStepBack}
-                onComplete={handleStepComplete}
-                currentStep={currentStep}
-                uploadedFiles={uploadedFiles}
-                onSaveDraft={handleSaveDraft}
-              />
-            )}
-            {currentStep === 4 && extractedData && (
-              <InvoiceSubmitStep
-                extractedData={extractedData}
-                onBack={handleStepBack}
                 onSaveDraft={handleSaveDraft}
               />
             )}

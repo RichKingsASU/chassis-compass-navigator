@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { ExtractedData } from '@/pages/dcli/NewInvoice';
 import { useToast } from '@/hooks/use-toast';
 import { formatDateValue } from '@/utils/dateUtils';
 import { Save } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
 
 interface InvoiceReviewStepProps {
   extractedData: ExtractedData;
@@ -30,8 +32,10 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
   onSaveDraft,
 }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [invoice, setInvoice] = useState(extractedData.invoice);
   const [lineItems, setLineItems] = useState(extractedData.line_items);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setHasUnsavedChanges(true);
@@ -47,11 +51,84 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
   };
 
   const handleContinue = async () => {
-    toast({
-      title: "Review Complete",
-      description: "Invoice data reviewed successfully.",
-    });
-    onComplete();
+    setIsSaving(true);
+    try {
+      // Get authenticated user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Insert invoice header into staging table
+      const { data: stagingInvoice, error: stagingError } = await supabase
+        .from('dcli_invoice_staging')
+        .insert({
+          summary_invoice_id: invoice.summary_invoice_id,
+          billing_date: invoice.billing_date,
+          due_date: invoice.due_date,
+          billing_terms: invoice.billing_terms,
+          vendor: invoice.vendor || 'DCLI',
+          currency_code: invoice.currency_code || 'USD',
+          amount_due: invoice.amount_due,
+          account_code: invoice.account_code,
+          pool: invoice.pool,
+          pdf_path: extractedData.attachments.find(a => a.name.toLowerCase().endsWith('.pdf'))?.path,
+          excel_path: extractedData.attachments.find(a => a.name.toLowerCase().includes('.xls'))?.path,
+          created_by: user.id,
+          validation_status: 'pending',
+          status: 'pending_validation'
+        })
+        .select()
+        .single();
+
+      if (stagingError) throw stagingError;
+
+      // Insert line items into staging table
+      const lineInserts = lineItems.map((item, index) => ({
+        staging_invoice_id: stagingInvoice.id,
+        line_index: index,
+        invoice_type: item.invoice_type,
+        line_invoice_number: item.line_invoice_number,
+        invoice_status: item.invoice_status,
+        invoice_total: item.invoice_total,
+        remaining_balance: item.remaining_balance,
+        dispute_status: item.dispute_status,
+        attachment_count: item.attachment_count,
+        chassis_out: item.chassis_out,
+        container_out: item.container_out,
+        date_out: item.date_out,
+        container_in: item.container_in,
+        date_in: item.date_in,
+        raw: item.row_data
+      }));
+
+      const { error: lineError } = await supabase
+        .from('dcli_invoice_line_staging')
+        .insert(lineInserts);
+
+      if (lineError) throw lineError;
+
+      toast({
+        title: "Invoice Saved Successfully",
+        description: `Invoice ${invoice.summary_invoice_id} has been saved to staging.`,
+      });
+
+      // Navigate to Invoice Tracker
+      setTimeout(() => {
+        navigate('/vendors/dcli');
+      }, 500);
+      
+    } catch (error: any) {
+      console.error('Error saving invoice:', error);
+      toast({
+        title: "Save Failed",
+        description: error.message || "Failed to save invoice. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -148,7 +225,10 @@ const InvoiceReviewStep: React.FC<InvoiceReviewStepProps> = ({
           <Save className="w-4 h-4 mr-2" />
           Save Draft
         </Button>
-        <Button onClick={handleContinue}>Continue to Validate</Button>
+        <Button onClick={handleContinue} disabled={isSaving}>
+          {isSaving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          {isSaving ? 'Saving...' : 'Save & Complete'}
+        </Button>
       </div>
     </div>
   );

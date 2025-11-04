@@ -33,13 +33,11 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      // Fetch validated invoices from dcli_invoice_staging
-      // Show invoices that have completed validation
+      // Fetch all invoices from dcli_invoice_staging
       const { data, error } = await supabase
         .from('dcli_invoice_staging')
         .select('*')
-        .eq('validation_status', 'completed') // Only show completed validations
-        .order('billing_date', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       
@@ -58,6 +56,7 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
           disputed_amount: invoice.status === 'disputed' ? amountDue * 0.1 : null,
           invoice_date: invoice.billing_date || invoice.created_at?.split('T')[0],
           due_date: invoice.due_date,
+          validation_status: invoice.validation_status || 'pending',
           ...invoice
         };
       });
@@ -176,6 +175,23 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
         {disputeStatus}
       </Badge>
     );
+  };
+
+  const getValidationBadge = (validationStatus: string) => {
+    if (validationStatus === 'completed') {
+      return (
+        <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+          Validated
+        </Badge>
+      );
+    } else if (validationStatus === 'pending') {
+      return (
+        <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
+          Pending Validation
+        </Badge>
+      );
+    }
+    return null;
   };
 
   if (loading) {
@@ -306,6 +322,7 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Due Date</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Invoice Status</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Dispute Status</th>
+                  <th className="text-left p-3 text-sm font-medium text-gray-600">Validation</th>
                   <th className="text-left p-3 text-sm font-medium text-gray-600">Attachments</th>
                 </tr>
               </thead>
@@ -342,6 +359,7 @@ const DCLIInvoiceTracker: React.FC<DCLIInvoiceTrackerProps> = ({ onViewDetail })
                       <td className="p-3 text-sm">{formatDate(record.dueDate)}</td>
                       <td className="p-3">{getStatusBadge(record.invoiceStatus)}</td>
                       <td className="p-3">{getDisputeBadge(record.disputeStatus)}</td>
+                      <td className="p-3">{getValidationBadge(record.validation_status)}</td>
                       <td className="p-3">
                         {record.hasAttachment && (
                           <div className="flex items-center">
