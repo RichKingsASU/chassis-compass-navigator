@@ -251,7 +251,9 @@ const InvoiceReview = () => {
           </Button>
           <div>
             <h1 className="text-3xl font-bold">Invoice Review</h1>
-            <p className="text-muted-foreground">Invoice #{invoiceData.summary_invoice_id}</p>
+            <p className="text-muted-foreground">
+              Invoice #{invoiceData.summary_invoice_id || invoiceId}
+            </p>
           </div>
         </div>
         <Badge variant={invoiceData.status === 'submitted' ? 'default' : 'secondary'}>
