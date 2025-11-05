@@ -72,7 +72,7 @@ const POLAYard = () => {
       <Tabs defaultValue="overview" className="w-full mt-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="data">Data View</TabsTrigger>
+          <TabsTrigger value="data">Inventory</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
