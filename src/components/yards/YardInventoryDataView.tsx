@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,8 @@ import {
   Clock,
   AlertTriangle,
   CheckCircle,
-  Truck
+  Truck,
+  Eye
 } from "lucide-react";
 
 // Mock chassis inventory data
@@ -170,6 +172,7 @@ interface FilterState {
 }
 
 const YardInventoryDataView = () => {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     status: 'all',
@@ -605,12 +608,13 @@ const YardInventoryDataView = () => {
                   <TableHead>Inspection Score</TableHead>
                   <TableHead>GPS</TableHead>
                   <TableHead>Reserved By</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                       No chassis found matching the current filters
                     </TableCell>
                   </TableRow>
@@ -678,6 +682,15 @@ const YardInventoryDataView = () => {
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => navigate(`/chassis/${encodeURIComponent(chassis.id)}`)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
