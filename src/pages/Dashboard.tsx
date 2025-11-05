@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -20,25 +20,74 @@ import {
 import DashboardMap from '@/components/dashboard/DashboardMap';
 import RecentActivityList from '@/components/dashboard/RecentActivityList';
 import ActivityLog from '@/components/dashboard/ActivityLog';
+import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard = () => {
   const [timeRange, setTimeRange] = useState('week');
-  
-  // Mock data for chassis counts
-  const chassisData = [
-    { size: "20'", count: 125, color: '#2A9D8F' },
-    { size: "40'", count: 284, color: '#F4A261' },
-    { size: "45'", count: 167, color: '#E76F51' },
-  ];
+  const [fleetlocateData, setFleetlocateData] = useState<any[]>([]);
+  const [chassisData, setChassisData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data for GPS providers
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch fleetlocate GPS data
+      // @ts-ignore
+      const { data: gpsData, error: gpsError } = await supabase
+        // @ts-ignore
+        .from('fleetlocate_stg')
+        .select('*')
+        .limit(500);
+
+      if (gpsError) throw gpsError;
+      setFleetlocateData(gpsData || []);
+
+      // Fetch chassis data
+      // @ts-ignore
+      const { data: chassisDataResult, error: chassisError } = await supabase
+        // @ts-ignore
+        .from('chassis_master')
+        .select('*');
+
+      if (chassisError) throw chassisError;
+      setChassisData(chassisDataResult || []);
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate chassis counts by type
+  const chassisTypeCounts = chassisData.reduce((acc, chassis) => {
+    const type = chassis.forrest_chassis_type || 'Unknown';
+    acc[type] = (acc[type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const chassisTypeData = Object.entries(chassisTypeCounts)
+    .map(([size, count], index) => ({
+      size,
+      count: count as number,
+      color: ['#2A9D8F', '#F4A261', '#E76F51', '#E9C46A', '#264653'][index % 5]
+    }))
+    .sort((a, b) => (b.count as number) - (a.count as number))
+    .slice(0, 5);
+
+  // GPS provider data from fleetlocate
   const gpsProviderData = [
-    { name: 'Samsara', value: 243, color: '#2A9D8F' },
-    { name: 'BlackBerry', value: 130, color: '#F4A261' },
-    { name: 'Fleetview', value: 98, color: '#E76F51' },
-    { name: 'Fleetlocate', value: 75, color: '#E9C46A' },
-    { name: 'Anytrek', value: 30, color: '#264653' },
-  ];
+    { name: 'Fleetlocate', value: fleetlocateData.length, color: '#2A9D8F' },
+    { name: 'Samsara', value: 0, color: '#F4A261' },
+    { name: 'BlackBerry', value: 0, color: '#E76F51' },
+    { name: 'Fleetview', value: 0, color: '#E9C46A' },
+    { name: 'Anytrek', value: 0, color: '#264653' },
+  ].filter(provider => provider.value > 0);
 
   // Mock data for vendor activity
   const vendorActivityData = [
@@ -101,16 +150,20 @@ const Dashboard = () => {
             <CardTitle className="text-lg font-medium">Total Chassis</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="stats-value">{chassisData.reduce((acc, item) => acc + item.count, 0)}</div>
+            <div className="stats-value">{chassisData.length}</div>
             <div className="stats-label">Active in fleet</div>
             
             <div className="mt-4">
-              {chassisData.map(item => (
-                <div key={item.size} className="flex justify-between items-center mt-2">
-                  <div className="text-sm">{item.size}</div>
-                  <div className="font-medium">{item.count}</div>
-                </div>
-              ))}
+              {loading ? (
+                <div className="text-sm text-muted-foreground">Loading...</div>
+              ) : (
+                chassisTypeData.map(item => (
+                  <div key={item.size} className="flex justify-between items-center mt-2">
+                    <div className="text-sm">{item.size}</div>
+                    <div className="font-medium">{item.count}</div>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -120,17 +173,19 @@ const Dashboard = () => {
             <CardTitle className="text-lg font-medium">GPS Coverage</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="stats-value">92%</div>
+            <div className="stats-value">{loading ? '...' : `${Math.round((fleetlocateData.length / Math.max(chassisData.length, 1)) * 100)}%`}</div>
             <div className="stats-label">Fleet visibility</div>
             
             <div className="mt-4">
               <div className="w-full bg-muted rounded-full h-2.5">
-                <div className="bg-secondary h-2.5 rounded-full" style={{ width: '92%' }}></div>
+                <div className="bg-secondary h-2.5 rounded-full" style={{ width: `${Math.min((fleetlocateData.length / Math.max(chassisData.length, 1)) * 100, 100)}%` }}></div>
               </div>
               
               <div className="flex justify-between items-center mt-2">
-                <div className="text-sm text-muted-foreground">46 chassis without GPS</div>
-                <Badge variant="outline" className="text-xs">Action needed</Badge>
+                <div className="text-sm text-muted-foreground">
+                  {loading ? 'Loading...' : `${fleetlocateData.length} chassis with GPS`}
+                </div>
+                <Badge variant="outline" className="text-xs">Fleetlocate</Badge>
               </div>
             </div>
           </CardContent>
@@ -170,7 +225,7 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="p-2">
             <div className="h-[400px] rounded-md overflow-hidden">
-              <DashboardMap />
+              <DashboardMap fleetlocateData={fleetlocateData} />
             </div>
           </CardContent>
         </Card>

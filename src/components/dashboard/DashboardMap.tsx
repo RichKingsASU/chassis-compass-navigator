@@ -2,20 +2,26 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MapPin, Circle } from 'lucide-react';
 
-const DashboardMap = () => {
+interface DashboardMapProps {
+  fleetlocateData?: any[];
+}
+
+const DashboardMap: React.FC<DashboardMapProps> = ({ fleetlocateData = [] }) => {
   const [mapLoaded, setMapLoaded] = useState(false);
   
-  // For the purpose of this demo, we'll use a placeholder map display
-  // In a real application, this would be integrated with a mapping library like Mapbox
+  // Count unique chassis locations
+  const uniqueLocations = new Set(fleetlocateData.map(d => d.Location || 'Unknown')).size;
+  const activeGPS = fleetlocateData.filter(d => d.Status?.toLowerCase() === 'moving' || d.status?.toLowerCase() === 'moving').length;
   
   return (
     <div className="relative w-full h-full bg-slate-100 overflow-hidden rounded-md">
-      {/* This is a placeholder for the actual map. In a real application, use Mapbox or Google Maps */}
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-muted-foreground mb-2">Map Placeholder</div>
+          <div className="text-muted-foreground mb-2">Fleetlocate GPS Data</div>
           <div className="text-xs text-muted-foreground">
-            In the production app, this would display an interactive map with chassis locations
+            {fleetlocateData.length > 0 
+              ? `Tracking ${fleetlocateData.length} chassis across ${uniqueLocations} locations`
+              : 'No GPS data available'}
           </div>
         </div>
       </div>
@@ -102,14 +108,14 @@ const DashboardMap = () => {
       
       {/* Legend */}
       <div className="absolute bottom-3 left-3 bg-white p-2 rounded-md shadow-sm text-xs">
-        <div className="font-medium mb-1">Map Legend</div>
+        <div className="font-medium mb-1">Fleetlocate Status</div>
         <div className="flex items-center gap-2">
           <div className="bg-secondary w-3 h-3 rounded-full"></div>
-          <span>Active GPS</span>
+          <span>{fleetlocateData.length} Total Assets</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="bg-primary w-3 h-3 rounded-full"></div>
-          <span>Chassis Cluster</span>
+          <span>{activeGPS} Active GPS</span>
         </div>
       </div>
     </div>
