@@ -136,7 +136,7 @@ const TMSTable: React.FC<TMSTableProps> = ({ onViewDetails, selectedFilters }) =
                 data.map((record, index) => (
                   <TableRow key={record.id || index}>
                     <TableCell className="font-medium">
-                      {record.shipment_number || record.id || '-'}
+                      {record.shipment_number ? `LD${record.shipment_number}` : (record.id ? `LD${record.id}` : '-')}
                     </TableCell>
                     <TableCell>{record.container_number || '-'}</TableCell>
                     <TableCell>{record.carrier_name || '-'}</TableCell>
