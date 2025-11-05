@@ -36,6 +36,12 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
     from: subMonths(new Date(), 3),
     to: new Date()
   });
+
+  // Debug logging
+  console.log('UtilizationTab - Received TMS data count:', tmsData.length);
+  console.log('UtilizationTab - Sample data:', tmsData[0]);
+  console.log('UtilizationTab - Date range:', dateRange);
+
   const parseCharge = (value: string | number | null | undefined): number => {
     if (!value) return 0;
     if (typeof value === 'number') return value;
@@ -69,6 +75,16 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
     
     // Handle regular date strings
     if (typeof dateValue === 'string') {
+      // Try to parse MM/DD/YYYY HH:MM format first (common in mg_tms)
+      const mmddyyyyPattern = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/;
+      const match = dateValue.match(mmddyyyyPattern);
+      if (match) {
+        const [, month, day, year, hours, minutes] = match;
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
+        return isValid(date) ? date : null;
+      }
+      
+      // Fall back to ISO date parsing
       const date = parseISO(dateValue);
       return isValid(date) ? date : null;
     }
@@ -88,11 +104,14 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
     const fromDate = startOfDay(dateRange.from);
     const toDate = endOfDay(dateRange.to);
     
-    return tmsData.filter(tms => {
+    const filtered = tmsData.filter(tms => {
       const createdDate = safeParseDate(tms.created_date);
       if (!createdDate) return false;
       return isWithinInterval(createdDate, { start: fromDate, end: toDate });
     });
+    
+    console.log('UtilizationTab - Filtered TMS data count:', filtered.length);
+    return filtered;
   }, [tmsData, dateRange]);
 
   // Calculate utilization metrics
@@ -254,15 +273,33 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
 
   return (
     <div className="space-y-6">
-      {/* Date Range Filter */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5" />
-            Date Range Filter
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex gap-4 items-center">
+      {/* Empty state check */}
+      {tmsData.length === 0 ? (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center space-y-3">
+              <Activity className="h-16 w-16 mx-auto text-muted-foreground" />
+              <h3 className="text-xl font-semibold">No TMS Data Available</h3>
+              <p className="text-muted-foreground">
+                No utilization data is available for chassis <span className="font-mono">{chassisId}</span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                TMS data will appear here once the chassis is used for shipments
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Date Range Filter */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarIcon className="h-5 w-5" />
+                Date Range Filter
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex gap-4 items-center">
           <div className="flex gap-2 items-center">
             <span className="text-sm text-muted-foreground">From:</span>
             <Popover>
@@ -588,6 +625,26 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
           </div>
         </CardContent>
       </Card>
+
+      {/* Empty state for filtered data */}
+      {filteredTMSData.length === 0 && tmsData.length > 0 && (
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center space-y-2">
+              <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground" />
+              <h3 className="text-lg font-semibold">No Data in Selected Date Range</h3>
+              <p className="text-muted-foreground">
+                Try adjusting the date range filter to see utilization data
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Total available records: {tmsData.length}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+        </>
+      )}
     </div>
   );
 };

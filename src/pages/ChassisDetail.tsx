@@ -44,7 +44,6 @@ interface LocationHistory {
 
 interface TMSData {
   id: string;
-  chassis_norm: string;
   container_number: string;
   pickup_loc_name: string;
   delivery_loc_name: string;
