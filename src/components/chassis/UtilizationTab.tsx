@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, DollarSign, TrendingUp, Clock, AlertCircle, Activity } from 'lucide-react';
+import { Calendar as CalendarIcon, DollarSign, TrendingUp, Clock, AlertCircle, Activity, Info } from 'lucide-react';
 import { format, differenceInDays, parseISO, isValid, startOfDay, endOfDay, eachDayOfInterval, isWithinInterval, subMonths } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, Cell } from 'recharts';
 import { excelDateToJSDate, isExcelSerialDate } from '@/utils/dateUtils';
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 
 interface TMSData {
@@ -31,16 +32,13 @@ interface UtilizationTabProps {
 }
 
 const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) => {
+  const [debugOpen, setDebugOpen] = useState(false);
+  
   // Date range state - default to last 3 months
   const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
     from: subMonths(new Date(), 3),
     to: new Date()
   });
-
-  // Debug logging
-  console.log('UtilizationTab - Received TMS data count:', tmsData.length);
-  console.log('UtilizationTab - Sample data:', tmsData[0]);
-  console.log('UtilizationTab - Date range:', dateRange);
 
   const parseCharge = (value: string | number | null | undefined): number => {
     if (!value) return 0;
@@ -273,6 +271,55 @@ const UtilizationTab: React.FC<UtilizationTabProps> = ({ chassisId, tmsData }) =
 
   return (
     <div className="space-y-6">
+      {/* Debug Info Card */}
+      <Collapsible open={debugOpen} onOpenChange={setDebugOpen}>
+        <Card className="border-blue-500">
+          <CardHeader className="pb-3">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" className="w-full justify-between p-0 hover:bg-transparent">
+                <CardTitle className="flex items-center gap-2 text-blue-600">
+                  <Info className="h-5 w-5" />
+                  Debug Information
+                </CardTitle>
+                <Badge variant="secondary">{debugOpen ? 'Hide' : 'Show'}</Badge>
+              </Button>
+            </CollapsibleTrigger>
+          </CardHeader>
+          <CollapsibleContent>
+            <CardContent className="space-y-3 pt-0">
+              <div className="grid grid-cols-2 gap-4 p-3 bg-muted rounded-lg">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Chassis ID</div>
+                  <div className="font-mono text-sm">{chassisId}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Total TMS Records Received</div>
+                  <div className="text-2xl font-bold">{tmsData.length}</div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Date Range</div>
+                  <div className="text-sm">
+                    {dateRange.from ? format(dateRange.from, 'PP') : 'Not set'} → {dateRange.to ? format(dateRange.to, 'PP') : 'Not set'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">Filtered TMS Records</div>
+                  <div className="text-2xl font-bold text-blue-600">{filteredTMSData.length}</div>
+                </div>
+              </div>
+              {tmsData.length > 0 && (
+                <div className="p-3 bg-muted rounded-lg">
+                  <div className="text-sm font-medium text-muted-foreground mb-2">Sample TMS Record (First)</div>
+                  <pre className="text-xs overflow-auto max-h-40 bg-background p-2 rounded">
+                    {JSON.stringify(tmsData[0], null, 2)}
+                  </pre>
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
       {/* Empty state check */}
       {tmsData.length === 0 ? (
         <Card>

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, MapPin, Truck, TrendingUp, DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Lock, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, TrendingUp, DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Lock, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, subDays } from 'date-fns';
@@ -548,6 +548,48 @@ const ChassisDetail = () => {
               />
             ) : (
               <>
+            {/* Debug Info Card */}
+            <Card className="border-blue-500">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-blue-600">
+                  <Info className="h-5 w-5" />
+                  TMS Data Query Debug
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-3 gap-4 p-3 bg-muted rounded-lg">
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">Query Target</div>
+                    <div className="font-mono text-sm">{asset?.identifier || 'N/A'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">Records Found</div>
+                    <div className="text-2xl font-bold">{tmsData.length}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">Query Field</div>
+                    <div className="text-sm">chassis_number OR chassis_number_format</div>
+                  </div>
+                </div>
+                {tmsData.length > 0 && (
+                  <div className="p-3 bg-muted rounded-lg">
+                    <div className="text-sm font-medium text-muted-foreground mb-2">Sample Record (First)</div>
+                    <pre className="text-xs overflow-auto max-h-32 bg-background p-2 rounded">
+                      {JSON.stringify(tmsData[0], null, 2)}
+                    </pre>
+                  </div>
+                )}
+                {tmsData.length === 0 && (
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                    <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200">⚠️ No TMS records found</div>
+                    <div className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                      Check if mg_tms table has records where chassis_number or chassis_number_format = '{asset?.identifier}'
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
             {/* Summary KPIs */}
             {tmsData.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
