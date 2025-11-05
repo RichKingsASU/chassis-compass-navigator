@@ -1191,6 +1191,189 @@ export type Database = {
           },
         ]
       }
+      fleetlocate_data: {
+        Row: {
+          address: string | null
+          asset_id: string
+          asset_name: string | null
+          battery_volts: number | null
+          city: string | null
+          country: string | null
+          created_at: string
+          heading_deg: number | null
+          id: number
+          ignition_on: boolean | null
+          latitude: number | null
+          longitude: number | null
+          odometer_miles: number | null
+          postal_code: string | null
+          power_status: string | null
+          raw_row_hash: string | null
+          report_ts: string
+          source_file_key: string | null
+          speed_mph: number | null
+          state: string | null
+          updated_at: string
+          vin: string | null
+        }
+        Insert: {
+          address?: string | null
+          asset_id: string
+          asset_name?: string | null
+          battery_volts?: number | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          heading_deg?: number | null
+          id?: number
+          ignition_on?: boolean | null
+          latitude?: number | null
+          longitude?: number | null
+          odometer_miles?: number | null
+          postal_code?: string | null
+          power_status?: string | null
+          raw_row_hash?: string | null
+          report_ts: string
+          source_file_key?: string | null
+          speed_mph?: number | null
+          state?: string | null
+          updated_at?: string
+          vin?: string | null
+        }
+        Update: {
+          address?: string | null
+          asset_id?: string
+          asset_name?: string | null
+          battery_volts?: number | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          heading_deg?: number | null
+          id?: number
+          ignition_on?: boolean | null
+          latitude?: number | null
+          longitude?: number | null
+          odometer_miles?: number | null
+          postal_code?: string | null
+          power_status?: string | null
+          raw_row_hash?: string | null
+          report_ts?: string
+          source_file_key?: string | null
+          speed_mph?: number | null
+          state?: string | null
+          updated_at?: string
+          vin?: string | null
+        }
+        Relationships: []
+      }
+      fleetlocate_rejects: {
+        Row: {
+          created_at: string
+          id: number
+          reason: string
+          stg_row: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          reason: string
+          stg_row: Json
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          reason?: string
+          stg_row?: Json
+        }
+        Relationships: []
+      }
+      fleetlocate_stg: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          Address: string | null
+          "Asset ID": string | null
+          asset_id: string | null
+          asset_name: string | null
+          "Battery Status": string | null
+          battery_percent: string | null
+          City: string | null
+          Device: string | null
+          device_id: string | null
+          Duration: string | null
+          Group: string | null
+          imei: string | null
+          Landmark: string | null
+          "Last Event Date": string | null
+          last_gps_time: string | null
+          last_latitude: string | null
+          last_longitude: string | null
+          Location: string | null
+          "Serial Number": string | null
+          speed: string | null
+          State: string | null
+          status: string | null
+          Status: string | null
+          Zip: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          Address?: string | null
+          "Asset ID"?: string | null
+          asset_id?: string | null
+          asset_name?: string | null
+          "Battery Status"?: string | null
+          battery_percent?: string | null
+          City?: string | null
+          Device?: string | null
+          device_id?: string | null
+          Duration?: string | null
+          Group?: string | null
+          imei?: string | null
+          Landmark?: string | null
+          "Last Event Date"?: string | null
+          last_gps_time?: string | null
+          last_latitude?: string | null
+          last_longitude?: string | null
+          Location?: string | null
+          "Serial Number"?: string | null
+          speed?: string | null
+          State?: string | null
+          status?: string | null
+          Status?: string | null
+          Zip?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          Address?: string | null
+          "Asset ID"?: string | null
+          asset_id?: string | null
+          asset_name?: string | null
+          "Battery Status"?: string | null
+          battery_percent?: string | null
+          City?: string | null
+          Device?: string | null
+          device_id?: string | null
+          Duration?: string | null
+          Group?: string | null
+          imei?: string | null
+          Landmark?: string | null
+          "Last Event Date"?: string | null
+          last_gps_time?: string | null
+          last_latitude?: string | null
+          last_longitude?: string | null
+          Location?: string | null
+          "Serial Number"?: string | null
+          speed?: string | null
+          State?: string | null
+          status?: string | null
+          Status?: string | null
+          Zip?: string | null
+        }
+        Relationships: []
+      }
       flexivan_activity: {
         Row: {
           age: number | null
@@ -5553,6 +5736,45 @@ export type Database = {
       }
     }
     Views: {
+      fleetlocate_norm: {
+        Row: {
+          asset_id: string | null
+          asset_name: string | null
+          battery_percent: string | null
+          device_id: string | null
+          imei: string | null
+          last_gps_time: string | null
+          last_latitude: string | null
+          last_longitude: string | null
+          speed: string | null
+          status: string | null
+        }
+        Insert: {
+          asset_id?: string | null
+          asset_name?: string | null
+          battery_percent?: string | null
+          device_id?: string | null
+          imei?: string | null
+          last_gps_time?: string | null
+          last_latitude?: string | null
+          last_longitude?: string | null
+          speed?: string | null
+          status?: string | null
+        }
+        Update: {
+          asset_id?: string | null
+          asset_name?: string | null
+          battery_percent?: string | null
+          device_id?: string | null
+          imei?: string | null
+          last_gps_time?: string | null
+          last_latitude?: string | null
+          last_longitude?: string | null
+          speed?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       geography_columns: {
         Row: {
           coord_dimension: number | null
@@ -5999,6 +6221,10 @@ export type Database = {
           p_table: unknown
         }
         Returns: number
+      }
+      build_fleetlocate_norm_view: {
+        Args: { p_schema: string; p_table: string; p_view: string }
+        Returns: undefined
       }
       bytea_to_text: { Args: { data: string }; Returns: string }
       days_inclusive: { Args: { a: string; b: string }; Returns: number }
@@ -7026,9 +7252,14 @@ export type Database = {
               error: true
             } & "Could not choose the best candidate function between: public.urlencode(string => bytea), public.urlencode(string => varchar). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
           }
+      util_col_or_null: {
+        Args: { alias: string; c: string; cols: Json }
+        Returns: string
+      }
       util_to_bigint: { Args: { p_text: string }; Returns: number }
       util_to_bool: { Args: { p_text: string }; Returns: boolean }
       util_to_numeric: { Args: { p_text: string }; Returns: number }
+      util_truthy: { Args: { p_text: string }; Returns: boolean }
       util_try_bool: { Args: { p_text: string }; Returns: boolean }
       util_try_numeric: { Args: { p_text: string }; Returns: number }
       util_try_timestamptz: { Args: { p_text: string }; Returns: string }
