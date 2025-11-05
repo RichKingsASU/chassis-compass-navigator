@@ -11,22 +11,22 @@ export interface FleetlocateData {
 }
 
 interface FleetlocateRawData {
-  id: string;
-  battery_status: string | null;
-  device: string | null;
-  serial_number: string | null;
-  asset_id: string | null;
-  group: string | null;
-  status: string | null;
-  location: string | null;
-  landmark: string | null;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  zip: number | null;
-  duration: string | null;
-  last_event_date: string | null;
-  inserted_at: string;
+  'Asset ID': string | null;
+  'Group': string | null;
+  'Status': string | null;
+  'Duration': string | null;
+  'Location': string | null;
+  'Landmark': string | null;
+  'Address': string | null;
+  'City': string | null;
+  'State': string | null;
+  'Zip': string | null;
+  'Last Event Date': string | null;
+  'Serial Number': string | null;
+  'Device': string | null;
+  'Battery Status': string | null;
+  '_load_ts': string;
+  '_source_file': string | null;
 }
 
 export const useFleetlocateData = () => {
@@ -34,24 +34,24 @@ export const useFleetlocateData = () => {
     queryKey: ['fleetlocate-data'],
     queryFn: async () => {
       const { data, error } = await supabase
-        // @ts-ignore - fleetlocate_daily_asset_report table exists but not in generated types yet
-        .from('fleetlocate_daily_asset_report')
+        // @ts-ignore - fleetlocate_stg table exists but not in generated types yet
+        .from('fleetlocate_stg')
         .select('*')
-        .order('inserted_at', { ascending: false })
+        .order('_load_ts', { ascending: false })
         .limit(100);
 
       if (error) throw error;
 
       // Transform the data to match GpsData interface
       const transformedData: FleetlocateData[] = ((data as unknown as FleetlocateRawData[]) || []).map((item) => ({
-        chassisId: item.asset_id || 'N/A',
-        timestamp: item.last_event_date || 'N/A',
-        location: [item.address, item.city, item.state]
+        chassisId: item['Asset ID'] || 'N/A',
+        timestamp: item['Last Event Date'] || 'N/A',
+        location: [item['Address'], item['City'], item['State']]
           .filter(Boolean)
-          .join(', ') || item.location || 'N/A',
-        coordinates: item.landmark || 'N/A',
-        speed: item.duration || 'N/A',
-        notes: `Status: ${item.status || 'N/A'}, Battery: ${item.battery_status || 'N/A'}`,
+          .join(', ') || item['Location'] || 'N/A',
+        coordinates: item['Landmark'] || 'N/A',
+        speed: item['Duration'] || 'N/A',
+        notes: `Status: ${item['Status'] || 'N/A'}, Battery: ${item['Battery Status'] || 'N/A'}`,
       }));
 
       return transformedData;
