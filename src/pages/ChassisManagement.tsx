@@ -338,7 +338,10 @@ const ChassisManagement = () => {
                       <TableCell>{chassis.mcl_data?.region || 'N/A'}</TableCell>
                       <TableCell>
                         {chassis.mcl_data?.chassis_status ? (
-                          <Badge variant={chassis.mcl_data.chassis_status === 'Active' ? 'default' : 'secondary'}>
+                          <Badge 
+                            variant={chassis.mcl_data.chassis_status === 'Active' ? 'default' : 'secondary'}
+                            className={chassis.mcl_data.chassis_status?.toLowerCase() === 'out of service' ? 'bg-red-600 text-white hover:bg-red-700' : ''}
+                          >
                             {chassis.mcl_data.chassis_status}
                           </Badge>
                         ) : 'N/A'}
