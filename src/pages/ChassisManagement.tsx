@@ -124,22 +124,22 @@ const ChassisManagement = () => {
   const metrics = useMemo(() => {
     const total = chassisData.length;
     
-    // Count by status
+    // Count by status (normalize to lowercase for comparison)
     const byStatus = chassisData.reduce((acc, c) => {
-      const status = c.mcl_data?.chassis_status || c.current_status || 'Unknown';
+      const status = (c.mcl_data?.chassis_status || c.current_status || 'Unknown').toLowerCase();
       acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
     
-    const outOfService = byStatus['Out of Service'] || 0;
-    const active = byStatus['Active'] || 0;
-    const available = byStatus['Available'] || 0;
-    const maintenance = byStatus['Maintenance'] || 0;
+    const outOfService = byStatus['out of service'] || 0;
+    const active = (byStatus['active'] || 0) + (byStatus['available'] || 0);
+    const available = byStatus['available'] || 0;
+    const maintenance = byStatus['maintenance'] || 0;
     
     // Count by type with status breakdown
     const byTypeWithStatus = chassisData.reduce((acc, c) => {
       const type = c.type || c.mcl_data?.forrest_chassis_type || 'Unknown';
-      const status = c.mcl_data?.chassis_status || c.current_status || 'Unknown';
+      const status = (c.mcl_data?.chassis_status || c.current_status || 'Unknown').toLowerCase();
       
       if (!acc[type]) {
         acc[type] = {
@@ -152,11 +152,11 @@ const ChassisManagement = () => {
       
       acc[type].total += 1;
       
-      if (status === 'Available') {
+      if (status === 'available') {
         acc[type].available += 1;
-      } else if (status === 'Reserved') {
+      } else if (status === 'reserved') {
         acc[type].reserved += 1;
-      } else if (status === 'Out of Service') {
+      } else if (status === 'out of service') {
         acc[type].oos += 1;
       }
       
