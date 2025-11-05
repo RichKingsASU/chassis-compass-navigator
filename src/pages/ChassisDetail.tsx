@@ -250,14 +250,14 @@ const ChassisDetail = () => {
         console.log('GPS location data table not configured');
       }
 
-      // Fetch TMS data from tms_mg table
+      // Fetch TMS data from mg_tms table
       if (assetData?.identifier) {
         console.log('Fetching TMS data for chassis:', assetData.identifier);
         
-        // @ts-ignore - tms_mg types not yet generated
+        // @ts-ignore - mg_tms types not yet generated
         const { data: tmsDataResult, error: tmsError } = await supabase
-          // @ts-ignore - tms_mg types not yet generated
-          .from('tms_mg')
+          // @ts-ignore - mg_tms types not yet generated
+          .from('mg_tms')
           .select('*')
           .or(`chassis_number.eq.${assetData.identifier},chassis_number_format.eq.${assetData.identifier}`)
           .order('created_date', { ascending: false });
