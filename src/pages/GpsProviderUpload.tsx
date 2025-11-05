@@ -53,7 +53,7 @@ const GpsProviderUpload: React.FC<GpsProviderUploadProps> = ({ providerName, pro
         </TabsList>
         
         <TabsContent value="dashboard" className="space-y-6">
-          <GpsDashboardTab />
+          <GpsDashboardTab providerName={providerName} />
         </TabsContent>
         
         <TabsContent value="upload" className="space-y-6">

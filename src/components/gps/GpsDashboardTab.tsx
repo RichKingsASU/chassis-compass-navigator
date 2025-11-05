@@ -1,10 +1,19 @@
 import KPICard from '@/components/ccm/KPICard';
 import { useFleetlocateData } from '@/hooks/useFleetlocateData';
+import { useAnytrekData } from '@/hooks/useAnytrekData';
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const GpsDashboardTab = () => {
-  const { data: fleetlocateData, isLoading } = useFleetlocateData();
+interface GpsDashboardTabProps {
+  providerName?: string;
+}
+
+const GpsDashboardTab: React.FC<GpsDashboardTabProps> = ({ providerName = "Fleetlocate" }) => {
+  const { data: fleetlocateData, isLoading: fleetlocateLoading } = useFleetlocateData();
+  const { data: anytrekData, isLoading: anytrekLoading } = useAnytrekData();
+  
+  const isLoading = providerName.toLowerCase() === 'anytrek' ? anytrekLoading : fleetlocateLoading;
+  const gpsData = providerName.toLowerCase() === 'anytrek' ? anytrekData : fleetlocateData;
 
   if (isLoading) {
     return (
@@ -22,17 +31,17 @@ const GpsDashboardTab = () => {
     );
   }
 
-  const totalAssets = fleetlocateData?.length || 0;
-  const activeGPS = fleetlocateData?.filter(item => 
-    item.notes?.toLowerCase().includes('battery') && 
-    !item.notes?.toLowerCase().includes('low')
-  ).length || 0;
+  const totalAssets = gpsData?.length || 0;
+  const activeGPS = gpsData?.filter(item => {
+    const speedValue = typeof item.speed === 'string' ? parseFloat(item.speed) : item.speed;
+    return speedValue > 0 || (item.notes && !item.notes.toLowerCase().includes('low'));
+  }).length || 0;
   
   const uniqueLocations = new Set(
-    fleetlocateData?.map(item => item.location).filter(loc => loc && loc !== 'N/A')
+    gpsData?.map(item => item.location).filter(loc => loc && loc !== 'N/A')
   ).size;
 
-  const recentUpdates = fleetlocateData?.filter(item => {
+  const recentUpdates = gpsData?.filter(item => {
     if (!item.timestamp || item.timestamp === 'N/A') return false;
     const lastUpdate = new Date(item.timestamp);
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
