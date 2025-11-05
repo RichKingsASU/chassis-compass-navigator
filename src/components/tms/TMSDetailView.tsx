@@ -1,9 +1,11 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, MapPin, Calendar, DollarSign, Package, Truck, User } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, DollarSign, Package, Truck, User, ExternalLink } from "lucide-react";
+import { useChassisLink } from "@/hooks/useChassisLink";
 
 interface TMSDetailViewProps {
   record: any;
@@ -11,6 +13,8 @@ interface TMSDetailViewProps {
 }
 
 const TMSDetailView: React.FC<TMSDetailViewProps> = ({ record, onBack }) => {
+  const navigate = useNavigate();
+  const { data: chassisData } = useChassisLink(record.chassis_number);
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Not set';
     try {
@@ -90,7 +94,25 @@ const TMSDetailView: React.FC<TMSDetailViewProps> = ({ record, onBack }) => {
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Chassis Number</label>
-                <p className="font-medium">{record.chassis_number || 'N/A'}</p>
+                {chassisData ? (
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium">{record.chassis_number}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2"
+                      onClick={() => navigate(`/chassis/${record.chassis_number}`)}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      View Chassis
+                    </Button>
+                    <Badge variant="outline" className="text-xs">
+                      {chassisData.chassis_status || 'Tracked'}
+                    </Badge>
+                  </div>
+                ) : (
+                  <p className="font-medium">{record.chassis_number || 'N/A'}</p>
+                )}
               </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Container Type</label>
