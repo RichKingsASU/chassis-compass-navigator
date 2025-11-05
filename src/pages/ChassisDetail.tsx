@@ -240,13 +240,42 @@ const ChassisDetail = () => {
 
       setAsset(assetData);
 
-      // Fetch GPS location data from fleet schema
+      // Fetch GPS location data from fleetlocate_stg
       if (assetData.identifier) {
         console.log('Fetching GPS data for chassis:', assetData.identifier);
         
-        // asset_locations_kmh view doesn't exist, skip GPS history
-        setLocationHistory([]);
-        console.log('GPS location data table not configured');
+        // @ts-ignore - fleetlocate_stg not in types yet
+        const { data: gpsData, error: gpsError } = await supabase
+          // @ts-ignore
+          .from('fleetlocate_stg')
+          .select('*')
+          .eq('Asset ID', assetData.identifier)
+          .order('Last Event Date', { ascending: false });
+
+        if (gpsError) {
+          console.error('GPS error:', gpsError);
+          setLocationHistory([]);
+        } else if (gpsData && gpsData.length > 0) {
+          // Transform fleetlocate data to location history format
+          const transformedHistory = gpsData.map((record: any, index: number) => ({
+            id: index,
+            recorded_at: record['Last Event Date'] || new Date().toISOString(),
+            location: null, // Fleetlocate doesn't have exact coordinates in this format
+            normalized_address: [record.Address, record.City, record.State]
+              .filter(Boolean)
+              .join(', ') || record.Location || 'N/A',
+            velocity_cms: 0,
+            altitude_m: 0,
+            status: record.Status,
+            duration: record.Duration,
+            battery: record['Battery Status']
+          }));
+          setLocationHistory(transformedHistory);
+          console.log('GPS location data loaded:', transformedHistory.length, 'records');
+        } else {
+          setLocationHistory([]);
+          console.log('No GPS location data found');
+        }
       }
 
       // Fetch TMS data from mg_tms table
