@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Truck, Package, DollarSign, Clock, BarChart3 } from 'lucide-react';
+import { Truck, Package, DollarSign, Clock, BarChart3, Container } from 'lucide-react';
 import TMSTable from '@/components/tms/TMSTable';
 import TMSFilters from '@/components/tms/TMSFilters';
 import TMSDetailView from '@/components/tms/TMSDetailView';
@@ -182,6 +182,81 @@ const MercuryGate = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Chassis Information */}
+          <Card className="mt-6">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Container className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg font-medium">Chassis Information</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-muted-foreground">Total Chassis</p>
+                    <Badge variant="outline">Active</Badge>
+                  </div>
+                  <p className="text-2xl font-bold">1,234</p>
+                  <p className="text-xs text-muted-foreground mt-1">In fleet</p>
+                </div>
+                
+                <div className="p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-muted-foreground">In Use</p>
+                    <Badge className="bg-green-100 text-green-800">Deployed</Badge>
+                  </div>
+                  <p className="text-2xl font-bold">892</p>
+                  <p className="text-xs text-muted-foreground mt-1">72.3% utilization</p>
+                </div>
+                
+                <div className="p-4 bg-muted/30 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-muted-foreground">Available</p>
+                    <Badge className="bg-blue-100 text-blue-800">Ready</Badge>
+                  </div>
+                  <p className="text-2xl font-bold">342</p>
+                  <p className="text-xs text-muted-foreground mt-1">27.7% available</p>
+                </div>
+              </div>
+              
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium">20' Standard Chassis</p>
+                    <p className="text-sm text-muted-foreground">Most common type</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">456 units</p>
+                    <p className="text-sm text-muted-foreground">78% in use</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium">40' Standard Chassis</p>
+                    <p className="text-sm text-muted-foreground">High capacity</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">389 units</p>
+                    <p className="text-sm text-muted-foreground">65% in use</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium">45' Extended Chassis</p>
+                    <p className="text-sm text-muted-foreground">Specialized</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium">234 units</p>
+                    <p className="text-sm text-muted-foreground">82% in use</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="data">
