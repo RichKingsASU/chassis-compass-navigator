@@ -16,6 +16,7 @@ import GpsDocumentsTab from '@/components/gps/GpsDocumentsTab';
 
 import { useAnytrekData } from '@/hooks/useAnytrekData';
 import { useFleetlocateData } from '@/hooks/useFleetlocateData';
+import { useFleetviewData } from '@/hooks/useFleetviewData';
 import { 
   extractedGpsData, 
   generateDocuments 
@@ -37,11 +38,18 @@ const GpsProviderUpload: React.FC<GpsProviderUploadProps> = ({ providerName, pro
   // Fetch data based on provider
   const { data: anytrekData, isLoading: isAnytrekLoading } = useAnytrekData();
   const { data: fleetlocateData, isLoading: isFleetlocateLoading } = useFleetlocateData();
+  const { data: fleetviewData, isLoading: isFleetviewLoading } = useFleetviewData();
   
   // Determine which data to use based on provider
-  const isAnytrek = providerName.toLowerCase() === 'anytrek';
-  const rawGpsData = isAnytrek ? anytrekData : fleetlocateData;
-  const isLoading = isAnytrek ? isAnytrekLoading : isFleetlocateLoading;
+  const providerLower = providerName.toLowerCase();
+  const rawGpsData = 
+    providerLower === 'anytrek' ? anytrekData : 
+    providerLower === 'fleetview' ? fleetviewData :
+    fleetlocateData;
+  const isLoading = 
+    providerLower === 'anytrek' ? isAnytrekLoading : 
+    providerLower === 'fleetview' ? isFleetviewLoading :
+    isFleetlocateLoading;
   
   // Transform data to match GpsData interface
   const transformedGpsData = useMemo(() => {
