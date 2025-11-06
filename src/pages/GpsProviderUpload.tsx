@@ -1,11 +1,11 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import GpsProviderHeader from '@/components/gps/GpsProviderHeader';
 import GpsDashboardTab from '@/components/gps/GpsDashboardTab';
@@ -14,6 +14,8 @@ import GpsHistoryTab from '@/components/gps/GpsHistoryTab';
 import GpsDataTab from '@/components/gps/GpsDataTab';
 import GpsDocumentsTab from '@/components/gps/GpsDocumentsTab';
 
+import { useAnytrekData } from '@/hooks/useAnytrekData';
+import { useFleetlocateData } from '@/hooks/useFleetlocateData';
 import { 
   extractedGpsData, 
   generateDocuments 
@@ -31,6 +33,31 @@ interface GpsProviderUploadProps {
  */
 const GpsProviderUpload: React.FC<GpsProviderUploadProps> = ({ providerName, providerLogo }) => {
   const [activeTab, setActiveTab] = useState("dashboard");
+  
+  // Fetch data based on provider
+  const { data: anytrekData, isLoading: isAnytrekLoading } = useAnytrekData();
+  const { data: fleetlocateData, isLoading: isFleetlocateLoading } = useFleetlocateData();
+  
+  // Determine which data to use based on provider
+  const isAnytrek = providerName.toLowerCase() === 'anytrek';
+  const rawGpsData = isAnytrek ? anytrekData : fleetlocateData;
+  const isLoading = isAnytrek ? isAnytrekLoading : isFleetlocateLoading;
+  
+  // Transform data to match GpsData interface
+  const transformedGpsData = useMemo(() => {
+    if (!rawGpsData) return [];
+    
+    return rawGpsData.map(record => ({
+      chassisId: record.asset_id || record.vehicle || 'N/A',
+      timestamp: record.timestamp || 'N/A',
+      location: record.location || record.address || 'N/A',
+      coordinates: record.latitude && record.longitude 
+        ? `${record.latitude.toFixed(6)}, ${record.longitude.toFixed(6)}`
+        : 'N/A',
+      speed: record.speed ? `${record.speed} mph` : '0 mph',
+      notes: record.notes || `Status: ${record.status || 'N/A'}${record.dwell_time ? `, Dwell: ${record.dwell_time}` : ''}`,
+    }));
+  }, [rawGpsData]);
   
   // Generate mock data for documents
   const documents = generateDocuments(providerName);
@@ -68,7 +95,13 @@ const GpsProviderUpload: React.FC<GpsProviderUploadProps> = ({ providerName, pro
         </TabsContent>
         
         <TabsContent value="data" className="space-y-6">
-          <GpsDataTab extractedData={extractedGpsData} />
+          {isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-[400px] w-full" />
+            </div>
+          ) : (
+            <GpsDataTab extractedData={transformedGpsData} />
+          )}
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-6">
