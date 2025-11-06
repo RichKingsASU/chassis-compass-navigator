@@ -22,19 +22,19 @@ export interface AnytrekData {
 }
 
 interface AnytrekRawData {
-  'Device Id': string | null;
-  'Vehicle': string | null;
-  'Driving Status': string | null;
-  'Landmark': string | null;
-  'address': string | null;
-  'state/province': string | null;
-  'Country': string | null;
-  'Lat': number | null;
-  'Lng': number | null;
-  'Speed(mp/h)': number | null;
-  'Last Location(UTC)': string | null;
-  'Dwell Time': string | null;
-  'Driving Direction': string | null;
+  device_id: string | null;
+  vehicle: string | null;
+  driving_status: string | null;
+  landmark: string | null;
+  address: string | null;
+  state_province: string | null;
+  country: string | null;
+  lat: number | null;
+  lng: number | null;
+  speed_mph: number | null;
+  last_location_utc: string | null;
+  dwell_time: string | null;
+  driving_direction: string | null;
 }
 
 export const useAnytrekData = () => {
@@ -51,21 +51,21 @@ export const useAnytrekData = () => {
       if (error) throw error;
 
       return ((data as unknown as AnytrekRawData[]) || []).map((row): AnytrekData => ({
-        asset_id: row["Device Id"] || "N/A",
-        vehicle: row.Vehicle || "N/A",
-        device_id: row["Device Id"] || "N/A",
-        status: row["Driving Status"] || "N/A",
-        location: row.Landmark || row.address || "N/A",
+        asset_id: row.device_id || "N/A",
+        vehicle: row.vehicle || "N/A",
+        device_id: row.device_id || "N/A",
+        status: row.driving_status || "N/A",
+        location: row.landmark || row.address || "N/A",
         address: row.address || "N/A",
-        city: row["state/province"] || "N/A",
-        state: row["state/province"] || "N/A",
-        country: row.Country || "N/A",
-        latitude: row.Lat ? Number(row.Lat) : 0,
-        longitude: row.Lng ? Number(row.Lng) : 0,
-        speed: row["Speed(mp/h)"] ? Number(row["Speed(mp/h)"]) : 0,
-        timestamp: row["Last Location(UTC)"] || "N/A",
-        dwell_time: row["Dwell Time"] || "N/A",
-        notes: `Speed: ${row["Speed(mp/h)"] || 0} mph, Direction: ${row["Driving Direction"] || "N/A"}`,
+        city: row.state_province || "N/A",
+        state: row.state_province || "N/A",
+        country: row.country || "N/A",
+        latitude: row.lat ? Number(row.lat) : 0,
+        longitude: row.lng ? Number(row.lng) : 0,
+        speed: row.speed_mph ? Number(row.speed_mph) : 0,
+        timestamp: row.last_location_utc || "N/A",
+        dwell_time: row.dwell_time || "N/A",
+        notes: `Speed: ${row.speed_mph || 0} mph, Direction: ${row.driving_direction || "N/A"}`,
       }));
     },
   });
