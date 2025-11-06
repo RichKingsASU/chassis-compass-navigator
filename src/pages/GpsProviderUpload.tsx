@@ -48,7 +48,7 @@ const GpsProviderUpload: React.FC<GpsProviderUploadProps> = ({ providerName, pro
     if (!rawGpsData) return [];
     
     return rawGpsData.map(record => ({
-      chassisId: record.asset_id || record.vehicle || 'N/A',
+      chassisId: record.vehicle || record.asset_id || 'N/A',
       timestamp: record.timestamp || 'N/A',
       location: record.location || record.address || 'N/A',
       coordinates: record.latitude && record.longitude 
