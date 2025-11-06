@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeChassisId } from "@/lib/utils";
 
 export interface FleetviewData {
   id?: number;
@@ -47,8 +48,8 @@ export const useFleetviewData = () => {
       if (error) throw error;
 
       return ((data as unknown as FleetviewRawData[]) || []).map((row): FleetviewData => ({
-        asset_id: row.asset_id || "N/A",
-        vehicle: row.asset_id || "N/A",
+        asset_id: normalizeChassisId(row.asset_id),
+        vehicle: normalizeChassisId(row.asset_id),
         device_id: row.device_serial_number || "N/A",
         status: row.event_reason || "N/A",
         location: row.landmark || row.nearest_major_city || "N/A",

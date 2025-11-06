@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeChassisId } from "@/lib/utils";
 
 export interface AnytrekData {
   id?: number;
@@ -51,8 +52,8 @@ export const useAnytrekData = () => {
       if (error) throw error;
 
       return ((data as unknown as AnytrekRawData[]) || []).map((row): AnytrekData => ({
-        asset_id: row.device_id || "N/A",
-        vehicle: row.vehicle || "N/A",
+        asset_id: normalizeChassisId(row.device_id),
+        vehicle: normalizeChassisId(row.vehicle),
         device_id: row.device_id || "N/A",
         status: row.driving_status || "N/A",
         location: row.landmark || row.address || "N/A",

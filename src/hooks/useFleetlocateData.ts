@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { normalizeChassisId } from "@/lib/utils";
 
 export interface FleetlocateData {
   chassisId: string;
@@ -44,7 +45,7 @@ export const useFleetlocateData = () => {
 
       // Transform the data to match GpsData interface
       const transformedData: FleetlocateData[] = ((data as unknown as FleetlocateRawData[]) || []).map((item) => ({
-        chassisId: item['Asset ID'] || 'N/A',
+        chassisId: normalizeChassisId(item['Asset ID']),
         timestamp: item['Last Event Date'] || 'N/A',
         location: [item['Address'], item['City'], item['State']]
           .filter(Boolean)
