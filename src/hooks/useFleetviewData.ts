@@ -20,6 +20,8 @@ export interface FleetviewData {
   dwell_time: string;
   battery_status?: string;
   notes?: string;
+  provider: string;
+  lastUpdate: string;
 }
 
 interface FleetviewRawData {
@@ -41,7 +43,7 @@ export const useFleetviewData = () => {
       const { data, error } = await supabase
         // @ts-ignore - forrest_assetlist_data table exists but not in generated types yet
         .from("forrest_assetlist_data")
-        .select("*")
+        .select("*, _load_ts")
         .order("_load_ts", { ascending: false })
         .limit(100);
 
@@ -63,6 +65,8 @@ export const useFleetviewData = () => {
         timestamp: row.gps_time || row.report_time || "N/A",
         dwell_time: row.days_dormant ? `${row.days_dormant} days` : "N/A",
         notes: `Days dormant: ${row.days_dormant || 0}`,
+        provider: 'Fleetview',
+        lastUpdate: (row as any)._load_ts || "N/A",
       }));
     },
   });

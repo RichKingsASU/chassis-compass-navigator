@@ -20,6 +20,8 @@ export interface AnytrekData {
   dwell_time: string;
   battery_status?: string;
   notes?: string;
+  provider: string;
+  lastUpdate: string;
 }
 
 interface AnytrekRawData {
@@ -45,7 +47,7 @@ export const useAnytrekData = () => {
       const { data, error } = await supabase
         // @ts-ignore - anytrek_data table exists but not in generated types yet
         .from("anytrek_data")
-        .select("*")
+        .select("*, _load_ts")
         .order("_load_ts", { ascending: false })
         .limit(100);
 
@@ -67,6 +69,8 @@ export const useAnytrekData = () => {
         timestamp: row.last_location_utc || "N/A",
         dwell_time: row.dwell_time || "N/A",
         notes: `Speed: ${row.speed_mph || 0} mph, Direction: ${row.driving_direction || "N/A"}`,
+        provider: 'Anytrek',
+        lastUpdate: (row as any)._load_ts || "N/A",
       }));
     },
   });

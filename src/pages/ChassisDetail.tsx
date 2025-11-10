@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, MapPin, Truck, TrendingUp, DollarSign, CheckCircle, Clock, XCircle, AlertTriangle, Lock, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format, subDays } from 'date-fns';
+import { format, subDays, formatDistanceToNow } from 'date-fns';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import FinancialsTab from '@/components/chassis/FinancialsTab';
 import { ChassisMapView } from '@/components/chassis/ChassisMapView';
@@ -40,6 +40,8 @@ interface LocationHistory {
   normalized_address: string;
   velocity_cms: number;
   altitude_m: number;
+  provider?: string;
+  lastUpdate?: string;
 }
 
 interface TMSData {
@@ -248,7 +250,7 @@ const ChassisDetail = () => {
         const { data: gpsData, error: gpsError } = await supabase
           // @ts-ignore
           .from('fleetlocate_stg')
-          .select('*')
+          .select('*, _load_ts')
           .eq('Asset ID', assetData.identifier)
           .order('Last Event Date', { ascending: false });
 
@@ -268,7 +270,9 @@ const ChassisDetail = () => {
             altitude_m: 0,
             status: record.Status,
             duration: record.Duration,
-            battery: record['Battery Status']
+            battery: record['Battery Status'],
+            provider: 'Fleetlocate',
+            lastUpdate: record._load_ts || new Date().toISOString()
           }));
           setLocationHistory(transformedHistory);
           console.log('GPS location data loaded:', transformedHistory.length, 'records');
@@ -536,7 +540,9 @@ const ChassisDetail = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Provider</TableHead>
                         <TableHead>Timestamp</TableHead>
+                        <TableHead>Last Update</TableHead>
                         <TableHead>Location</TableHead>
                         <TableHead>Coordinates</TableHead>
                       </TableRow>
@@ -545,7 +551,17 @@ const ChassisDetail = () => {
                       {locationHistory.map((location) => (
                         <TableRow key={location.id}>
                           <TableCell>
+                            <Badge variant="default">
+                              {location.provider || 'Unknown'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
                             {format(new Date(location.recorded_at), 'PPpp')}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {location.lastUpdate 
+                              ? formatDistanceToNow(new Date(location.lastUpdate), { addSuffix: true })
+                              : 'N/A'}
                           </TableCell>
                           <TableCell className="max-w-md">
                             {location.normalized_address || 'Unknown'}

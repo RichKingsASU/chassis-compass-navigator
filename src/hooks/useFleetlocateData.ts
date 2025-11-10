@@ -9,6 +9,8 @@ export interface FleetlocateData {
   coordinates: string;
   speed: string;
   notes: string;
+  provider: string;
+  lastUpdate: string;
 }
 
 interface FleetlocateRawData {
@@ -37,7 +39,7 @@ export const useFleetlocateData = () => {
       const { data, error } = await supabase
         // @ts-ignore - fleetlocate_stg table exists but not in generated types yet
         .from('fleetlocate_stg')
-        .select('*')
+        .select('*, _load_ts')
         .order('_load_ts', { ascending: false })
         .limit(100);
 
@@ -53,6 +55,8 @@ export const useFleetlocateData = () => {
         coordinates: item['Landmark'] || 'N/A',
         speed: item['Duration'] || 'N/A',
         notes: `Status: ${item['Status'] || 'N/A'}, Battery: ${item['Battery Status'] || 'N/A'}`,
+        provider: 'Fleetlocate',
+        lastUpdate: item._load_ts || 'N/A',
       }));
 
       return transformedData;

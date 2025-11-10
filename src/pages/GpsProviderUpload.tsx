@@ -64,8 +64,10 @@ const GpsProviderUpload: React.FC<GpsProviderUploadProps> = ({ providerName, pro
         : 'N/A',
       speed: record.speed ? `${record.speed} mph` : '0 mph',
       notes: record.notes || `Status: ${record.status || 'N/A'}${record.dwell_time ? `, Dwell: ${record.dwell_time}` : ''}`,
+      provider: record.provider || providerName,
+      lastUpdate: record.lastUpdate || 'N/A',
     }));
-  }, [rawGpsData]);
+  }, [rawGpsData, providerName]);
   
   // Generate mock data for documents
   const documents = generateDocuments(providerName);
