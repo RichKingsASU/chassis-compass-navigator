@@ -44,7 +44,15 @@ const SidebarNavigation = () => {
 
   const navItems: NavigationItem[] = [
     { title: "Dashboard", path: "/", icon: LayoutDashboard },
-    { title: "Chassis Management", path: "/chassis", icon: Truck },
+    { 
+      title: "Chassis Management", 
+      path: "/chassis", 
+      icon: Truck,
+      subItems: [
+        { title: "Overview", path: "/chassis" },
+        { title: "Chassis Locator", path: "/chassis/locator" },
+      ]
+    },
     
     { 
       title: "TMS Data", 
