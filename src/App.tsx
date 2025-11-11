@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import ChassisManagement from "./pages/ChassisManagement";
 import ChassisDetail from "./pages/ChassisDetail";
+import ChassisLocator from "./pages/ChassisLocator";
 import ChassisValidation from "./pages/ChassisValidation";
 import TMSData from "./pages/TMSData";
 import GpsOverview from "./pages/GpsOverview";
@@ -82,6 +83,11 @@ function App() {
               <Route path="/chassis/:id" element={
                 <DashboardLayout>
                   <ChassisDetail />
+                </DashboardLayout>
+              } />
+              <Route path="/chassis/locator" element={
+                <DashboardLayout>
+                  <ChassisLocator />
                 </DashboardLayout>
               } />
               <Route path="/tms" element={
