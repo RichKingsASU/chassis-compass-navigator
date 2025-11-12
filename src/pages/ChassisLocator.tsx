@@ -1,6 +1,8 @@
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useUnifiedGpsData } from "@/hooks/useUnifiedGpsData";
+import { useChassisSearch } from "@/hooks/useChassisSearch";
 import ChassisLocatorMap from "@/components/chassis/ChassisLocatorMap";
+import ChassisLocatorFilters from "@/components/chassis/ChassisLocatorFilters";
 import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -9,6 +11,16 @@ import { UnifiedGpsData } from "@/hooks/useUnifiedGpsData";
 const ChassisLocator = () => {
   const { data: gpsData = [], isLoading } = useUnifiedGpsData();
   const [selectedChassisId, setSelectedChassisId] = useState<string | null>(null);
+  
+  const {
+    searchTerm,
+    setSearchTerm,
+    statusFilter,
+    setStatusFilter,
+    equipmentTypeFilter,
+    setEquipmentTypeFilter,
+    filteredData,
+  } = useChassisSearch(gpsData);
 
   const handleMarkerClick = (chassis: UnifiedGpsData) => {
     setSelectedChassisId(chassis.chassisId);
@@ -28,7 +40,7 @@ const ChassisLocator = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-12rem)]">
           {/* Left Panel - Search & Filters (30%) */}
-          <Card className="lg:col-span-4 p-4">
+          <Card className="lg:col-span-4 p-4 overflow-y-auto">
             <div className="h-full flex flex-col">
               <h2 className="text-lg font-semibold mb-4">Search & Filters</h2>
               
@@ -37,11 +49,15 @@ const ChassisLocator = () => {
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                <div className="flex-1">
-                  <p className="text-sm text-muted-foreground">
-                    Found {gpsData.length} chassis with GPS data
-                  </p>
-                </div>
+                <ChassisLocatorFilters
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  statusFilter={statusFilter}
+                  onStatusFilterChange={setStatusFilter}
+                  equipmentTypeFilter={equipmentTypeFilter}
+                  onEquipmentTypeFilterChange={setEquipmentTypeFilter}
+                  totalResults={filteredData.length}
+                />
               )}
             </div>
           </Card>
@@ -54,7 +70,7 @@ const ChassisLocator = () => {
               </div>
             ) : (
               <ChassisLocatorMap
-                data={gpsData}
+                data={filteredData}
                 onMarkerClick={handleMarkerClick}
                 selectedChassisId={selectedChassisId}
               />
