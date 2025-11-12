@@ -31,8 +31,8 @@ const ChassisResultsList = ({
           <div
             key={chassis.chassisId}
             className={cn(
-              "p-3 rounded-lg border cursor-pointer transition-all hover:bg-accent",
-              selectedChassisId === chassis.chassisId && "bg-accent border-primary"
+              "p-3 rounded-lg border cursor-pointer transition-all duration-200 hover:bg-accent hover:shadow-md hover:scale-[1.02]",
+              selectedChassisId === chassis.chassisId && "bg-accent border-primary shadow-md"
             )}
             onClick={() => onChassisSelect(chassis.chassisId)}
             onMouseEnter={() => onChassisHover(chassis.chassisId)}

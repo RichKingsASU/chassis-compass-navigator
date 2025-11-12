@@ -56,8 +56,8 @@ const ChassisLocatorMap = ({ data, onMarkerClick, selectedChassisId }: ChassisLo
     return { lat: avgLat, lng: avgLng };
   }, [validMarkers]);
 
-  // Get marker color based on status
-  const getMarkerIcon = (status: string) => {
+  // Get marker icon based on status with enhanced styling for selected/hovered
+  const getMarkerIcon = (status: string, isSelected: boolean = false) => {
     let color = "#9CA3AF"; // gray for unknown
     
     const statusLower = status.toLowerCase();
@@ -72,20 +72,28 @@ const ChassisLocatorMap = ({ data, onMarkerClick, selectedChassisId }: ChassisLo
     return {
       path: google.maps.SymbolPath.CIRCLE,
       fillColor: color,
-      fillOpacity: 0.9,
-      strokeColor: "#ffffff",
-      strokeWeight: 2,
-      scale: 8,
+      fillOpacity: isSelected ? 1 : 0.9,
+      strokeColor: isSelected ? "#FFD700" : "#ffffff",
+      strokeWeight: isSelected ? 3 : 2,
+      scale: isSelected ? 10 : 8,
     };
   };
 
-  // Pan to selected marker when selection changes
+  // Pan to selected marker when selection changes with smooth animation
   useEffect(() => {
     if (map && selectedChassisId) {
       const selected = validMarkers.find((m) => m.chassisId === selectedChassisId);
       if (selected) {
-        map.panTo({ lat: selected.latitude, lng: selected.longitude });
-        map.setZoom(15);
+        const targetPosition = { lat: selected.latitude, lng: selected.longitude };
+        
+        // Smooth pan with animation
+        map.panTo(targetPosition);
+        
+        // Only adjust zoom if too far out
+        const currentZoom = map.getZoom() || 10;
+        if (currentZoom < 12) {
+          map.setZoom(13);
+        }
       }
     }
   }, [selectedChassisId, map, validMarkers]);
@@ -118,21 +126,23 @@ const ChassisLocatorMap = ({ data, onMarkerClick, selectedChassisId }: ChassisLo
         <MarkerClusterer>
           {(clusterer) => (
             <>
-              {validMarkers.map((chassis) => (
-                <Marker
-                  key={chassis.chassisId}
-                  position={{ lat: chassis.latitude, lng: chassis.longitude }}
-                  icon={getMarkerIcon(chassis.status)}
-                  clusterer={clusterer}
-                  onClick={() => onMarkerClick?.(chassis)}
-                  animation={
-                    selectedChassisId === chassis.chassisId
-                      ? google.maps.Animation.BOUNCE
-                      : undefined
-                  }
-                  title={`${chassis.chassisId} - ${chassis.status}`}
-                />
-              ))}
+              {validMarkers.map((chassis) => {
+                const isSelected = selectedChassisId === chassis.chassisId;
+                return (
+                  <Marker
+                    key={chassis.chassisId}
+                    position={{ lat: chassis.latitude, lng: chassis.longitude }}
+                    icon={getMarkerIcon(chassis.status, isSelected)}
+                    clusterer={clusterer}
+                    onClick={() => onMarkerClick?.(chassis)}
+                    animation={
+                      isSelected ? google.maps.Animation.BOUNCE : undefined
+                    }
+                    title={`${chassis.chassisId} - ${chassis.status}`}
+                    zIndex={isSelected ? 1000 : undefined}
+                  />
+                );
+              })}
             </>
           )}
         </MarkerClusterer>
