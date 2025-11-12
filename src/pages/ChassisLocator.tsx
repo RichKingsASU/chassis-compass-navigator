@@ -4,6 +4,7 @@ import { useChassisSearch } from "@/hooks/useChassisSearch";
 import ChassisLocatorMap from "@/components/chassis/ChassisLocatorMap";
 import ChassisLocatorFilters from "@/components/chassis/ChassisLocatorFilters";
 import ChassisResultsList from "@/components/chassis/ChassisResultsList";
+import ChassisInfoCard from "@/components/chassis/ChassisInfoCard";
 import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -13,6 +14,7 @@ const ChassisLocator = () => {
   const { data: gpsData = [], isLoading, refetch, isRefetching } = useUnifiedGpsData();
   const [selectedChassisId, setSelectedChassisId] = useState<string | null>(null);
   const [hoveredChassisId, setHoveredChassisId] = useState<string | null>(null);
+  const [infoCardOpen, setInfoCardOpen] = useState(false);
   
   const {
     searchTerm,
@@ -26,11 +28,19 @@ const ChassisLocator = () => {
 
   const handleMarkerClick = (chassis: UnifiedGpsData) => {
     setSelectedChassisId(chassis.chassisId);
+    setInfoCardOpen(true);
+  };
+
+  const handleChassisSelect = (chassisId: string) => {
+    setSelectedChassisId(chassisId);
+    setInfoCardOpen(true);
   };
 
   const handleRefresh = () => {
     refetch();
   };
+
+  const selectedChassis = gpsData.find(c => c.chassisId === selectedChassisId);
 
   return (
     <DashboardLayout>
@@ -70,7 +80,7 @@ const ChassisLocator = () => {
                   <ChassisResultsList
                     data={filteredData}
                     selectedChassisId={selectedChassisId}
-                    onChassisSelect={setSelectedChassisId}
+                    onChassisSelect={handleChassisSelect}
                     onChassisHover={setHoveredChassisId}
                   />
                 </>
@@ -93,6 +103,13 @@ const ChassisLocator = () => {
             )}
           </Card>
         </div>
+
+        {/* Info Card */}
+        <ChassisInfoCard
+          chassis={selectedChassis || null}
+          open={infoCardOpen}
+          onOpenChange={setInfoCardOpen}
+        />
       </div>
     </DashboardLayout>
   );
