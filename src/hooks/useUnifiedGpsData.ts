@@ -22,8 +22,8 @@ export interface UnifiedGpsData {
 
 interface ChassisMasterData {
   forrest_chz_id: string;
-  status: string;
-  equipment_type: string;
+  chassis_status: string;
+  forrest_chassis_type: string;
 }
 
 export const useUnifiedGpsData = () => {
@@ -38,7 +38,7 @@ export const useUnifiedGpsData = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('chassis_master')
-        .select('forrest_chz_id, status, equipment_type');
+        .select('forrest_chz_id, chassis_status, forrest_chassis_type');
 
       if (error) throw error;
       return (data || []) as ChassisMasterData[];
@@ -131,7 +131,7 @@ export const useUnifiedGpsData = () => {
       const chassisMasterMap = new Map(
         chassisMaster.map((item) => [
           normalizeChassisId(item.forrest_chz_id),
-          { status: item.status, equipmentType: item.equipment_type }
+          { status: item.chassis_status, equipmentType: item.forrest_chassis_type }
         ])
       );
 
