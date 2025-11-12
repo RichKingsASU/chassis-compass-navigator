@@ -11,6 +11,8 @@ export interface FleetlocateData {
   notes: string;
   provider: string;
   lastUpdate: string;
+  device_label?: string;
+  serial_number?: string;
 }
 
 interface FleetlocateRawData {
@@ -57,6 +59,8 @@ export const useFleetlocateData = () => {
         notes: `Status: ${item['Status'] || 'N/A'}, Battery: ${item['Battery Status'] || 'N/A'}`,
         provider: 'Fleetlocate',
         lastUpdate: item._load_ts || 'N/A',
+        device_label: item['Device'] || null,
+        serial_number: item['Serial Number'] || null,
       }));
 
       return transformedData;

@@ -5,7 +5,7 @@ import { ensureAsset, ensureOrg, insertAssetLocation } from "../_shared/db.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
   "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
 };
 
@@ -14,14 +14,23 @@ function isCronAllowed(req: Request) {
   return env.CRON_SHARED_SECRET && h === env.CRON_SHARED_SECRET;
 }
 
+function isAuthenticated(req: Request) {
+  const authHeader = req.headers.get("authorization");
+  return authHeader && authHeader.startsWith("Bearer ");
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
-    if (!isCronAllowed(req)) {
-      return new Response(JSON.stringify({ error: "forbidden" }), {
-        status: 403,
-        headers: { "content-type": "application/json" },
+    // Allow both cron jobs and authenticated users
+    const isCron = isCronAllowed(req);
+    const isAuth = isAuthenticated(req);
+    
+    if (!isCron && !isAuth) {
+      return new Response(JSON.stringify({ error: "unauthorized - authentication required" }), {
+        status: 401,
+        headers: { "content-type": "application/json", ...cors },
       });
     }
 

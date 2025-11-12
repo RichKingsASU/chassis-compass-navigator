@@ -96,9 +96,16 @@ const ChassisInfoCard = ({ chassis, open, onOpenChange }: ChassisInfoCardProps) 
               <Radio className="h-4 w-4" />
               <span>GPS Provider</span>
             </div>
-            <Badge variant="outline" className="ml-6">
-              {chassis.provider}
-            </Badge>
+            <div className="space-y-1 pl-6">
+              <Badge variant="outline">
+                {chassis.provider}
+              </Badge>
+              {chassis.deviceLabel && (
+                <p className="text-xs text-muted-foreground">
+                  Device: {chassis.deviceLabel}
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Speed (if available) */}

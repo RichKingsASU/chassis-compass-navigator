@@ -272,6 +272,8 @@ const ChassisDetail = () => {
             duration: record.Duration,
             battery: record['Battery Status'],
             provider: 'Fleetlocate',
+            device_label: record['Device'] || record['Serial Number'] || null,
+            serial_number: record['Serial Number'] || null,
             lastUpdate: record._load_ts || new Date().toISOString()
           }));
           setLocationHistory(transformedHistory);
@@ -541,6 +543,7 @@ const ChassisDetail = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Provider</TableHead>
+                        <TableHead>Device/Label</TableHead>
                         <TableHead>Timestamp</TableHead>
                         <TableHead>Last Update</TableHead>
                         <TableHead>Location</TableHead>
@@ -554,6 +557,11 @@ const ChassisDetail = () => {
                             <Badge variant="default">
                               {location.provider || 'Unknown'}
                             </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm text-muted-foreground">
+                              {(location as any).device_label || (location as any).serial_number || 'Primary'}
+                            </span>
                           </TableCell>
                           <TableCell>
                             {format(new Date(location.recorded_at), 'PPpp')}

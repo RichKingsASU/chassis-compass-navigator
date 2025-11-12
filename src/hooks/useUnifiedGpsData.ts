@@ -18,6 +18,8 @@ export interface UnifiedGpsData {
   freshnessMinutes: number;
   speed?: number;
   notes?: string;
+  deviceLabel?: string;
+  serialNumber?: string;
 }
 
 interface ChassisMasterData {
@@ -81,6 +83,8 @@ export const useUnifiedGpsData = () => {
             lastUpdate: item.lastUpdate,
             freshnessMinutes: calculateFreshness(item.lastUpdate),
             notes: item.notes,
+            deviceLabel: (item as any).device_label || null,
+            serialNumber: (item as any).serial_number || null,
           });
         }
       });
@@ -102,6 +106,8 @@ export const useUnifiedGpsData = () => {
             freshnessMinutes: calculateFreshness(item.lastUpdate),
             speed: item.speed,
             notes: item.notes,
+            deviceLabel: (item as any).device_id || null,
+            serialNumber: (item as any).imei || null,
           });
         }
       });
@@ -123,6 +129,8 @@ export const useUnifiedGpsData = () => {
             freshnessMinutes: calculateFreshness(item.lastUpdate),
             speed: item.speed,
             notes: item.notes,
+            deviceLabel: (item as any).device_type || null,
+            serialNumber: (item as any).device_serial || null,
           });
         }
       });

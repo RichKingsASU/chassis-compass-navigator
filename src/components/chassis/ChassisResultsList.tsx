@@ -55,6 +55,12 @@ const ChassisResultsList = ({
                 <span className="font-medium">{chassis.equipmentType}</span>
                 <span>•</span>
                 <span>{chassis.provider}</span>
+                {chassis.deviceLabel && (
+                  <>
+                    <span>•</span>
+                    <span className="text-xs">{chassis.deviceLabel}</span>
+                  </>
+                )}
               </div>
               <div className="truncate">{chassis.location}</div>
               <div className="flex items-center gap-2 text-xs">
