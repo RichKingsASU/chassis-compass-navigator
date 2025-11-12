@@ -2,7 +2,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, X } from "lucide-react";
+import { Search, X, RefreshCw } from "lucide-react";
 
 interface ChassisLocatorFiltersProps {
   searchTerm: string;
@@ -12,6 +12,8 @@ interface ChassisLocatorFiltersProps {
   equipmentTypeFilter: string;
   onEquipmentTypeFilterChange: (value: string) => void;
   totalResults: number;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 const statusOptions = [
@@ -36,6 +38,8 @@ const ChassisLocatorFilters = ({
   equipmentTypeFilter,
   onEquipmentTypeFilterChange,
   totalResults,
+  onRefresh,
+  isRefreshing = false,
 }: ChassisLocatorFiltersProps) => {
   const hasActiveFilters = searchTerm || statusFilter !== "all" || equipmentTypeFilter !== "all";
 
@@ -110,15 +114,29 @@ const ChassisLocatorFilters = ({
 
       {/* Results Summary */}
       <div className="pt-4 border-t border-border">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-2">
           <div className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{totalResults}</span> chassis found
           </div>
-          {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearAllFilters}>
-              Clear All
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {onRefresh && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            )}
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+                Clear All
+              </Button>
+            )}
+          </div>
         </div>
         
         {/* Active Filters */}

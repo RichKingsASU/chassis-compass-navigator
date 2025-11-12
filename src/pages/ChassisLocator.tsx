@@ -3,14 +3,16 @@ import { useUnifiedGpsData } from "@/hooks/useUnifiedGpsData";
 import { useChassisSearch } from "@/hooks/useChassisSearch";
 import ChassisLocatorMap from "@/components/chassis/ChassisLocatorMap";
 import ChassisLocatorFilters from "@/components/chassis/ChassisLocatorFilters";
+import ChassisResultsList from "@/components/chassis/ChassisResultsList";
 import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { UnifiedGpsData } from "@/hooks/useUnifiedGpsData";
 
 const ChassisLocator = () => {
-  const { data: gpsData = [], isLoading } = useUnifiedGpsData();
+  const { data: gpsData = [], isLoading, refetch, isRefetching } = useUnifiedGpsData();
   const [selectedChassisId, setSelectedChassisId] = useState<string | null>(null);
+  const [hoveredChassisId, setHoveredChassisId] = useState<string | null>(null);
   
   const {
     searchTerm,
@@ -24,6 +26,10 @@ const ChassisLocator = () => {
 
   const handleMarkerClick = (chassis: UnifiedGpsData) => {
     setSelectedChassisId(chassis.chassisId);
+  };
+
+  const handleRefresh = () => {
+    refetch();
   };
 
   return (
@@ -49,15 +55,25 @@ const ChassisLocator = () => {
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                <ChassisLocatorFilters
-                  searchTerm={searchTerm}
-                  onSearchChange={setSearchTerm}
-                  statusFilter={statusFilter}
-                  onStatusFilterChange={setStatusFilter}
-                  equipmentTypeFilter={equipmentTypeFilter}
-                  onEquipmentTypeFilterChange={setEquipmentTypeFilter}
-                  totalResults={filteredData.length}
-                />
+                <>
+                  <ChassisLocatorFilters
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    statusFilter={statusFilter}
+                    onStatusFilterChange={setStatusFilter}
+                    equipmentTypeFilter={equipmentTypeFilter}
+                    onEquipmentTypeFilterChange={setEquipmentTypeFilter}
+                    totalResults={filteredData.length}
+                    onRefresh={handleRefresh}
+                    isRefreshing={isRefetching}
+                  />
+                  <ChassisResultsList
+                    data={filteredData}
+                    selectedChassisId={selectedChassisId}
+                    onChassisSelect={setSelectedChassisId}
+                    onChassisHover={setHoveredChassisId}
+                  />
+                </>
               )}
             </div>
           </Card>
@@ -72,7 +88,7 @@ const ChassisLocator = () => {
               <ChassisLocatorMap
                 data={filteredData}
                 onMarkerClick={handleMarkerClick}
-                selectedChassisId={selectedChassisId}
+                selectedChassisId={hoveredChassisId || selectedChassisId}
               />
             )}
           </Card>

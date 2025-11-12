@@ -52,6 +52,12 @@
     --status-in-use-foreground: 0 0% 100%;
     --status-out-of-service: 0 84.2% 60.2%;
     --status-out-of-service-foreground: 0 0% 100%;
+
+    /* Data Freshness Colors */
+    --freshness-excellent: 142 76% 36%;
+    --freshness-good: 45 93% 47%;
+    --freshness-stale: 0 84% 60%;
+    --freshness-old: 240 5% 64%;
   }
 
   .dark {
@@ -98,6 +104,12 @@
     --status-in-use-foreground: 0 0% 100%;
     --status-out-of-service: 0 84.2% 60.2%;
     --status-out-of-service-foreground: 0 0% 100%;
+
+    /* Data Freshness Colors */
+    --freshness-excellent: 142 76% 36%;
+    --freshness-good: 45 93% 47%;
+    --freshness-stale: 0 84% 60%;
+    --freshness-old: 240 5% 64%;
   }
 }
 

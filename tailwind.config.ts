@@ -78,7 +78,11 @@ export default {
 				'status-out-of-service': {
 					DEFAULT: 'hsl(var(--status-out-of-service))',
 					foreground: 'hsl(var(--status-out-of-service-foreground))'
-				}
+				},
+				'freshness-excellent': 'hsl(var(--freshness-excellent))',
+				'freshness-good': 'hsl(var(--freshness-good))',
+				'freshness-stale': 'hsl(var(--freshness-stale))',
+				'freshness-old': 'hsl(var(--freshness-old))'
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

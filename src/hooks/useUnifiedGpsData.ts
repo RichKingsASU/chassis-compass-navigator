@@ -148,5 +148,6 @@ export const useUnifiedGpsData = () => {
       return enrichedData;
     },
     enabled: !fleetlocateLoading && !anytrekLoading && !fleetviewLoading && !chassisMasterLoading,
+    refetchInterval: 5 * 60 * 1000, // Auto-refresh every 5 minutes
   });
 };
