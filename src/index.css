@@ -45,6 +45,13 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 210 64% 25%;
     --sidebar-ring: 173 48% 39%;
+
+    --status-available: 142 76% 36%;
+    --status-available-foreground: 0 0% 100%;
+    --status-in-use: 217 91% 60%;
+    --status-in-use-foreground: 0 0% 100%;
+    --status-out-of-service: 0 84.2% 60.2%;
+    --status-out-of-service-foreground: 0 0% 100%;
   }
 
   .dark {
@@ -84,6 +91,13 @@
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 210 64% 25%;
     --sidebar-ring: 173 48% 39%;
+
+    --status-available: 142 76% 36%;
+    --status-available-foreground: 0 0% 100%;
+    --status-in-use: 217 91% 60%;
+    --status-in-use-foreground: 0 0% 100%;
+    --status-out-of-service: 0 84.2% 60.2%;
+    --status-out-of-service-foreground: 0 0% 100%;
   }
 }
 
