@@ -75,9 +75,17 @@ export default {
 					DEFAULT: 'hsl(var(--status-in-use))',
 					foreground: 'hsl(var(--status-in-use-foreground))'
 				},
+				'status-reserved': {
+					DEFAULT: 'hsl(var(--status-reserved))',
+					foreground: 'hsl(var(--status-reserved-foreground))'
+				},
 				'status-out-of-service': {
 					DEFAULT: 'hsl(var(--status-out-of-service))',
 					foreground: 'hsl(var(--status-out-of-service-foreground))'
+				},
+				'status-unknown': {
+					DEFAULT: 'hsl(var(--status-unknown))',
+					foreground: 'hsl(var(--status-unknown-foreground))'
 				},
 				'freshness-excellent': 'hsl(var(--freshness-excellent))',
 				'freshness-good': 'hsl(var(--freshness-good))',

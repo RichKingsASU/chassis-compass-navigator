@@ -29,7 +29,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Search, FileX, Eye } from 'lucide-react';
+import { Search, FileX, Eye, Calendar } from 'lucide-react';
+import ChassisReservationDialog from '@/components/chassis/ChassisReservationDialog';
 
 const ChassisManagement = () => {
   const navigate = useNavigate();
@@ -43,6 +44,13 @@ const ChassisManagement = () => {
     region: 'all',
     status: 'all',
   });
+  const [reservationDialogOpen, setReservationDialogOpen] = useState(false);
+  const [selectedChassisForReservation, setSelectedChassisForReservation] = useState<string | null>(null);
+
+  const handleReserveClick = (chassisId: string) => {
+    setSelectedChassisForReservation(chassisId);
+    setReservationDialogOpen(true);
+  };
 
   useEffect(() => {
     fetchChassisData();
@@ -348,15 +356,26 @@ const ChassisManagement = () => {
                       </TableCell>
                       <TableCell>{chassis.mcl_data?.daily_rate ? `$${chassis.mcl_data.daily_rate}` : 'N/A'}</TableCell>
                       <TableCell className="text-right">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="gap-2"
-                          onClick={() => navigate(`/chassis/${encodeURIComponent(chassis.identifier || chassis.id)}`)}
-                        >
-                          <Eye className="h-4 w-4" />
-                          View
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="gap-2"
+                            onClick={() => navigate(`/chassis/${encodeURIComponent(chassis.identifier || chassis.id)}`)}
+                          >
+                            <Eye className="h-4 w-4" />
+                            View
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-2"
+                            onClick={() => handleReserveClick(chassis.identifier || chassis.id)}
+                          >
+                            <Calendar className="h-4 w-4" />
+                            Reserve
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -372,6 +391,16 @@ const ChassisManagement = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Reservation Dialog */}
+      {selectedChassisForReservation && (
+        <ChassisReservationDialog
+          open={reservationDialogOpen}
+          onOpenChange={setReservationDialogOpen}
+          chassisId={selectedChassisForReservation}
+          onReservationCreated={fetchChassisData}
+        />
+      )}
     </div>
   );
 };
