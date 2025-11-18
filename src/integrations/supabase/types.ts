@@ -14,6 +14,126 @@ export type Database = {
   }
   public: {
     Tables: {
+      anytrek_clean: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          address: string | null
+          country: string | null
+          device_id: string | null
+          driving_direction: string | null
+          driving_status: string | null
+          dwell_time: string | null
+          enter_time_pacific: string | null
+          group_name: string | null
+          landmark: string | null
+          last_location_utc: string | null
+          lat: string | null
+          lng: string | null
+          speed_mph: string | null
+          state_province: string | null
+          vehicle: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address?: string | null
+          country?: string | null
+          device_id?: string | null
+          driving_direction?: string | null
+          driving_status?: string | null
+          dwell_time?: string | null
+          enter_time_pacific?: string | null
+          group_name?: string | null
+          landmark?: string | null
+          last_location_utc?: string | null
+          lat?: string | null
+          lng?: string | null
+          speed_mph?: string | null
+          state_province?: string | null
+          vehicle?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address?: string | null
+          country?: string | null
+          device_id?: string | null
+          driving_direction?: string | null
+          driving_status?: string | null
+          dwell_time?: string | null
+          enter_time_pacific?: string | null
+          group_name?: string | null
+          landmark?: string | null
+          last_location_utc?: string | null
+          lat?: string | null
+          lng?: string | null
+          speed_mph?: string | null
+          state_province?: string | null
+          vehicle?: string | null
+        }
+        Relationships: []
+      }
+      anytrek_data: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          address: string | null
+          country: string | null
+          device_id: string | null
+          driving_direction: string | null
+          driving_status: string | null
+          dwell_time: string | null
+          enter_time_pacific: string | null
+          group_name: string | null
+          landmark: string | null
+          last_location_utc: string | null
+          lat: number | null
+          lng: number | null
+          speed_mph: number | null
+          state_province: string | null
+          vehicle: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address?: string | null
+          country?: string | null
+          device_id?: string | null
+          driving_direction?: string | null
+          driving_status?: string | null
+          dwell_time?: string | null
+          enter_time_pacific?: string | null
+          group_name?: string | null
+          landmark?: string | null
+          last_location_utc?: string | null
+          lat?: number | null
+          lng?: number | null
+          speed_mph?: number | null
+          state_province?: string | null
+          vehicle?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address?: string | null
+          country?: string | null
+          device_id?: string | null
+          driving_direction?: string | null
+          driving_status?: string | null
+          dwell_time?: string | null
+          enter_time_pacific?: string | null
+          group_name?: string | null
+          landmark?: string | null
+          last_location_utc?: string | null
+          lat?: number | null
+          lng?: number | null
+          speed_mph?: number | null
+          state_province?: string | null
+          vehicle?: string | null
+        }
+        Relationships: []
+      }
       anytrek_status: {
         Row: {
           address: string | null
@@ -53,6 +173,66 @@ export type Database = {
           address?: string | null
           Country?: string | null
           "Device Id"?: string | null
+          "Driving Direction"?: string | null
+          "Driving Status"?: string | null
+          "Dwell Time"?: string | null
+          "Enter Time(US/Pacific)"?: string | null
+          Group?: string | null
+          Landmark?: string | null
+          "Last Location(UTC)"?: string | null
+          Lat?: string | null
+          Lng?: string | null
+          "Speed(mp/h)"?: string | null
+          "state/province"?: string | null
+          Vehicle?: string | null
+        }
+        Relationships: []
+      }
+      anytrek_stg: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          address: string | null
+          Country: string | null
+          device_id: string | null
+          "Driving Direction": string | null
+          "Driving Status": string | null
+          "Dwell Time": string | null
+          "Enter Time(US/Pacific)": string | null
+          Group: string | null
+          Landmark: string | null
+          "Last Location(UTC)": string | null
+          Lat: string | null
+          Lng: string | null
+          "Speed(mp/h)": string | null
+          "state/province": string | null
+          Vehicle: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address?: string | null
+          Country?: string | null
+          device_id?: string | null
+          "Driving Direction"?: string | null
+          "Driving Status"?: string | null
+          "Dwell Time"?: string | null
+          "Enter Time(US/Pacific)"?: string | null
+          Group?: string | null
+          Landmark?: string | null
+          "Last Location(UTC)"?: string | null
+          Lat?: string | null
+          Lng?: string | null
+          "Speed(mp/h)"?: string | null
+          "state/province"?: string | null
+          Vehicle?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address?: string | null
+          Country?: string | null
+          device_id?: string | null
           "Driving Direction"?: string | null
           "Driving Status"?: string | null
           "Dwell Time"?: string | null
@@ -1193,76 +1373,142 @@ export type Database = {
       }
       fleetlocate_data: {
         Row: {
+          _load_ts: string | null
+          _source_file: string | null
           address: string | null
           asset_id: string
           asset_name: string | null
+          battery_percent: number | null
+          battery_status: string | null
           battery_volts: number | null
           city: string | null
           country: string | null
           created_at: string
+          device: string | null
+          duration_raw: string | null
+          event_ts_key: string | null
+          group_name: string | null
+          group_raw: string | null
           heading_deg: number | null
           id: number
           ignition_on: boolean | null
+          landmark: string | null
+          last_event_time: string | null
+          last_geog: unknown
+          last_gps_time: string | null
+          last_latitude: number | null
+          last_longitude: number | null
           latitude: number | null
+          load_ts: string | null
+          location_raw: string | null
           longitude: number | null
           odometer_miles: number | null
           postal_code: string | null
           power_status: string | null
           raw_row_hash: string | null
           report_ts: string
+          serial_number: string | null
+          source_file: string | null
           source_file_key: string | null
           speed_mph: number | null
           state: string | null
+          status: string | null
+          status_speed: string | null
           updated_at: string
           vin: string | null
+          zip: string | null
         }
         Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
           address?: string | null
           asset_id: string
           asset_name?: string | null
+          battery_percent?: number | null
+          battery_status?: string | null
           battery_volts?: number | null
           city?: string | null
           country?: string | null
           created_at?: string
+          device?: string | null
+          duration_raw?: string | null
+          event_ts_key?: string | null
+          group_name?: string | null
+          group_raw?: string | null
           heading_deg?: number | null
           id?: number
           ignition_on?: boolean | null
+          landmark?: string | null
+          last_event_time?: string | null
+          last_geog?: unknown
+          last_gps_time?: string | null
+          last_latitude?: number | null
+          last_longitude?: number | null
           latitude?: number | null
-          longitude?: number | null
-          odometer_miles?: number | null
-          postal_code?: string | null
-          power_status?: string | null
-          raw_row_hash?: string | null
-          report_ts: string
-          source_file_key?: string | null
-          speed_mph?: number | null
-          state?: string | null
-          updated_at?: string
-          vin?: string | null
-        }
-        Update: {
-          address?: string | null
-          asset_id?: string
-          asset_name?: string | null
-          battery_volts?: number | null
-          city?: string | null
-          country?: string | null
-          created_at?: string
-          heading_deg?: number | null
-          id?: number
-          ignition_on?: boolean | null
-          latitude?: number | null
+          load_ts?: string | null
+          location_raw?: string | null
           longitude?: number | null
           odometer_miles?: number | null
           postal_code?: string | null
           power_status?: string | null
           raw_row_hash?: string | null
           report_ts?: string
+          serial_number?: string | null
+          source_file?: string | null
           source_file_key?: string | null
           speed_mph?: number | null
           state?: string | null
+          status?: string | null
+          status_speed?: string | null
           updated_at?: string
           vin?: string | null
+          zip?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address?: string | null
+          asset_id?: string
+          asset_name?: string | null
+          battery_percent?: number | null
+          battery_status?: string | null
+          battery_volts?: number | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          device?: string | null
+          duration_raw?: string | null
+          event_ts_key?: string | null
+          group_name?: string | null
+          group_raw?: string | null
+          heading_deg?: number | null
+          id?: number
+          ignition_on?: boolean | null
+          landmark?: string | null
+          last_event_time?: string | null
+          last_geog?: unknown
+          last_gps_time?: string | null
+          last_latitude?: number | null
+          last_longitude?: number | null
+          latitude?: number | null
+          load_ts?: string | null
+          location_raw?: string | null
+          longitude?: number | null
+          odometer_miles?: number | null
+          postal_code?: string | null
+          power_status?: string | null
+          raw_row_hash?: string | null
+          report_ts?: string
+          serial_number?: string | null
+          source_file?: string | null
+          source_file_key?: string | null
+          speed_mph?: number | null
+          state?: string | null
+          status?: string | null
+          status_speed?: string | null
+          updated_at?: string
+          vin?: string | null
+          zip?: string | null
         }
         Relationships: []
       }
@@ -1557,6 +1803,93 @@ export type Database = {
           payment_method?: string | null
           tranid?: string | null
           transaction_date?: string | null
+        }
+        Relationships: []
+      }
+      forrest_assetlist_data: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          address_city_state_zip_code: string | null
+          asset_id: string | null
+          days_dormant: number | null
+          device_serial_number: string | null
+          event_reason: string | null
+          gps_time: string | null
+          landmark: string | null
+          nearest_major_city: string | null
+          report_time: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address_city_state_zip_code?: string | null
+          asset_id?: string | null
+          days_dormant?: number | null
+          device_serial_number?: string | null
+          event_reason?: string | null
+          gps_time?: string | null
+          landmark?: string | null
+          nearest_major_city?: string | null
+          report_time?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address_city_state_zip_code?: string | null
+          asset_id?: string | null
+          days_dormant?: number | null
+          device_serial_number?: string | null
+          event_reason?: string | null
+          gps_time?: string | null
+          landmark?: string | null
+          nearest_major_city?: string | null
+          report_time?: string | null
+        }
+        Relationships: []
+      }
+      forrest_assetlist_stg: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          address_city_state_zip_code: string | null
+          asset_id: string | null
+          days_dormant: string | null
+          device_serial_number: string | null
+          event_reason: string | null
+          gps_time: string | null
+          landmark: string | null
+          nearest_major_city: string | null
+          report_time: string | null
+          unused: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address_city_state_zip_code?: string | null
+          asset_id?: string | null
+          days_dormant?: string | null
+          device_serial_number?: string | null
+          event_reason?: string | null
+          gps_time?: string | null
+          landmark?: string | null
+          nearest_major_city?: string | null
+          report_time?: string | null
+          unused?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address_city_state_zip_code?: string | null
+          asset_id?: string | null
+          days_dormant?: string | null
+          device_serial_number?: string | null
+          event_reason?: string | null
+          gps_time?: string | null
+          landmark?: string | null
+          nearest_major_city?: string | null
+          report_time?: string | null
+          unused?: string | null
         }
         Relationships: []
       }
@@ -2421,6 +2754,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      master_gps: {
+        Row: {
+          address: string | null
+          asset_id: string
+          battery_status: string | null
+          city: string | null
+          country: string | null
+          device_number: string | null
+          dormant_days: number | null
+          driving_direction: string | null
+          driving_status: string | null
+          landmark: string | null
+          last_load_ts: string | null
+          last_location_time: string | null
+          last_source_table: string | null
+          latitude: number | null
+          longitude: number | null
+          nearest_major_city: string | null
+          speed_mph: number | null
+          state: string | null
+          status: string | null
+          zip: string | null
+        }
+        Insert: {
+          address?: string | null
+          asset_id: string
+          battery_status?: string | null
+          city?: string | null
+          country?: string | null
+          device_number?: string | null
+          dormant_days?: number | null
+          driving_direction?: string | null
+          driving_status?: string | null
+          landmark?: string | null
+          last_load_ts?: string | null
+          last_location_time?: string | null
+          last_source_table?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          nearest_major_city?: string | null
+          speed_mph?: number | null
+          state?: string | null
+          status?: string | null
+          zip?: string | null
+        }
+        Update: {
+          address?: string | null
+          asset_id?: string
+          battery_status?: string | null
+          city?: string | null
+          country?: string | null
+          device_number?: string | null
+          dormant_days?: number | null
+          driving_direction?: string | null
+          driving_status?: string | null
+          landmark?: string | null
+          last_load_ts?: string | null
+          last_location_time?: string | null
+          last_source_table?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          nearest_major_city?: string | null
+          speed_mph?: number | null
+          state?: string | null
+          status?: string | null
+          zip?: string | null
+        }
+        Relationships: []
       }
       mg_tms: {
         Row: {
@@ -3679,405 +4081,6 @@ export type Database = {
         }
         Relationships: []
       }
-      mg_tms_ytd: {
-        Row: {
-          acct_mg_name: string | null
-          actual_rc_date: string | null
-          available_at_port_date: string | null
-          carrier_invoice_charge: number | null
-          carrier_invoice_date: string | null
-          carrier_invoice_num: string | null
-          carrier_name: string | null
-          carrier_rate_charge: number | null
-          carrier_scac_code: string | null
-          carrier_total_accessorials_rate: number | null
-          carrier_total_invoice_detention: number | null
-          carrier_total_invoice_fuel: number | null
-          carrier_total_invoice_linehaul: string | null
-          carrier_total_invoice_other: string | null
-          carrier_total_rate_detention: number | null
-          carrier_total_rate_fuel: number | null
-          carrier_total_rate_linehaul: number | null
-          carrier_total_rate_other: string | null
-          chassis_description: string | null
-          chassis_number: string | null
-          chassis_number_format: string | null
-          chassis_type: string | null
-          container_at_port: string | null
-          container_number: string | null
-          container_number_format: string | null
-          container_type: string | null
-          created_by: string | null
-          created_date: string | null
-          cust_invoice_charge: number | null
-          cust_invoice_date: string | null
-          cust_invoice_num: string | null
-          cust_rate_charge: number | null
-          cust_total_invoice_detention: number | null
-          cust_total_invoice_fuel: number | null
-          cust_total_invoice_linehaul: number | null
-          cust_total_invoice_other: number | null
-          cust_total_rate_detention: number | null
-          cust_total_rate_fuel: number | null
-          cust_total_rate_linehaul: number | null
-          customer_account_number: string | null
-          customer_invoice_requested_date: string | null
-          customer_name: string | null
-          customer_reference_number: string | null
-          customer_total_accessorials_rate: number | null
-          customer_total_invoice_accessorials: number | null
-          cycle_create_tendered: number | null
-          cycle_delivery_custinvreq: number | null
-          cycle_delivery_pod: number | null
-          cycle_delivery_rc: number | null
-          cycle_pickup_delivery: number | null
-          cycle_tendered_pickup: number | null
-          delivery_actual_date: string | null
-          delivery_addr_1: string | null
-          delivery_addr_2: string | null
-          delivery_appmt_end: string | null
-          delivery_appmt_start: string | null
-          delivery_city: string | null
-          delivery_create_date: string | null
-          delivery_loc_code: string | null
-          delivery_loc_name: string | null
-          delivery_region: string | null
-          delivery_state: string | null
-          delivery_zipcode: string | null
-          departed_rail_date: string | null
-          direct_nvo: string | null
-          domestic_move: string | null
-          dotnumber: number | null
-          dropandpull: string | null
-          empty_pickup_date: string | null
-          entreprise_num: string | null
-          future_actual_delivery: number | null
-          future_custinvreqdate: number | null
-          future_pod_date: number | null
-          future_rc_date: number | null
-          id: number | null
-          isemptyatyard: string | null
-          isemptycontainerpickup: string | null
-          item_description: string | null
-          last_free_date: string | null
-          ld_num: string | null
-          ld_num_format: string | null
-          load_complexity: string | null
-          masterbolkey: number | null
-          mbl: string | null
-          mbl_format: string | null
-          mcnumber: number | null
-          miles: number | null
-          origin_code_region: string | null
-          pickup_actual_date: string | null
-          pickup_addr_1: string | null
-          pickup_addr_2: string | null
-          pickup_appmt_end: string | null
-          pickup_appmt_start: string | null
-          pickup_city: string | null
-          pickup_loc_code: string | null
-          pickup_loc_name: string | null
-          pickup_region: string | null
-          pickup_state: string | null
-          pickup_zipcode: string | null
-          pod_added_date: string | null
-          pod_received: string | null
-          pod_status: string | null
-          quantity: number | null
-          quantity_type: string | null
-          return_empty_container_update_date: string | null
-          returned_empty_container_create_date: string | null
-          row_id: number
-          sales_person: string | null
-          service: string | null
-          service_codes: string | null
-          servicemode: string | null
-          shipment_number: string | null
-          shipment_reference_number: string | null
-          shipmentid: string | null
-          so_num: string | null
-          so_num_format: string | null
-          source_file_key: number | null
-          status: string | null
-          steamshipline: string | null
-          syncentrydatetime: string | null
-          tendered_date: string | null
-          transport_type: string | null
-          unbilledflag: string | null
-          updated_by: string | null
-          updated_date: string | null
-          ups_shipment_number: string | null
-          vessel_eta: string | null
-          vessel_name: string | null
-          weight: number | null
-          zero_rev: string | null
-        }
-        Insert: {
-          acct_mg_name?: string | null
-          actual_rc_date?: string | null
-          available_at_port_date?: string | null
-          carrier_invoice_charge?: number | null
-          carrier_invoice_date?: string | null
-          carrier_invoice_num?: string | null
-          carrier_name?: string | null
-          carrier_rate_charge?: number | null
-          carrier_scac_code?: string | null
-          carrier_total_accessorials_rate?: number | null
-          carrier_total_invoice_detention?: number | null
-          carrier_total_invoice_fuel?: number | null
-          carrier_total_invoice_linehaul?: string | null
-          carrier_total_invoice_other?: string | null
-          carrier_total_rate_detention?: number | null
-          carrier_total_rate_fuel?: number | null
-          carrier_total_rate_linehaul?: number | null
-          carrier_total_rate_other?: string | null
-          chassis_description?: string | null
-          chassis_number?: string | null
-          chassis_number_format?: string | null
-          chassis_type?: string | null
-          container_at_port?: string | null
-          container_number?: string | null
-          container_number_format?: string | null
-          container_type?: string | null
-          created_by?: string | null
-          created_date?: string | null
-          cust_invoice_charge?: number | null
-          cust_invoice_date?: string | null
-          cust_invoice_num?: string | null
-          cust_rate_charge?: number | null
-          cust_total_invoice_detention?: number | null
-          cust_total_invoice_fuel?: number | null
-          cust_total_invoice_linehaul?: number | null
-          cust_total_invoice_other?: number | null
-          cust_total_rate_detention?: number | null
-          cust_total_rate_fuel?: number | null
-          cust_total_rate_linehaul?: number | null
-          customer_account_number?: string | null
-          customer_invoice_requested_date?: string | null
-          customer_name?: string | null
-          customer_reference_number?: string | null
-          customer_total_accessorials_rate?: number | null
-          customer_total_invoice_accessorials?: number | null
-          cycle_create_tendered?: number | null
-          cycle_delivery_custinvreq?: number | null
-          cycle_delivery_pod?: number | null
-          cycle_delivery_rc?: number | null
-          cycle_pickup_delivery?: number | null
-          cycle_tendered_pickup?: number | null
-          delivery_actual_date?: string | null
-          delivery_addr_1?: string | null
-          delivery_addr_2?: string | null
-          delivery_appmt_end?: string | null
-          delivery_appmt_start?: string | null
-          delivery_city?: string | null
-          delivery_create_date?: string | null
-          delivery_loc_code?: string | null
-          delivery_loc_name?: string | null
-          delivery_region?: string | null
-          delivery_state?: string | null
-          delivery_zipcode?: string | null
-          departed_rail_date?: string | null
-          direct_nvo?: string | null
-          domestic_move?: string | null
-          dotnumber?: number | null
-          dropandpull?: string | null
-          empty_pickup_date?: string | null
-          entreprise_num?: string | null
-          future_actual_delivery?: number | null
-          future_custinvreqdate?: number | null
-          future_pod_date?: number | null
-          future_rc_date?: number | null
-          id?: number | null
-          isemptyatyard?: string | null
-          isemptycontainerpickup?: string | null
-          item_description?: string | null
-          last_free_date?: string | null
-          ld_num?: string | null
-          ld_num_format?: string | null
-          load_complexity?: string | null
-          masterbolkey?: number | null
-          mbl?: string | null
-          mbl_format?: string | null
-          mcnumber?: number | null
-          miles?: number | null
-          origin_code_region?: string | null
-          pickup_actual_date?: string | null
-          pickup_addr_1?: string | null
-          pickup_addr_2?: string | null
-          pickup_appmt_end?: string | null
-          pickup_appmt_start?: string | null
-          pickup_city?: string | null
-          pickup_loc_code?: string | null
-          pickup_loc_name?: string | null
-          pickup_region?: string | null
-          pickup_state?: string | null
-          pickup_zipcode?: string | null
-          pod_added_date?: string | null
-          pod_received?: string | null
-          pod_status?: string | null
-          quantity?: number | null
-          quantity_type?: string | null
-          return_empty_container_update_date?: string | null
-          returned_empty_container_create_date?: string | null
-          row_id?: number
-          sales_person?: string | null
-          service?: string | null
-          service_codes?: string | null
-          servicemode?: string | null
-          shipment_number?: string | null
-          shipment_reference_number?: string | null
-          shipmentid?: string | null
-          so_num?: string | null
-          so_num_format?: string | null
-          source_file_key?: number | null
-          status?: string | null
-          steamshipline?: string | null
-          syncentrydatetime?: string | null
-          tendered_date?: string | null
-          transport_type?: string | null
-          unbilledflag?: string | null
-          updated_by?: string | null
-          updated_date?: string | null
-          ups_shipment_number?: string | null
-          vessel_eta?: string | null
-          vessel_name?: string | null
-          weight?: number | null
-          zero_rev?: string | null
-        }
-        Update: {
-          acct_mg_name?: string | null
-          actual_rc_date?: string | null
-          available_at_port_date?: string | null
-          carrier_invoice_charge?: number | null
-          carrier_invoice_date?: string | null
-          carrier_invoice_num?: string | null
-          carrier_name?: string | null
-          carrier_rate_charge?: number | null
-          carrier_scac_code?: string | null
-          carrier_total_accessorials_rate?: number | null
-          carrier_total_invoice_detention?: number | null
-          carrier_total_invoice_fuel?: number | null
-          carrier_total_invoice_linehaul?: string | null
-          carrier_total_invoice_other?: string | null
-          carrier_total_rate_detention?: number | null
-          carrier_total_rate_fuel?: number | null
-          carrier_total_rate_linehaul?: number | null
-          carrier_total_rate_other?: string | null
-          chassis_description?: string | null
-          chassis_number?: string | null
-          chassis_number_format?: string | null
-          chassis_type?: string | null
-          container_at_port?: string | null
-          container_number?: string | null
-          container_number_format?: string | null
-          container_type?: string | null
-          created_by?: string | null
-          created_date?: string | null
-          cust_invoice_charge?: number | null
-          cust_invoice_date?: string | null
-          cust_invoice_num?: string | null
-          cust_rate_charge?: number | null
-          cust_total_invoice_detention?: number | null
-          cust_total_invoice_fuel?: number | null
-          cust_total_invoice_linehaul?: number | null
-          cust_total_invoice_other?: number | null
-          cust_total_rate_detention?: number | null
-          cust_total_rate_fuel?: number | null
-          cust_total_rate_linehaul?: number | null
-          customer_account_number?: string | null
-          customer_invoice_requested_date?: string | null
-          customer_name?: string | null
-          customer_reference_number?: string | null
-          customer_total_accessorials_rate?: number | null
-          customer_total_invoice_accessorials?: number | null
-          cycle_create_tendered?: number | null
-          cycle_delivery_custinvreq?: number | null
-          cycle_delivery_pod?: number | null
-          cycle_delivery_rc?: number | null
-          cycle_pickup_delivery?: number | null
-          cycle_tendered_pickup?: number | null
-          delivery_actual_date?: string | null
-          delivery_addr_1?: string | null
-          delivery_addr_2?: string | null
-          delivery_appmt_end?: string | null
-          delivery_appmt_start?: string | null
-          delivery_city?: string | null
-          delivery_create_date?: string | null
-          delivery_loc_code?: string | null
-          delivery_loc_name?: string | null
-          delivery_region?: string | null
-          delivery_state?: string | null
-          delivery_zipcode?: string | null
-          departed_rail_date?: string | null
-          direct_nvo?: string | null
-          domestic_move?: string | null
-          dotnumber?: number | null
-          dropandpull?: string | null
-          empty_pickup_date?: string | null
-          entreprise_num?: string | null
-          future_actual_delivery?: number | null
-          future_custinvreqdate?: number | null
-          future_pod_date?: number | null
-          future_rc_date?: number | null
-          id?: number | null
-          isemptyatyard?: string | null
-          isemptycontainerpickup?: string | null
-          item_description?: string | null
-          last_free_date?: string | null
-          ld_num?: string | null
-          ld_num_format?: string | null
-          load_complexity?: string | null
-          masterbolkey?: number | null
-          mbl?: string | null
-          mbl_format?: string | null
-          mcnumber?: number | null
-          miles?: number | null
-          origin_code_region?: string | null
-          pickup_actual_date?: string | null
-          pickup_addr_1?: string | null
-          pickup_addr_2?: string | null
-          pickup_appmt_end?: string | null
-          pickup_appmt_start?: string | null
-          pickup_city?: string | null
-          pickup_loc_code?: string | null
-          pickup_loc_name?: string | null
-          pickup_region?: string | null
-          pickup_state?: string | null
-          pickup_zipcode?: string | null
-          pod_added_date?: string | null
-          pod_received?: string | null
-          pod_status?: string | null
-          quantity?: number | null
-          quantity_type?: string | null
-          return_empty_container_update_date?: string | null
-          returned_empty_container_create_date?: string | null
-          row_id?: number
-          sales_person?: string | null
-          service?: string | null
-          service_codes?: string | null
-          servicemode?: string | null
-          shipment_number?: string | null
-          shipment_reference_number?: string | null
-          shipmentid?: string | null
-          so_num?: string | null
-          so_num_format?: string | null
-          source_file_key?: number | null
-          status?: string | null
-          steamshipline?: string | null
-          syncentrydatetime?: string | null
-          tendered_date?: string | null
-          transport_type?: string | null
-          unbilledflag?: string | null
-          updated_by?: string | null
-          updated_date?: string | null
-          ups_shipment_number?: string | null
-          vessel_eta?: string | null
-          vessel_name?: string | null
-          weight?: number | null
-          zero_rev?: string | null
-        }
-        Relationships: []
-      }
       revenue_report: {
         Row: {
           acct_mg_name: string | null
@@ -5308,6 +5311,216 @@ export type Database = {
         }
         Relationships: []
       }
+      yard_events_data: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          BookingNo: string | null
+          ChassisNo: string | null
+          ChassisOwner: string | null
+          Condition: string | null
+          ContainerNo: string | null
+          ContainerOwner: string | null
+          EventDate: string | null
+          EventDescription: string | null
+          EventTime: string | null
+          LicensePlate: string | null
+          Terminal: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          BookingNo?: string | null
+          ChassisNo?: string | null
+          ChassisOwner?: string | null
+          Condition?: string | null
+          ContainerNo?: string | null
+          ContainerOwner?: string | null
+          EventDate?: string | null
+          EventDescription?: string | null
+          EventTime?: string | null
+          LicensePlate?: string | null
+          Terminal?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          BookingNo?: string | null
+          ChassisNo?: string | null
+          ChassisOwner?: string | null
+          Condition?: string | null
+          ContainerNo?: string | null
+          ContainerOwner?: string | null
+          EventDate?: string | null
+          EventDescription?: string | null
+          EventTime?: string | null
+          LicensePlate?: string | null
+          Terminal?: string | null
+        }
+        Relationships: []
+      }
+      yard_events_stg: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          BookingNo: string | null
+          ChassisNo: string | null
+          ChassisOwner: string | null
+          Condition: string | null
+          ContainerNo: string | null
+          ContainerOwner: string | null
+          EventDate: string | null
+          EventDescription: string | null
+          EventTime: string | null
+          LicensePlate: string | null
+          Terminal: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          BookingNo?: string | null
+          ChassisNo?: string | null
+          ChassisOwner?: string | null
+          Condition?: string | null
+          ContainerNo?: string | null
+          ContainerOwner?: string | null
+          EventDate?: string | null
+          EventDescription?: string | null
+          EventTime?: string | null
+          LicensePlate?: string | null
+          Terminal?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          BookingNo?: string | null
+          ChassisNo?: string | null
+          ChassisOwner?: string | null
+          Condition?: string | null
+          ContainerNo?: string | null
+          ContainerOwner?: string | null
+          EventDate?: string | null
+          EventDescription?: string | null
+          EventTime?: string | null
+          LicensePlate?: string | null
+          Terminal?: string | null
+        }
+        Relationships: []
+      }
+      yard_inventory_data: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          cust_code: string | null
+          days_onsite: number | null
+          eq_type: string | null
+          equip_group_id: string | null
+          equip_no: string | null
+          last_carr: string | null
+          last_carrier_name: string | null
+          last_gate_in: string | null
+          last_gate_in_time: string | null
+          lic_no: string | null
+          lic_st: string | null
+          load_type: string | null
+          location: string | null
+          size: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          cust_code?: string | null
+          days_onsite?: number | null
+          eq_type?: string | null
+          equip_group_id?: string | null
+          equip_no?: string | null
+          last_carr?: string | null
+          last_carrier_name?: string | null
+          last_gate_in?: string | null
+          last_gate_in_time?: string | null
+          lic_no?: string | null
+          lic_st?: string | null
+          load_type?: string | null
+          location?: string | null
+          size?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          cust_code?: string | null
+          days_onsite?: number | null
+          eq_type?: string | null
+          equip_group_id?: string | null
+          equip_no?: string | null
+          last_carr?: string | null
+          last_carrier_name?: string | null
+          last_gate_in?: string | null
+          last_gate_in_time?: string | null
+          lic_no?: string | null
+          lic_st?: string | null
+          load_type?: string | null
+          location?: string | null
+          size?: string | null
+        }
+        Relationships: []
+      }
+      yard_inventory_stg: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          cust_code: string | null
+          days_onsite: string | null
+          eq_type: string | null
+          equip_group_id: string | null
+          equip_no: string | null
+          last_carr: string | null
+          last_carrier_name: string | null
+          last_gate_in: string | null
+          last_gate_in_time: string | null
+          lic_no: string | null
+          lic_st: string | null
+          load_type: string | null
+          location: string | null
+          size: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          cust_code?: string | null
+          days_onsite?: string | null
+          eq_type?: string | null
+          equip_group_id?: string | null
+          equip_no?: string | null
+          last_carr?: string | null
+          last_carrier_name?: string | null
+          last_gate_in?: string | null
+          last_gate_in_time?: string | null
+          lic_no?: string | null
+          lic_st?: string | null
+          load_type?: string | null
+          location?: string | null
+          size?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          cust_code?: string | null
+          days_onsite?: string | null
+          eq_type?: string | null
+          equip_group_id?: string | null
+          equip_no?: string | null
+          last_carr?: string | null
+          last_carrier_name?: string | null
+          last_gate_in?: string | null
+          last_gate_in_time?: string | null
+          lic_no?: string | null
+          lic_st?: string | null
+          load_type?: string | null
+          location?: string | null
+          size?: string | null
+        }
+        Relationships: []
+      }
       yards: {
         Row: {
           city: string | null
@@ -5975,6 +6188,314 @@ export type Database = {
         }
         Relationships: []
       }
+      v_anytrek_clean: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          address: string | null
+          country: number | null
+          device_id: string | null
+          driving_direction: string | null
+          driving_status: string | null
+          dwell_time: string | null
+          enter_time_pacific: string | null
+          group_name: string | null
+          landmark: string | null
+          last_location_utc: string | null
+          lat: number | null
+          lng: number | null
+          speed_mph: number | null
+          state_province: string | null
+          vehicle: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address?: string | null
+          country?: never
+          device_id?: string | null
+          driving_direction?: string | null
+          driving_status?: string | null
+          dwell_time?: never
+          enter_time_pacific?: never
+          group_name?: string | null
+          landmark?: string | null
+          last_location_utc?: never
+          lat?: never
+          lng?: never
+          speed_mph?: never
+          state_province?: string | null
+          vehicle?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address?: string | null
+          country?: never
+          device_id?: string | null
+          driving_direction?: string | null
+          driving_status?: string | null
+          dwell_time?: never
+          enter_time_pacific?: never
+          group_name?: string | null
+          landmark?: string | null
+          last_location_utc?: never
+          lat?: never
+          lng?: never
+          speed_mph?: never
+          state_province?: string | null
+          vehicle?: string | null
+        }
+        Relationships: []
+      }
+      v_fleetlocate_stg: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          address: string | null
+          asset_id: string | null
+          asset_name: string | null
+          battery_percent: number | null
+          battery_status: string | null
+          city: string | null
+          device: string | null
+          duration_raw: string | null
+          group_name: string | null
+          group_raw: string | null
+          landmark: string | null
+          last_event_time: string | null
+          last_gps_time: string | null
+          last_latitude: number | null
+          last_longitude: number | null
+          latitude: number | null
+          location_raw: string | null
+          longitude: number | null
+          postal_code: string | null
+          report_ts: string | null
+          serial_number: string | null
+          speed_mph: number | null
+          state: string | null
+          status: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address?: string | null
+          asset_id?: never
+          asset_name?: string | null
+          battery_percent?: never
+          battery_status?: string | null
+          city?: string | null
+          device?: string | null
+          duration_raw?: string | null
+          group_name?: string | null
+          group_raw?: string | null
+          landmark?: string | null
+          last_event_time?: never
+          last_gps_time?: never
+          last_latitude?: never
+          last_longitude?: never
+          latitude?: never
+          location_raw?: string | null
+          longitude?: never
+          postal_code?: string | null
+          report_ts?: string | null
+          serial_number?: string | null
+          speed_mph?: never
+          state?: string | null
+          status?: never
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address?: string | null
+          asset_id?: never
+          asset_name?: string | null
+          battery_percent?: never
+          battery_status?: string | null
+          city?: string | null
+          device?: string | null
+          duration_raw?: string | null
+          group_name?: string | null
+          group_raw?: string | null
+          landmark?: string | null
+          last_event_time?: never
+          last_gps_time?: never
+          last_latitude?: never
+          last_longitude?: never
+          latitude?: never
+          location_raw?: string | null
+          longitude?: never
+          postal_code?: string | null
+          report_ts?: string | null
+          serial_number?: string | null
+          speed_mph?: never
+          state?: string | null
+          status?: never
+        }
+        Relationships: []
+      }
+      v_fleetlocate_stg_norm: {
+        Row: {
+          address: string | null
+          asset_id: string | null
+          asset_name: string | null
+          battery_status: string | null
+          city: string | null
+          device: string | null
+          duration_raw: string | null
+          group_raw: string | null
+          last_event_text: string | null
+          load_ts: string | null
+          serial_number: string | null
+          source_file: string | null
+          state: string | null
+          status: string | null
+          zip: string | null
+        }
+        Relationships: []
+      }
+      v_forrest_assetlist_stg: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          address_city_state_zip_code: string | null
+          asset_id: string | null
+          days_dormant: number | null
+          device_serial_number: string | null
+          event_reason: string | null
+          gps_time: string | null
+          landmark: string | null
+          nearest_major_city: string | null
+          report_time: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address_city_state_zip_code?: string | null
+          asset_id?: string | null
+          days_dormant?: never
+          device_serial_number?: string | null
+          event_reason?: string | null
+          gps_time?: never
+          landmark?: string | null
+          nearest_major_city?: string | null
+          report_time?: never
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          address_city_state_zip_code?: string | null
+          asset_id?: string | null
+          days_dormant?: never
+          device_serial_number?: string | null
+          event_reason?: string | null
+          gps_time?: never
+          landmark?: string | null
+          nearest_major_city?: string | null
+          report_time?: never
+        }
+        Relationships: []
+      }
+      v_geo_master_address_stg: {
+        Row: {
+          _load_ts: string | null
+          administrative_area_level_1: string | null
+          administrative_area_level_2: string | null
+          bounds_ne_lat: number | null
+          bounds_ne_lng: number | null
+          bounds_sw_lat: number | null
+          bounds_sw_lng: number | null
+          country: string | null
+          formatted_address: string | null
+          google_maps_url: string | null
+          lat: number | null
+          lng: number | null
+          locality: string | null
+          location_type: string | null
+          neighborhood: string | null
+          partial_match: boolean | null
+          place_id: string | null
+          plus_code_compound_code: string | null
+          plus_code_global_code: string | null
+          postal_code: string | null
+          premise: string | null
+          route: string | null
+          street_number: string | null
+          sublocality: string | null
+          subpremise: string | null
+          types_raw: string | null
+          viewport_ne_lat: number | null
+          viewport_ne_lng: number | null
+          viewport_sw_lat: number | null
+          viewport_sw_lng: number | null
+        }
+        Insert: {
+          _load_ts?: never
+          administrative_area_level_1?: string | null
+          administrative_area_level_2?: string | null
+          bounds_ne_lat?: never
+          bounds_ne_lng?: never
+          bounds_sw_lat?: never
+          bounds_sw_lng?: never
+          country?: string | null
+          formatted_address?: string | null
+          google_maps_url?: string | null
+          lat?: never
+          lng?: never
+          locality?: string | null
+          location_type?: string | null
+          neighborhood?: string | null
+          partial_match?: never
+          place_id?: string | null
+          plus_code_compound_code?: string | null
+          plus_code_global_code?: string | null
+          postal_code?: string | null
+          premise?: string | null
+          route?: string | null
+          street_number?: string | null
+          sublocality?: string | null
+          subpremise?: string | null
+          types_raw?: string | null
+          viewport_ne_lat?: never
+          viewport_ne_lng?: never
+          viewport_sw_lat?: never
+          viewport_sw_lng?: never
+        }
+        Update: {
+          _load_ts?: never
+          administrative_area_level_1?: string | null
+          administrative_area_level_2?: string | null
+          bounds_ne_lat?: never
+          bounds_ne_lng?: never
+          bounds_sw_lat?: never
+          bounds_sw_lng?: never
+          country?: string | null
+          formatted_address?: string | null
+          google_maps_url?: string | null
+          lat?: never
+          lng?: never
+          locality?: string | null
+          location_type?: string | null
+          neighborhood?: string | null
+          partial_match?: never
+          place_id?: string | null
+          plus_code_compound_code?: string | null
+          plus_code_global_code?: string | null
+          postal_code?: string | null
+          premise?: string | null
+          route?: string | null
+          street_number?: string | null
+          sublocality?: string | null
+          subpremise?: string | null
+          types_raw?: string | null
+          viewport_ne_lat?: never
+          viewport_ne_lng?: never
+          viewport_sw_lat?: never
+          viewport_sw_lng?: never
+        }
+        Relationships: []
+      }
       v_invoice_line_checks: {
         Row: {
           billed_days: number | null
@@ -6072,6 +6593,510 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_mg_tms_stg: {
+        Row: {
+          acct_mg_name: string | null
+          actual_rc_date: string | null
+          available_at_port_date: string | null
+          carrier_invoice_charge: number | null
+          carrier_invoice_date: string | null
+          carrier_invoice_num: string | null
+          carrier_name: string | null
+          carrier_rate_charge: number | null
+          carrier_scac_code: string | null
+          carrier_total_accessorials_rate: number | null
+          carrier_total_invoice_detention: number | null
+          carrier_total_invoice_fuel: number | null
+          carrier_total_invoice_linehaul: number | null
+          carrier_total_invoice_other: number | null
+          carrier_total_rate_detention: number | null
+          carrier_total_rate_fuel: number | null
+          carrier_total_rate_linehaul: number | null
+          carrier_total_rate_other: number | null
+          chassis_description: string | null
+          chassis_number: string | null
+          chassis_number_format: string | null
+          chassis_type: string | null
+          container_at_port: string | null
+          container_number: string | null
+          container_number_format: string | null
+          container_type: string | null
+          created_by: string | null
+          created_date: string | null
+          cust_invoice_charge: number | null
+          cust_invoice_date: string | null
+          cust_invoice_num: string | null
+          cust_rate_charge: number | null
+          cust_total_invoice_detention: number | null
+          cust_total_invoice_fuel: number | null
+          cust_total_invoice_linehaul: number | null
+          cust_total_invoice_other: number | null
+          cust_total_rate_detention: number | null
+          cust_total_rate_fuel: number | null
+          cust_total_rate_linehaul: number | null
+          customer_account_number: string | null
+          customer_invoice_requested_date: string | null
+          customer_name: string | null
+          customer_reference_number: string | null
+          customer_total_accessorials_rate: number | null
+          customer_total_invoice_accessorials: number | null
+          cycle_create_tendered: number | null
+          cycle_delivery_custinvreq: number | null
+          cycle_delivery_pod: number | null
+          cycle_delivery_rc: number | null
+          cycle_pickup_delivery: number | null
+          cycle_tendered_pickup: number | null
+          delivery_actual_date: string | null
+          delivery_addr_1: string | null
+          delivery_addr_2: string | null
+          delivery_appmt_end: string | null
+          delivery_appmt_start: string | null
+          delivery_city: string | null
+          delivery_create_date: string | null
+          delivery_loc_code: string | null
+          delivery_loc_name: string | null
+          delivery_region: string | null
+          delivery_state: string | null
+          delivery_zipcode: string | null
+          departed_rail_date: number | null
+          direct_nvo: string | null
+          domestic_move: number | null
+          dotnumber: number | null
+          dropandpull: string | null
+          empty_pickup_date: string | null
+          entreprise_num: string | null
+          future_actual_delivery: string | null
+          future_custinvreqdate: string | null
+          future_pod_date: string | null
+          future_rc_date: string | null
+          id: string | null
+          isemptyatyard: string | null
+          isemptycontainerpickup: number | null
+          item_description: string | null
+          last_free_date: string | null
+          ld_num: string | null
+          ld_num_format: string | null
+          load_complexity: string | null
+          masterbolkey: number | null
+          mbl: string | null
+          mbl_format: string | null
+          mcnumber: number | null
+          miles: number | null
+          origin_code_region: string | null
+          pickup_actual_date: string | null
+          pickup_addr_1: string | null
+          pickup_addr_2: string | null
+          pickup_appmt_end: string | null
+          pickup_appmt_start: string | null
+          pickup_city: string | null
+          pickup_loc_code: string | null
+          pickup_loc_name: string | null
+          pickup_region: string | null
+          pickup_state: string | null
+          pickup_zipcode: string | null
+          pod_added_date: string | null
+          pod_received: boolean | null
+          pod_status: string | null
+          quantity: number | null
+          quantity_type: string | null
+          return_empty_container_update_date: string | null
+          returned_empty_container_create_date: string | null
+          sales_person: string | null
+          service: string | null
+          service_codes: string | null
+          servicemode: string | null
+          shipment_number: string | null
+          shipment_reference_number: string | null
+          shipmentid: string | null
+          so_num: string | null
+          so_num_format: string | null
+          source_file: string | null
+          source_file_key: number | null
+          status: string | null
+          steamshipline: string | null
+          syncentrydatetime: string | null
+          tendered_date: string | null
+          transport_type: string | null
+          unbilledflag: string | null
+          updated_by: string | null
+          updated_date: string | null
+          ups_shipment_number: string | null
+          vessel_eta: string | null
+          vessel_name: string | null
+          weight: number | null
+          zero_rev: string | null
+        }
+        Insert: {
+          acct_mg_name?: string | null
+          actual_rc_date?: never
+          available_at_port_date?: string | null
+          carrier_invoice_charge?: never
+          carrier_invoice_date?: never
+          carrier_invoice_num?: string | null
+          carrier_name?: string | null
+          carrier_rate_charge?: never
+          carrier_scac_code?: string | null
+          carrier_total_accessorials_rate?: never
+          carrier_total_invoice_detention?: never
+          carrier_total_invoice_fuel?: never
+          carrier_total_invoice_linehaul?: never
+          carrier_total_invoice_other?: never
+          carrier_total_rate_detention?: never
+          carrier_total_rate_fuel?: never
+          carrier_total_rate_linehaul?: never
+          carrier_total_rate_other?: never
+          chassis_description?: string | null
+          chassis_number?: string | null
+          chassis_number_format?: string | null
+          chassis_type?: string | null
+          container_at_port?: string | null
+          container_number?: string | null
+          container_number_format?: string | null
+          container_type?: string | null
+          created_by?: string | null
+          created_date?: never
+          cust_invoice_charge?: never
+          cust_invoice_date?: never
+          cust_invoice_num?: string | null
+          cust_rate_charge?: never
+          cust_total_invoice_detention?: never
+          cust_total_invoice_fuel?: never
+          cust_total_invoice_linehaul?: never
+          cust_total_invoice_other?: never
+          cust_total_rate_detention?: never
+          cust_total_rate_fuel?: never
+          cust_total_rate_linehaul?: never
+          customer_account_number?: string | null
+          customer_invoice_requested_date?: never
+          customer_name?: string | null
+          customer_reference_number?: string | null
+          customer_total_accessorials_rate?: never
+          customer_total_invoice_accessorials?: never
+          cycle_create_tendered?: never
+          cycle_delivery_custinvreq?: never
+          cycle_delivery_pod?: never
+          cycle_delivery_rc?: never
+          cycle_pickup_delivery?: never
+          cycle_tendered_pickup?: never
+          delivery_actual_date?: never
+          delivery_addr_1?: string | null
+          delivery_addr_2?: string | null
+          delivery_appmt_end?: never
+          delivery_appmt_start?: never
+          delivery_city?: string | null
+          delivery_create_date?: never
+          delivery_loc_code?: string | null
+          delivery_loc_name?: string | null
+          delivery_region?: string | null
+          delivery_state?: string | null
+          delivery_zipcode?: string | null
+          departed_rail_date?: never
+          direct_nvo?: string | null
+          domestic_move?: never
+          dotnumber?: never
+          dropandpull?: string | null
+          empty_pickup_date?: string | null
+          entreprise_num?: string | null
+          future_actual_delivery?: never
+          future_custinvreqdate?: never
+          future_pod_date?: never
+          future_rc_date?: never
+          id?: string | null
+          isemptyatyard?: string | null
+          isemptycontainerpickup?: never
+          item_description?: string | null
+          last_free_date?: string | null
+          ld_num?: string | null
+          ld_num_format?: string | null
+          load_complexity?: string | null
+          masterbolkey?: never
+          mbl?: string | null
+          mbl_format?: string | null
+          mcnumber?: never
+          miles?: never
+          origin_code_region?: string | null
+          pickup_actual_date?: never
+          pickup_addr_1?: string | null
+          pickup_addr_2?: string | null
+          pickup_appmt_end?: never
+          pickup_appmt_start?: never
+          pickup_city?: string | null
+          pickup_loc_code?: string | null
+          pickup_loc_name?: string | null
+          pickup_region?: string | null
+          pickup_state?: string | null
+          pickup_zipcode?: string | null
+          pod_added_date?: never
+          pod_received?: never
+          pod_status?: string | null
+          quantity?: never
+          quantity_type?: string | null
+          return_empty_container_update_date?: never
+          returned_empty_container_create_date?: never
+          sales_person?: string | null
+          service?: string | null
+          service_codes?: string | null
+          servicemode?: string | null
+          shipment_number?: string | null
+          shipment_reference_number?: string | null
+          shipmentid?: string | null
+          so_num?: string | null
+          so_num_format?: string | null
+          source_file?: string | null
+          source_file_key?: never
+          status?: string | null
+          steamshipline?: string | null
+          syncentrydatetime?: never
+          tendered_date?: never
+          transport_type?: string | null
+          unbilledflag?: string | null
+          updated_by?: string | null
+          updated_date?: never
+          ups_shipment_number?: string | null
+          vessel_eta?: string | null
+          vessel_name?: string | null
+          weight?: never
+          zero_rev?: string | null
+        }
+        Update: {
+          acct_mg_name?: string | null
+          actual_rc_date?: never
+          available_at_port_date?: string | null
+          carrier_invoice_charge?: never
+          carrier_invoice_date?: never
+          carrier_invoice_num?: string | null
+          carrier_name?: string | null
+          carrier_rate_charge?: never
+          carrier_scac_code?: string | null
+          carrier_total_accessorials_rate?: never
+          carrier_total_invoice_detention?: never
+          carrier_total_invoice_fuel?: never
+          carrier_total_invoice_linehaul?: never
+          carrier_total_invoice_other?: never
+          carrier_total_rate_detention?: never
+          carrier_total_rate_fuel?: never
+          carrier_total_rate_linehaul?: never
+          carrier_total_rate_other?: never
+          chassis_description?: string | null
+          chassis_number?: string | null
+          chassis_number_format?: string | null
+          chassis_type?: string | null
+          container_at_port?: string | null
+          container_number?: string | null
+          container_number_format?: string | null
+          container_type?: string | null
+          created_by?: string | null
+          created_date?: never
+          cust_invoice_charge?: never
+          cust_invoice_date?: never
+          cust_invoice_num?: string | null
+          cust_rate_charge?: never
+          cust_total_invoice_detention?: never
+          cust_total_invoice_fuel?: never
+          cust_total_invoice_linehaul?: never
+          cust_total_invoice_other?: never
+          cust_total_rate_detention?: never
+          cust_total_rate_fuel?: never
+          cust_total_rate_linehaul?: never
+          customer_account_number?: string | null
+          customer_invoice_requested_date?: never
+          customer_name?: string | null
+          customer_reference_number?: string | null
+          customer_total_accessorials_rate?: never
+          customer_total_invoice_accessorials?: never
+          cycle_create_tendered?: never
+          cycle_delivery_custinvreq?: never
+          cycle_delivery_pod?: never
+          cycle_delivery_rc?: never
+          cycle_pickup_delivery?: never
+          cycle_tendered_pickup?: never
+          delivery_actual_date?: never
+          delivery_addr_1?: string | null
+          delivery_addr_2?: string | null
+          delivery_appmt_end?: never
+          delivery_appmt_start?: never
+          delivery_city?: string | null
+          delivery_create_date?: never
+          delivery_loc_code?: string | null
+          delivery_loc_name?: string | null
+          delivery_region?: string | null
+          delivery_state?: string | null
+          delivery_zipcode?: string | null
+          departed_rail_date?: never
+          direct_nvo?: string | null
+          domestic_move?: never
+          dotnumber?: never
+          dropandpull?: string | null
+          empty_pickup_date?: string | null
+          entreprise_num?: string | null
+          future_actual_delivery?: never
+          future_custinvreqdate?: never
+          future_pod_date?: never
+          future_rc_date?: never
+          id?: string | null
+          isemptyatyard?: string | null
+          isemptycontainerpickup?: never
+          item_description?: string | null
+          last_free_date?: string | null
+          ld_num?: string | null
+          ld_num_format?: string | null
+          load_complexity?: string | null
+          masterbolkey?: never
+          mbl?: string | null
+          mbl_format?: string | null
+          mcnumber?: never
+          miles?: never
+          origin_code_region?: string | null
+          pickup_actual_date?: never
+          pickup_addr_1?: string | null
+          pickup_addr_2?: string | null
+          pickup_appmt_end?: never
+          pickup_appmt_start?: never
+          pickup_city?: string | null
+          pickup_loc_code?: string | null
+          pickup_loc_name?: string | null
+          pickup_region?: string | null
+          pickup_state?: string | null
+          pickup_zipcode?: string | null
+          pod_added_date?: never
+          pod_received?: never
+          pod_status?: string | null
+          quantity?: never
+          quantity_type?: string | null
+          return_empty_container_update_date?: never
+          returned_empty_container_create_date?: never
+          sales_person?: string | null
+          service?: string | null
+          service_codes?: string | null
+          servicemode?: string | null
+          shipment_number?: string | null
+          shipment_reference_number?: string | null
+          shipmentid?: string | null
+          so_num?: string | null
+          so_num_format?: string | null
+          source_file?: string | null
+          source_file_key?: never
+          status?: string | null
+          steamshipline?: string | null
+          syncentrydatetime?: never
+          tendered_date?: never
+          transport_type?: string | null
+          unbilledflag?: string | null
+          updated_by?: string | null
+          updated_date?: never
+          ups_shipment_number?: string | null
+          vessel_eta?: string | null
+          vessel_name?: string | null
+          weight?: never
+          zero_rev?: string | null
+        }
+        Relationships: []
+      }
+      v_yard_events_stg: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          BookingNo: string | null
+          ChassisNo: string | null
+          ChassisOwner: string | null
+          Condition: string | null
+          ContainerNo: string | null
+          ContainerOwner: string | null
+          EventDate: string | null
+          EventDescription: string | null
+          EventTime: string | null
+          LicensePlate: string | null
+          Terminal: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          BookingNo?: string | null
+          ChassisNo?: string | null
+          ChassisOwner?: string | null
+          Condition?: string | null
+          ContainerNo?: string | null
+          ContainerOwner?: string | null
+          EventDate?: never
+          EventDescription?: string | null
+          EventTime?: string | null
+          LicensePlate?: string | null
+          Terminal?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          BookingNo?: string | null
+          ChassisNo?: string | null
+          ChassisOwner?: string | null
+          Condition?: string | null
+          ContainerNo?: string | null
+          ContainerOwner?: string | null
+          EventDate?: never
+          EventDescription?: string | null
+          EventTime?: string | null
+          LicensePlate?: string | null
+          Terminal?: string | null
+        }
+        Relationships: []
+      }
+      v_yard_inventory_stg: {
+        Row: {
+          _load_ts: string | null
+          _source_file: string | null
+          cust_code: string | null
+          days_onsite: number | null
+          eq_type: string | null
+          equip_group_id: string | null
+          equip_no: string | null
+          last_carr: string | null
+          last_carrier_name: string | null
+          last_gate_in: string | null
+          last_gate_in_time: string | null
+          lic_no: string | null
+          lic_st: string | null
+          load_type: string | null
+          location: string | null
+          size: string | null
+        }
+        Insert: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          cust_code?: string | null
+          days_onsite?: never
+          eq_type?: string | null
+          equip_group_id?: string | null
+          equip_no?: string | null
+          last_carr?: string | null
+          last_carrier_name?: string | null
+          last_gate_in?: string | null
+          last_gate_in_time?: never
+          lic_no?: string | null
+          lic_st?: string | null
+          load_type?: string | null
+          location?: string | null
+          size?: string | null
+        }
+        Update: {
+          _load_ts?: string | null
+          _source_file?: string | null
+          cust_code?: string | null
+          days_onsite?: never
+          eq_type?: string | null
+          equip_group_id?: string | null
+          equip_no?: string | null
+          last_carr?: string | null
+          last_carrier_name?: string | null
+          last_gate_in?: string | null
+          last_gate_in_time?: never
+          lic_no?: string | null
+          lic_st?: string | null
+          load_type?: string | null
+          location?: string | null
+          size?: string | null
+        }
+        Relationships: []
       }
       ytd_mg_tms_monthly: {
         Row: {
@@ -7256,6 +8281,8 @@ export type Database = {
         Args: { alias: string; c: string; cols: Json }
         Returns: string
       }
+      util_safe_numeric: { Args: { p_input: string }; Returns: number }
+      util_safe_timestamptz: { Args: { p_input: string }; Returns: string }
       util_to_bigint: { Args: { p_text: string }; Returns: number }
       util_to_bool: { Args: { p_text: string }; Returns: boolean }
       util_to_numeric: { Args: { p_text: string }; Returns: number }
