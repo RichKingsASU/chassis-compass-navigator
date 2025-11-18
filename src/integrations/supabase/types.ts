@@ -460,6 +460,77 @@ export type Database = {
         }
         Relationships: []
       }
+      chassis_reservations: {
+        Row: {
+          account_manager: string | null
+          booking_number: string | null
+          chassis_id: string
+          check_in_date: string
+          check_in_time: string
+          created_at: string | null
+          eq_type: string | null
+          id: string
+          load_type: string | null
+          location: string | null
+          notes: string | null
+          planned_exit_date: string | null
+          reservation_type: string | null
+          reserved_by: string | null
+          ssl_size: string | null
+          status: string | null
+          unit_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_manager?: string | null
+          booking_number?: string | null
+          chassis_id: string
+          check_in_date: string
+          check_in_time: string
+          created_at?: string | null
+          eq_type?: string | null
+          id?: string
+          load_type?: string | null
+          location?: string | null
+          notes?: string | null
+          planned_exit_date?: string | null
+          reservation_type?: string | null
+          reserved_by?: string | null
+          ssl_size?: string | null
+          status?: string | null
+          unit_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_manager?: string | null
+          booking_number?: string | null
+          chassis_id?: string
+          check_in_date?: string
+          check_in_time?: string
+          created_at?: string | null
+          eq_type?: string | null
+          id?: string
+          load_type?: string | null
+          location?: string | null
+          notes?: string | null
+          planned_exit_date?: string | null
+          reservation_type?: string | null
+          reserved_by?: string | null
+          ssl_size?: string | null
+          status?: string | null
+          unit_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chassis_reservations_chassis_id_fkey"
+            columns: ["chassis_id"]
+            isOneToOne: false
+            referencedRelation: "chassis_master"
+            referencedColumns: ["forrest_chz_id"]
+          },
+        ]
+      }
       customer_contract: {
         Row: {
           chassis_allowed: boolean | null
