@@ -39,6 +39,7 @@ const PortPro = lazy(() => import('@/pages/tms/PortPro'))
 // Yard pages
 const POLAYard = lazy(() => import('@/pages/yards/POLAYard'))
 const JEDYard = lazy(() => import('@/pages/yards/JEDYard'))
+const YardToolPage = lazy(() => import('@/pages/YardToolPage'))
 
 // Vendor pages
 const DCLI = lazy(() => import('@/pages/vendors/DCLI'))
@@ -132,6 +133,7 @@ export default function App() {
                   <Route path="/yards" element={<ProtectedPage><YardReportOverview /></ProtectedPage>} />
                   <Route path="/yards/pola" element={<ProtectedPage><POLAYard /></ProtectedPage>} />
                   <Route path="/yards/jed" element={<ProtectedPage><JEDYard /></ProtectedPage>} />
+                  <Route path="/yard" element={<ProtectedPage><YardToolPage /></ProtectedPage>} />
 
                   {/* GPS */}
                   <Route path="/gps" element={<ProtectedPage><GpsOverview /></ProtectedPage>} />
