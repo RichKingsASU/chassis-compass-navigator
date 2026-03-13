@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import GoogleMapsFleetMap from '@/components/GoogleMapsFleetMap'
 
 interface ChassisLocation {
   id: string
@@ -70,15 +71,15 @@ export default function ChassisLocator() {
       {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
 
       <Card>
-        <CardHeader><CardTitle>Fleet Map</CardTitle></CardHeader>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Fleet Map</CardTitle>
+            <Badge variant="outline">{filtered.filter(l => l.latitude && l.longitude).length} locations on map</Badge>
+          </div>
+        </CardHeader>
         <CardContent>
-          <div className="h-72 bg-gradient-to-br from-blue-100 via-green-50 to-teal-100 rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/20">
-            <div className="text-center space-y-2">
-              <div className="text-5xl">🗺️</div>
-              <p className="text-lg font-medium text-muted-foreground">Fleet Map</p>
-              <p className="text-sm text-muted-foreground">Connect Google Maps API to view chassis locations</p>
-              <p className="text-xs text-muted-foreground">{locations.length} GPS records available</p>
-            </div>
+          <div className="h-[480px] rounded-lg overflow-hidden">
+            <GoogleMapsFleetMap locations={filtered} />
           </div>
         </CardContent>
       </Card>

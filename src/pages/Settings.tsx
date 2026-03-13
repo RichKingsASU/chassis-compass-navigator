@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
@@ -14,6 +15,45 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [signOutLoading, setSignOutLoading] = useState(false)
+
+  const [googleMapsApiKey, setGoogleMapsApiKey] = useState('')
+  const [mapsKeySaving, setMapsKeySaving] = useState(false)
+  const [mapsKeySaved, setMapsKeySaved] = useState(false)
+  const [mapsKeyError, setMapsKeyError] = useState<string | null>(null)
+  const [showApiKey, setShowApiKey] = useState(false)
+
+  useEffect(() => {
+    async function loadApiKey() {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'google_maps_api_key')
+        .single()
+      if (data?.value) setGoogleMapsApiKey(data.value)
+    }
+    loadApiKey()
+  }, [])
+
+  async function handleSaveApiKey() {
+    setMapsKeySaving(true)
+    setMapsKeySaved(false)
+    setMapsKeyError(null)
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert(
+          { key: 'google_maps_api_key', value: googleMapsApiKey.trim() },
+          { onConflict: 'key' }
+        )
+      if (error) throw error
+      setMapsKeySaved(true)
+      setTimeout(() => setMapsKeySaved(false), 2000)
+    } catch (err: unknown) {
+      setMapsKeyError(err instanceof Error ? err.message : 'Failed to save API key')
+    } finally {
+      setMapsKeySaving(false)
+    }
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -89,6 +129,40 @@ export default function Settings() {
             </div>
             <Switch id="dispute-alerts" checked={disputeAlerts} onCheckedChange={setDisputeAlerts} />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Integrations</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="google-maps-key" className="text-sm font-medium">Google Maps API Key</Label>
+            <p className="text-xs text-muted-foreground mt-1 mb-2">
+              Required for the Fleet Map on the Chassis Locator page. Restrict this key to your domain in the Google Cloud Console.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                id="google-maps-key"
+                type={showApiKey ? 'text' : 'password'}
+                placeholder="Enter your Google Maps API key"
+                value={googleMapsApiKey}
+                onChange={e => setGoogleMapsApiKey(e.target.value)}
+                className="flex-1 font-mono text-sm"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="shrink-0"
+              >
+                {showApiKey ? 'Hide' : 'Show'}
+              </Button>
+            </div>
+            {mapsKeyError && <p className="text-xs text-destructive mt-1">{mapsKeyError}</p>}
+          </div>
+          <Button onClick={handleSaveApiKey} disabled={mapsKeySaving || !googleMapsApiKey.trim()} size="sm">
+            {mapsKeySaving ? 'Saving...' : mapsKeySaved ? 'Saved!' : 'Save API Key'}
+          </Button>
         </CardContent>
       </Card>
 
