@@ -25,3 +25,4 @@ dist-ssr
 
 # Reference repo (analysis only)
 reference/
+supabase/.temp/
