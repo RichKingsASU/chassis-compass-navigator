@@ -1,69 +1,62 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
 
-export interface TMSDataItem {
-  id: string;
-  shipment_number?: string;
-  container_number?: string;
-  chassis_number?: string;
-  carrier_name?: string;
-  carrier_scac_code?: string;
-  status?: string;
-  pickup_city?: string;
-  pickup_state?: string;
-  delivery_city?: string;
-  delivery_state?: string;
-  pickup_actual_date?: string;
-  delivery_actual_date?: string;
-  pickup_appmt_start?: string;
-  delivery_appmt_start?: string;
-  cust_invoice_charge?: string;
-  carrier_invoice_charge?: string;
-  mbl?: string;
-  vessel_name?: string;
-  customer_name?: string;
-  service?: string;
-  transport_type?: string;
+interface TMSRecord {
+  id: number
+  ld_num: string | null
+  so_num: string | null
+  shipment_number: string | null
+  chassis_number: string | null
+  container_number: string | null
+  pickup_actual_date: string | null
+  delivery_actual_date: string | null
+  carrier_name: string | null
+  customer_name: string | null
+  raw_data: Record<string, unknown> | null
+  created_at: string
 }
 
-export interface TMSFiltersState {
-  source: string;
-  type: string;
-  status: string;
-  searchTerm?: string;
-}
+export function useTMSData(searchTerm?: string) {
+  const [data, setData] = useState<TMSRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [totalCount, setTotalCount] = useState(0)
 
-export const useTMSData = (filters?: TMSFiltersState, page: number = 1, pageSize: number = 20) => {
-  return useQuery({
-    queryKey: ['tms-data', filters, page, pageSize],
-    queryFn: async () => {
-      // @ts-ignore - tms_mg table exists but not in generated types yet
-      let query = supabase.from('tms_mg').select('*', { count: 'exact' });
+  const fetchData = useCallback(
+    async (page = 0, pageSize = 50) => {
+      try {
+        setLoading(true)
+        setError(null)
 
-      // Apply filters
-      if (filters?.status && filters.status !== '') {
-        query = query.ilike('status', `%${filters.status}%`);
+        let query = supabase
+          .from('mg_tms')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1)
+
+        if (searchTerm) {
+          query = query.or(
+            `chassis_number.ilike.%${searchTerm}%,container_number.ilike.%${searchTerm}%,ld_num.ilike.%${searchTerm}%,so_num.ilike.%${searchTerm}%`
+          )
+        }
+
+        const { data: result, error: fetchError, count } = await query
+
+        if (fetchError) throw fetchError
+        setData((result as TMSRecord[]) || [])
+        setTotalCount(count || 0)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch TMS data')
+      } finally {
+        setLoading(false)
       }
-
-      if (filters?.searchTerm && filters.searchTerm !== '') {
-        query = query.or(`shipment_number.ilike.%${filters.searchTerm}%,container_number.ilike.%${filters.searchTerm}%,chassis_number.ilike.%${filters.searchTerm}%,id.ilike.%${filters.searchTerm}%`);
-      }
-
-      // Apply pagination
-      const startIndex = (page - 1) * pageSize;
-      query = query
-        .range(startIndex, startIndex + pageSize - 1)
-        .order('created_date', { ascending: false });
-
-      const { data, error, count } = await query;
-
-      if (error) throw error;
-
-      return {
-        data: data as TMSDataItem[],
-        totalCount: count || 0,
-        totalPages: Math.ceil((count || 0) / pageSize)
-      };
     },
-  });
-};
+    [searchTerm]
+  )
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  return { data, loading, error, totalCount, refetch: fetchData }
+}

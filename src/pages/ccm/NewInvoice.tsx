@@ -1,186 +1,142 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/hooks/use-toast';
-import InvoiceUploadStep from '@/components/ccm/invoice/InvoiceUploadStep';
-import InvoiceSummaryCard from '@/components/ccm/invoice/InvoiceSummaryCard';
-import InvoiceReviewStep from '@/components/ccm/invoice/InvoiceReviewStep';
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
+import { parseExcelFile, type ParsedSheet } from '@/utils/excelParser'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
-export interface InvoiceData {
-  invoice_number: string;
-  invoice_date: string;
-  provider: string;
-  total_amount_usd: number;
-  status: string;
-}
+type Step = 'upload' | 'review' | 'submit'
 
-export interface LineItem {
-  invoice_status?: string;
-  row_data?: Record<string, any>;
-}
 
-export interface ExtractedData {
-  invoice: InvoiceData;
-  line_items: LineItem[];
-  attachments: Array<{ name: string; path: string }>;
-  warnings: string[];
-  source_hash: string;
-  excel_headers?: string[];
-}
+export default function CCMNewInvoice() {
+  const navigate = useNavigate()
+  const [step, setStep] = useState<Step>('upload')
+  const [file, setFile] = useState<File | null>(null)
+  const [parsedData, setParsedData] = useState<ParsedSheet[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
 
-const steps = [
-  { id: 1, name: 'Upload', description: 'PDF + Excel' },
-  { id: 2, name: 'Review', description: 'Prefill & Edit' },
-  { id: 3, name: 'Validate', description: 'Match Data' },
-  { id: 4, name: 'Submit', description: 'Review & Submit' },
-];
-
-const NewInvoice = () => {
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [uploadedFiles, setUploadedFiles] = useState<{ pdf: File | null; excel: File | null }>({
-    pdf: null,
-    excel: null,
-  });
-  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
-  const progressPercentage = (currentStep / steps.length) * 100;
-
-  const handleBack = () => {
-    if (hasUnsavedChanges) {
-      const confirm = window.confirm('You have unsaved changes. Are you sure you want to leave?');
-      if (!confirm) return;
-    }
-    navigate('/vendors/ccm');
-  };
-
-  const handleStepComplete = () => {
-    if (currentStep < steps.length) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const handleStepBack = () => {
-    if (currentStep > 1 && currentStep !== 2) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleSaveDraft = async () => {
-    if (!extractedData) return;
-
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0]
+    if (!selected) return
+    setFile(selected)
+    setError(null)
+    setLoading(true)
     try {
-      toast({
-        title: "Draft Saved",
-        description: "Your invoice has been saved as a draft.",
-      });
-
-      setHasUnsavedChanges(false);
-    } catch (error) {
-      console.error('Error saving draft:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save draft.",
-        variant: "destructive",
-      });
+      const rows = await parseExcelFile(selected)
+      setParsedData(rows)
+      setStep('review')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to parse file')
+    } finally {
+      setLoading(false)
     }
-  };
+  }
+
+  async function handleSubmit() {
+    if (!file || parsedData.length === 0) return
+    setUploading(true)
+    setError(null)
+    try {
+      const filePath = `ccm/${Date.now()}_${file.name}`
+      const { error: uploadError } = await supabase.storage.from('ccm-invoices').upload(filePath, file)
+      if (uploadError) throw uploadError
+
+      const { data: invData, error: invError } = await supabase.from('ccm_invoice').insert({
+        source_file: filePath, provider: 'CCM', status: 'pending',
+        line_count: parsedData.length, created_at: new Date().toISOString(),
+      }).select('id').single()
+      if (invError) throw invError
+
+      if (invData?.id) {
+        const lineRows = parsedData.map(row => ({
+          ...row,
+          invoice_id: invData.id,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+        }))
+        const { error: lineError } = await supabase.from('ccm_invoice_data').insert(lineRows)
+        if (lineError) throw lineError
+      }
+
+      setStep('submit')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to submit invoice')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const firstSheet = parsedData[0]; const columns = firstSheet ? firstSheet.headers.slice(0, 8) : []; const rows = firstSheet ? firstSheet.rows : []
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4 mb-4">
-            <Button variant="ghost" size="sm" onClick={handleBack}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Invoice Tracker
-            </Button>
-          </div>
-          <h1 className="text-3xl font-bold">New CCM Invoice</h1>
-        </div>
+    <div className="p-6 space-y-6">
+      <div className="flex items-center gap-4">
+        <button onClick={() => navigate('/vendors/ccm')} className="text-muted-foreground hover:text-foreground text-sm">&larr; Back to CCM</button>
+        <h1 className="text-3xl font-bold">New CCM Invoice</h1>
       </div>
-
-      {/* Stepper */}
-      <div className="border-b bg-card">
-        <div className="container mx-auto px-4 py-6">
-          <Progress value={progressPercentage} className="mb-4" />
-          <div className="flex justify-between">
-            {steps.map((step, index) => (
-              <div
-                key={step.id}
-                className={`flex-1 text-center ${
-                  index < steps.length - 1 ? 'border-r' : ''
-                }`}
-              >
-                <div
-                  className={`inline-flex items-center justify-center w-10 h-10 rounded-full mb-2 ${
-                    currentStep === step.id
-                      ? 'bg-primary text-primary-foreground'
-                      : currentStep > step.id
-                      ? 'bg-green-500 text-white'
-                      : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {currentStep > step.id ? '✓' : step.id}
-                </div>
-                <div className="font-semibold">{step.name}</div>
-                <div className="text-sm text-muted-foreground">{step.description}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 max-w-[1800px]">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-            {currentStep === 1 && (
-              <InvoiceUploadStep
-                uploadedFiles={uploadedFiles}
-                setUploadedFiles={setUploadedFiles}
-                onComplete={handleStepComplete}
-                setExtractedData={setExtractedData}
-              />
-            )}
-            {currentStep === 2 && extractedData && (
-              <InvoiceReviewStep
-                extractedData={extractedData}
-                setExtractedData={setExtractedData}
-                onComplete={handleStepComplete}
-                onBack={handleStepBack}
-                setHasUnsavedChanges={setHasUnsavedChanges}
-                onSaveDraft={handleSaveDraft}
-              />
-            )}
-            {currentStep === 3 && extractedData && (
-              <div className="text-center p-12 bg-muted rounded-lg">
-                <p className="text-muted-foreground">Validation step - Coming soon</p>
-              </div>
-            )}
-            {currentStep === 4 && extractedData && (
-              <div className="text-center p-12 bg-muted rounded-lg">
-                <p className="text-muted-foreground">Submit step - Coming soon</p>
-              </div>
-            )}
-          </div>
-
-          {/* Right: Summary - Takes 1/4 of space */}
-          <div className="lg:col-span-1">
-            <InvoiceSummaryCard
-              extractedData={extractedData}
-              currentStep={currentStep}
-            />
-          </div>
-        </div>
-      </div>
+      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      {step === 'upload' && (
+        <Card>
+          <CardHeader><CardTitle>Upload CCM Invoice File</CardTitle></CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-4">Upload an Excel file with CCM invoice data. Data will be saved to ccm_invoice and ccm_invoice_data tables.</p>
+            <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-12 text-center">
+              <input type="file" accept=".xlsx,.xls,.pdf" onChange={handleFileChange} className="hidden" id="file-upload" disabled={loading} />
+              <label htmlFor="file-upload" className="cursor-pointer space-y-2 block">
+                <div className="text-4xl mb-4">📁</div>
+                <p className="text-lg font-medium">Click to upload</p>
+                <p className="text-sm text-muted-foreground">Supports .xlsx, .xls, .pdf</p>
+              </label>
+            </div>
+            {loading && <p className="text-center text-muted-foreground mt-4">Parsing file...</p>}
+          </CardContent>
+        </Card>
+      )}
+      {step === 'review' && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Review Parsed Data</CardTitle>
+              <Badge variant="outline">{rows.length} rows</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader><TableRow>{columns.map(col => <TableHead key={col}>{col}</TableHead>)}</TableRow></TableHeader>
+                <TableBody>
+                  {rows.slice(0, 20).map((row, i) => (
+                    <TableRow key={i}>{columns.map(col => <TableCell key={col} className="text-sm">{String((row as any)[col] ?? '')}</TableCell>)}</TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button variant="outline" onClick={() => setStep('upload')}>Back</Button>
+              <Button onClick={handleSubmit} disabled={uploading}>{uploading ? 'Submitting...' : 'Submit'}</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {step === 'submit' && (
+        <Card>
+          <CardHeader><CardTitle>Submitted</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
+              <p className="text-green-800 font-medium">CCM invoice uploaded and saved!</p>
+              <p className="text-green-700 text-sm mt-1">{parsedData.length} line items saved to ccm_invoice_data.</p>
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={() => navigate('/vendors/ccm')}>Back to CCM</Button>
+              <Button variant="outline" onClick={() => { setStep('upload'); setFile(null); setParsedData([]) }}>Upload Another</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
-  );
-};
-
-export default NewInvoice;
+  )
+}

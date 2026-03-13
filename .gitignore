@@ -22,7 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-supabase/.temp/
-*.pem
-.env
-payload.json
+
+# Reference repo (analysis only)
+reference/

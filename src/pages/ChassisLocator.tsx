@@ -1,203 +1,155 @@
-import DashboardLayout from "@/components/layout/DashboardLayout";
-import { useUnifiedGpsData } from "@/hooks/useUnifiedGpsData";
-import { useChassisSearch } from "@/hooks/useChassisSearch";
-import ChassisLocatorMap from "@/components/chassis/ChassisLocatorMap";
-import ChassisLocatorFilters from "@/components/chassis/ChassisLocatorFilters";
-import ChassisResultsList from "@/components/chassis/ChassisResultsList";
-import ChassisInfoCard from "@/components/chassis/ChassisInfoCard";
-import MobileViewToggle from "@/components/chassis/MobileViewToggle";
-import CollapsibleFilters from "@/components/chassis/CollapsibleFilters";
-import { Card } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
-import { useState } from "react";
-import { UnifiedGpsData } from "@/hooks/useUnifiedGpsData";
-import { useSwipeable } from "react-swipeable";
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import { formatDate } from '@/utils/dateUtils'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-const ChassisLocator = () => {
-  const { data: gpsData = [], isLoading, refetch, isRefetching } = useUnifiedGpsData();
-  const [selectedChassisId, setSelectedChassisId] = useState<string | null>(null);
-  const [hoveredChassisId, setHoveredChassisId] = useState<string | null>(null);
-  const [infoCardOpen, setInfoCardOpen] = useState(false);
-  const [mobileView, setMobileView] = useState<"map" | "list">("map");
-  
-  const {
-    searchTerm,
-    setSearchTerm,
-    statusFilter,
-    setStatusFilter,
-    equipmentTypeFilter,
-    setEquipmentTypeFilter,
-    filteredData,
-  } = useChassisSearch(gpsData);
+interface ChassisLocation {
+  id: string
+  chassis_number: string
+  latitude: number
+  longitude: number
+  location_name: string
+  provider: string
+  gps_provider: string
+  timestamp: string
+  status: string
+}
 
-  const handleMarkerClick = (chassis: UnifiedGpsData) => {
-    setSelectedChassisId(chassis.chassisId);
-    setInfoCardOpen(true);
-  };
+export default function ChassisLocator() {
+  const [locations, setLocations] = useState<ChassisLocation[]>([])
+  const [filtered, setFiltered] = useState<ChassisLocation[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [providerFilter, setProviderFilter] = useState('all')
+  const [gpsFilter, setGpsFilter] = useState('all')
 
-  const handleChassisSelect = (chassisId: string) => {
-    setSelectedChassisId(chassisId);
-    setInfoCardOpen(true);
-  };
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('gps_data')
+          .select('*')
+          .order('timestamp', { ascending: false })
+          .limit(500)
+        if (fetchErr) throw fetchErr
+        setLocations(data || [])
+        setFiltered(data || [])
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load location data')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
 
-  const handleRefresh = () => {
-    refetch();
-  };
+  useEffect(() => {
+    let result = locations
+    if (search) result = result.filter(l => l.chassis_number?.includes(search.toUpperCase()) || l.location_name?.toUpperCase().includes(search.toUpperCase()))
+    if (providerFilter !== 'all') result = result.filter(l => l.provider === providerFilter)
+    if (gpsFilter !== 'all') result = result.filter(l => l.gps_provider === gpsFilter)
+    setFiltered(result)
+  }, [search, providerFilter, gpsFilter, locations])
 
-  const selectedChassis = gpsData.find(c => c.chassisId === selectedChassisId);
-
-  // Swipe handlers for mobile
-  const swipeHandlers = useSwipeable({
-    onSwipedLeft: () => setMobileView("list"),
-    onSwipedRight: () => setMobileView("map"),
-    trackMouse: false,
-    trackTouch: true,
-  });
+  const providers = [...new Set(locations.map(l => l.provider).filter(Boolean))]
+  const gpsProviders = [...new Set(locations.map(l => l.gps_provider).filter(Boolean))]
 
   return (
-    <DashboardLayout>
-      <div className="dashboard-layout">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4 md:mb-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Chassis Locator</h1>
-            <p className="text-muted-foreground mt-1 text-sm md:text-base">
-              Real-time GPS tracking of chassis fleet
-            </p>
-          </div>
-        </div>
-
-        {/* Mobile View Toggle */}
-        <div className="lg:hidden mb-4">
-          <MobileViewToggle
-            activeView={mobileView}
-            onViewChange={setMobileView}
-            mapCount={filteredData.length}
-            listCount={filteredData.length}
-          />
-        </div>
-
-        {/* Collapsible Filters (Mobile Only) */}
-        <CollapsibleFilters
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          equipmentTypeFilter={equipmentTypeFilter}
-          onEquipmentTypeFilterChange={setEquipmentTypeFilter}
-          totalResults={filteredData.length}
-          onRefresh={handleRefresh}
-          isRefreshing={isRefetching}
-        />
-
-        {/* Desktop Layout - Side by Side */}
-        <div className="hidden lg:grid lg:grid-cols-12 gap-6 h-[calc(100vh-12rem)]">
-          {/* Left Panel - Search & Filters (30%) */}
-          <Card className="lg:col-span-4 p-4 overflow-y-auto">
-            <div className="h-full flex flex-col">
-              <h2 className="text-lg font-semibold mb-4">Search & Filters</h2>
-              
-              {isLoading ? (
-                <div className="flex items-center justify-center flex-1">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <>
-                  <ChassisLocatorFilters
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    statusFilter={statusFilter}
-                    onStatusFilterChange={setStatusFilter}
-                    equipmentTypeFilter={equipmentTypeFilter}
-                    onEquipmentTypeFilterChange={setEquipmentTypeFilter}
-                    totalResults={filteredData.length}
-                    onRefresh={handleRefresh}
-                    isRefreshing={isRefetching}
-                  />
-                  <ChassisResultsList
-                    data={filteredData}
-                    selectedChassisId={selectedChassisId}
-                    onChassisSelect={handleChassisSelect}
-                    onChassisHover={setHoveredChassisId}
-                  />
-                </>
-              )}
-            </div>
-          </Card>
-
-          {/* Right Panel - Map (70%) */}
-          <Card className="lg:col-span-8 p-0 overflow-hidden">
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <ChassisLocatorMap
-                data={filteredData}
-                onMarkerClick={handleMarkerClick}
-                selectedChassisId={hoveredChassisId || selectedChassisId}
-              />
-            )}
-          </Card>
-        </div>
-
-        {/* Mobile/Tablet Layout - Stacked with Swipe */}
-        <div className="lg:hidden flex flex-col gap-4" {...swipeHandlers}>
-          {/* Map View (60% height on mobile) */}
-          <Card 
-            className="p-0 overflow-hidden transition-all duration-300"
-            style={{ 
-              height: mobileView === "map" ? "60vh" : "0",
-              opacity: mobileView === "map" ? 1 : 0,
-              display: mobileView === "map" ? "block" : "none"
-            }}
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <ChassisLocatorMap
-                data={filteredData}
-                onMarkerClick={handleMarkerClick}
-                selectedChassisId={hoveredChassisId || selectedChassisId}
-              />
-            )}
-          </Card>
-
-          {/* List View (fills remaining space on mobile) */}
-          <Card 
-            className="p-4 overflow-y-auto transition-all duration-300"
-            style={{ 
-              height: mobileView === "list" ? "calc(100vh - 280px)" : "0",
-              opacity: mobileView === "list" ? 1 : 0,
-              display: mobileView === "list" ? "block" : "none"
-            }}
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <ChassisResultsList
-                data={filteredData}
-                selectedChassisId={selectedChassisId}
-                onChassisSelect={handleChassisSelect}
-                onChassisHover={setHoveredChassisId}
-              />
-            )}
-          </Card>
-        </div>
-
-        {/* Info Card */}
-        <ChassisInfoCard
-          chassis={selectedChassis || null}
-          open={infoCardOpen}
-          onOpenChange={setInfoCardOpen}
-        />
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Chassis Locator</h1>
+        <p className="text-muted-foreground">Real-time chassis locations from GPS providers</p>
       </div>
-    </DashboardLayout>
-  );
-};
 
-export default ChassisLocator;
+      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+
+      <Card>
+        <CardHeader><CardTitle>Fleet Map</CardTitle></CardHeader>
+        <CardContent>
+          <div className="h-72 bg-gradient-to-br from-blue-100 via-green-50 to-teal-100 rounded-lg flex items-center justify-center border-2 border-dashed border-muted-foreground/20">
+            <div className="text-center space-y-2">
+              <div className="text-5xl">🗺️</div>
+              <p className="text-lg font-medium text-muted-foreground">Fleet Map</p>
+              <p className="text-sm text-muted-foreground">Connect Google Maps API to view chassis locations</p>
+              <p className="text-xs text-muted-foreground">{locations.length} GPS records available</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex gap-3 flex-wrap">
+        <input
+          type="text"
+          placeholder="Search chassis # or location..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 min-w-48 px-3 py-2 border rounded-md text-sm"
+        />
+        <Select value={providerFilter} onValueChange={setProviderFilter}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Provider" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Providers</SelectItem>
+            {providers.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={gpsFilter} onValueChange={setGpsFilter}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="GPS Provider" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All GPS</SelectItem>
+            {gpsProviders.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Button variant="outline" onClick={() => { setSearch(''); setProviderFilter('all'); setGpsFilter('all') }}>Clear</Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Chassis Locations</CardTitle>
+            <Badge variant="outline">{filtered.length} results</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? <p className="text-muted-foreground">Loading location data...</p> : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Chassis #</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Coordinates</TableHead>
+                  <TableHead>GPS Provider</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Last Updated</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No locations found.</TableCell></TableRow>
+                ) : filtered.slice(0, 100).map(loc => (
+                  <TableRow key={loc.id}>
+                    <TableCell className="font-mono font-medium">{loc.chassis_number}</TableCell>
+                    <TableCell className="text-sm">{loc.location_name || 'Unknown'}</TableCell>
+                    <TableCell className="text-xs font-mono text-muted-foreground">
+                      {loc.latitude?.toFixed(4)}, {loc.longitude?.toFixed(4)}
+                    </TableCell>
+                    <TableCell><Badge variant="outline">{loc.gps_provider || 'N/A'}</Badge></TableCell>
+                    <TableCell className="text-sm">{loc.provider || 'N/A'}</TableCell>
+                    <TableCell className="text-sm">{formatDate(loc.timestamp)}</TableCell>
+                    <TableCell><Badge variant={loc.status === 'moving' ? 'default' : 'secondary'}>{loc.status || 'N/A'}</Badge></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

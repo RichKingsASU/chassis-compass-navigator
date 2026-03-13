@@ -1,49 +1,27 @@
-/**
- * Convert Excel serial date number to JavaScript Date string in YYYY-MM-DD format
- * Excel serial dates start from 1900-01-01
- * @param excelDate - Excel serial number (e.g., 45915)
- * @returns Date string in YYYY-MM-DD format or null if invalid
- */
-export const excelDateToJSDate = (excelDate: any): string | null => {
-  if (!excelDate || isNaN(excelDate)) return null;
-  const excelNum = parseFloat(excelDate);
-  // Excel date serial number starts from 1900-01-01
-  // Subtract 25569 days to get Unix epoch offset
-  const date = new Date((excelNum - 25569) * 86400 * 1000);
-  return date.toISOString().split('T')[0]; // Return YYYY-MM-DD format
-};
+import { format, formatDistanceToNow, parseISO, isValid } from 'date-fns'
 
-/**
- * Check if a value looks like an Excel serial date
- * @param value - Value to check
- * @returns true if value appears to be an Excel date
- */
-export const isExcelSerialDate = (value: any): boolean => {
-  return typeof value === 'number' && value > 40000 && value < 50000;
-};
+export function formatDate(date: string | Date | null | undefined): string {
+  if (!date) return 'N/A'
+  const d = typeof date === 'string' ? parseISO(date) : date
+  return isValid(d) ? format(d, 'MMM d, yyyy') : 'Invalid date'
+}
 
-/**
- * Format a date value for display, handling Excel serial dates
- * @param value - Date value (can be Excel serial number, ISO string, or Date object)
- * @returns Formatted date string or original value if not a date
- */
-export const formatDateValue = (value: any): string => {
-  if (!value || value === '') return '—';
-  
-  // Handle Excel serial dates
-  if (isExcelSerialDate(value)) {
-    return excelDateToJSDate(value) || '—';
-  }
-  
-  // Handle ISO date strings
-  if (typeof value === 'string' && value.includes('-')) {
-    return value.split('T')[0];
-  }
-  
-  // Handle Date objects
-  if (value instanceof Date) {
-    return value.toISOString().split('T')[0];
-  }
-  
-  return String(value);
-};
+export function formatDateTime(date: string | Date | null | undefined): string {
+  if (!date) return 'N/A'
+  const d = typeof date === 'string' ? parseISO(date) : date
+  return isValid(d) ? format(d, 'MMM d, yyyy h:mm a') : 'Invalid date'
+}
+
+export function formatRelativeTime(date: string | Date | null | undefined): string {
+  if (!date) return 'N/A'
+  const d = typeof date === 'string' ? parseISO(date) : date
+  return isValid(d) ? formatDistanceToNow(d, { addSuffix: true }) : 'Invalid date'
+}
+
+export function formatCurrency(amount: number | null | undefined): string {
+  if (amount == null) return '$0.00'
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(amount)
+}
