@@ -1,279 +1,165 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Truck, Package, DollarSign, Clock, BarChart3, Container } from 'lucide-react';
-import TMSTable from '@/components/tms/TMSTable';
-import TMSFilters from '@/components/tms/TMSFilters';
-import TMSDetailView from '@/components/tms/TMSDetailView';
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import { formatDate } from '@/utils/dateUtils'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
-const MercuryGate = () => {
-  const [selectedRecord, setSelectedRecord] = useState<any>(null);
-  const [showDetailView, setShowDetailView] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState<{source: string; type: string; status: string}>({
-    source: '',
-    type: '',
-    status: ''
-  });
+interface MGRecord {
+  id: string
+  ld_number: string
+  so_number: string
+  shipment_number: string
+  chassis_number: string
+  container_number: string
+  pickup_date: string
+  delivery_date: string
+  carrier: string
+  customer: string
+  status: string
+  created_at: string
+}
 
-  const handleViewDetails = (record: any) => {
-    setSelectedRecord(record);
-    setShowDetailView(true);
-  };
+export default function MercuryGate() {
+  const [records, setRecords] = useState<MGRecord[]>([])
+  const [filtered, setFiltered] = useState<MGRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
 
-  const handleBackToTable = () => {
-    setShowDetailView(false);
-    setSelectedRecord(null);
-  };
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('mg_tms')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(500)
+        if (fetchErr) throw fetchErr
+        setRecords(data || [])
+        setFiltered(data || [])
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load TMS data')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
 
-  if (showDetailView && selectedRecord) {
-    return (
-      <TMSDetailView 
-        record={selectedRecord} 
-        onBack={handleBackToTable}
-      />
-    );
-  }
+  useEffect(() => {
+    let result = records
+    if (search) {
+      const q = search.toUpperCase()
+      result = result.filter(r =>
+        r.ld_number?.includes(q) ||
+        r.chassis_number?.includes(q) ||
+        r.container_number?.includes(q) ||
+        r.shipment_number?.includes(q) ||
+        r.customer?.toUpperCase().includes(q) ||
+        r.carrier?.toUpperCase().includes(q)
+      )
+    }
+    if (statusFilter !== 'all') {
+      result = result.filter(r => r.status?.toLowerCase() === statusFilter)
+    }
+    setFiltered(result)
+  }, [search, statusFilter, records])
 
   return (
-    <div className="dashboard-layout">
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Truck className="h-6 w-6 text-primary" />
-          <h1 className="dash-title">Mercury Gate TMS</h1>
-        </div>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Mercury Gate TMS</h1>
+        <p className="text-muted-foreground">MercuryGate Transportation Management System data</p>
       </div>
 
-      <Tabs defaultValue="dashboard" className="mt-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="data">Data View</TabsTrigger>
-        </TabsList>
+      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
 
-        <TabsContent value="dashboard">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <Package className="h-8 w-8 text-primary" />
-                  <div>
-                    <p className="text-2xl font-bold">2,847</p>
-                    <p className="text-xs text-muted-foreground">Total Shipments</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <DollarSign className="h-8 w-8 text-green-600" />
-                  <div>
-                    <p className="text-2xl font-bold">$2.4M</p>
-                    <p className="text-xs text-muted-foreground">Total Revenue</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <Clock className="h-8 w-8 text-yellow-600" />
-                  <div>
-                    <p className="text-2xl font-bold">94.2%</p>
-                    <p className="text-xs text-muted-foreground">On-Time Delivery</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center space-x-2">
-                  <BarChart3 className="h-8 w-8 text-blue-600" />
-                  <div>
-                    <p className="text-2xl font-bold">156</p>
-                    <p className="text-xs text-muted-foreground">Active Carriers</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Records</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold">{records.length.toLocaleString()}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Filtered Results</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold">{filtered.length.toLocaleString()}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Unique Chassis</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold">{new Set(records.map(r => r.chassis_number).filter(Boolean)).size}</p></CardContent>
+        </Card>
+      </div>
 
-          {/* Status Overview */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-medium">Shipment Status</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <div>
-                      <p className="font-medium">In Transit</p>
-                      <p className="text-sm text-muted-foreground">Currently moving</p>
-                    </div>
-                    <Badge className="bg-blue-100 text-blue-800">1,245</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <div>
-                      <p className="font-medium">Delivered</p>
-                      <p className="text-sm text-muted-foreground">Completed today</p>
-                    </div>
-                    <Badge className="bg-green-100 text-green-800">892</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <div>
-                      <p className="font-medium">Pending Pickup</p>
-                      <p className="text-sm text-muted-foreground">Awaiting carrier</p>
-                    </div>
-                    <Badge className="bg-yellow-100 text-yellow-800">287</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <div>
-                      <p className="font-medium">Issues</p>
-                      <p className="text-sm text-muted-foreground">Require attention</p>
-                    </div>
-                    <Badge className="bg-red-100 text-red-800">23</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      <div className="flex gap-3 flex-wrap">
+        <input
+          type="text"
+          placeholder="Search LD#, chassis, container, carrier, customer..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 min-w-64 px-3 py-2 border rounded-md text-sm"
+        />
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="px-3 py-2 border rounded-md text-sm"
+        >
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="in_transit">In Transit</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <Button variant="outline" onClick={() => { setSearch(''); setStatusFilter('all') }}>Clear</Button>
+      </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg font-medium">Top Carriers</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">ABC Logistics</p>
-                      <p className="text-sm text-muted-foreground">ABCL</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">342 loads</p>
-                      <p className="text-sm text-muted-foreground">98.5% OTD</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Swift Transport</p>
-                      <p className="text-sm text-muted-foreground">SWFT</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">289 loads</p>
-                      <p className="text-sm text-muted-foreground">96.2% OTD</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Express Freight</p>
-                      <p className="text-sm text-muted-foreground">EXPR</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium">234 loads</p>
-                      <p className="text-sm text-muted-foreground">94.8% OTD</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Chassis Information */}
-          <Card className="mt-6">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Container className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg font-medium">Chassis Information</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-muted/30 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-muted-foreground">Total Chassis</p>
-                    <Badge variant="outline">Active</Badge>
-                  </div>
-                  <p className="text-2xl font-bold">1,234</p>
-                  <p className="text-xs text-muted-foreground mt-1">In fleet</p>
-                </div>
-                
-                <div className="p-4 bg-muted/30 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-muted-foreground">In Use</p>
-                    <Badge className="bg-green-100 text-green-800">Deployed</Badge>
-                  </div>
-                  <p className="text-2xl font-bold">892</p>
-                  <p className="text-xs text-muted-foreground mt-1">72.3% utilization</p>
-                </div>
-                
-                <div className="p-4 bg-muted/30 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm text-muted-foreground">Available</p>
-                    <Badge className="bg-blue-100 text-blue-800">Ready</Badge>
-                  </div>
-                  <p className="text-2xl font-bold">342</p>
-                  <p className="text-xs text-muted-foreground mt-1">27.7% available</p>
-                </div>
-              </div>
-              
-              <div className="mt-6 space-y-3">
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">20' Standard Chassis</p>
-                    <p className="text-sm text-muted-foreground">Most common type</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">456 units</p>
-                    <p className="text-sm text-muted-foreground">78% in use</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">40' Standard Chassis</p>
-                    <p className="text-sm text-muted-foreground">High capacity</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">389 units</p>
-                    <p className="text-sm text-muted-foreground">65% in use</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">45' Extended Chassis</p>
-                    <p className="text-sm text-muted-foreground">Specialized</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">234 units</p>
-                    <p className="text-sm text-muted-foreground">82% in use</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="data">
-          <div className="space-y-6">
-            <TMSFilters 
-              selectedFilters={selectedFilters}
-              setSelectedFilters={setSelectedFilters}
-            />
-            <TMSTable 
-              onViewDetails={handleViewDetails}
-              selectedFilters={selectedFilters}
-            />
-          </div>
-        </TabsContent>
-      </Tabs>
+      <Card>
+        <CardContent className="pt-4">
+          {loading ? <p className="text-muted-foreground">Loading TMS data...</p> : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>LD #</TableHead>
+                    <TableHead>SO #</TableHead>
+                    <TableHead>Shipment #</TableHead>
+                    <TableHead>Chassis #</TableHead>
+                    <TableHead>Container #</TableHead>
+                    <TableHead>Pickup Date</TableHead>
+                    <TableHead>Delivery Date</TableHead>
+                    <TableHead>Carrier</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
+                  ) : filtered.slice(0, 100).map(r => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-mono text-sm">{r.ld_number || 'N/A'}</TableCell>
+                      <TableCell className="font-mono text-sm">{r.so_number || 'N/A'}</TableCell>
+                      <TableCell className="font-mono text-sm">{r.shipment_number || 'N/A'}</TableCell>
+                      <TableCell className="font-mono text-sm">{r.chassis_number || 'N/A'}</TableCell>
+                      <TableCell className="font-mono text-sm">{r.container_number || 'N/A'}</TableCell>
+                      <TableCell className="text-sm">{formatDate(r.pickup_date)}</TableCell>
+                      <TableCell className="text-sm">{formatDate(r.delivery_date)}</TableCell>
+                      <TableCell className="text-sm">{r.carrier || 'N/A'}</TableCell>
+                      <TableCell className="text-sm">{r.customer || 'N/A'}</TableCell>
+                      <TableCell><Badge variant="outline">{r.status || 'N/A'}</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          {filtered.length > 100 && (
+            <p className="text-sm text-muted-foreground text-center mt-2">Showing 100 of {filtered.length} records. Refine your search to see more.</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
-  );
-};
-
-export default MercuryGate;
+  )
+}

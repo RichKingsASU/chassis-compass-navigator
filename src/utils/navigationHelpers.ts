@@ -1,38 +1,31 @@
-
 interface NavItem {
-  title: string;
-  path: string;
-  subItems?: { title: string; path: string }[];
+  title: string
+  path: string
+  subItems?: { title: string; path: string }[]
 }
 
-/**
- * Determines the page title based on the current location pathname and navigation items
- */
-export const getPageTitle = (pathname: string, navItems: NavItem[], locationState?: any): string => {
-  // Check for invoice line item detail pages - use invoice number from state if available
-  const invoiceLineMatch = pathname.match(/\/vendors\/[^/]+\/invoice-line\/([^/]+)/);
-  if (invoiceLineMatch) {
-    return locationState?.invoiceNumber || 'Loading...';
-  }
-  
-  // Check for invoice review/detail pages - use invoice number from state if available
-  const invoiceReviewMatch = pathname.match(/\/vendors\/[^/]+\/invoices\/([^/]+)\/(review|detail|validate)/);
-  if (invoiceReviewMatch) {
-    return locationState?.invoiceNumber || locationState?.summary_invoice_id || 'Invoice Details';
-  }
-  
-  // First, look for direct matches with main nav items
-  const directMatch = navItems.find(item => item.path === pathname);
-  if (directMatch) return directMatch.title;
-  
-  // Next, check for matches with subitems
+export function getPageTitle(
+  pathname: string,
+  navItems: NavItem[],
+  state?: { title?: string } | null
+): string {
+  if (state?.title) return state.title
+
   for (const item of navItems) {
+    if (item.path === pathname) return item.title
     if (item.subItems) {
-      const subItemMatch = item.subItems.find(subItem => subItem.path === pathname);
-      if (subItemMatch) return subItemMatch.title;
+      for (const sub of item.subItems) {
+        if (sub.path === pathname) return sub.title
+      }
     }
   }
-  
-  // Default to Dashboard if no match is found
-  return 'Dashboard';
-};
+
+  // Handle dynamic routes
+  if (pathname.includes('/invoices/new')) return 'New Invoice'
+  if (pathname.includes('/review')) return 'Invoice Review'
+  if (pathname.includes('/dispute')) return 'Invoice Dispute'
+  if (pathname.includes('/invoice-line/')) return 'Invoice Line Details'
+  if (pathname.includes('/validate')) return 'Invoice Validation'
+
+  return 'Chassis Compass'
+}

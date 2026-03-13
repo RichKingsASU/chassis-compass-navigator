@@ -1,316 +1,172 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { UploadCloud, PlusCircle, FileCheck, AlertTriangle } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  Cell,
-  PieChart,
-  Pie,
-  Legend
-} from 'recharts';
-import DashboardMap from '@/components/dashboard/DashboardMap';
-import RecentActivityList from '@/components/dashboard/RecentActivityList';
-import ActivityLog from '@/components/dashboard/ActivityLog';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import { formatDate, formatCurrency } from '@/utils/dateUtils'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 
-const Dashboard = () => {
-  const [timeRange, setTimeRange] = useState('week');
-  const [fleetlocateData, setFleetlocateData] = useState<any[]>([]);
-  const [chassisData, setChassisData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+interface Activity {
+  id: string
+  description: string
+  type: string
+  created_at: string
+}
+
+const VENDOR_MOCK = [
+  { vendor: 'DCLI', invoices: 142, amount: 284000 },
+  { vendor: 'CCM', invoices: 89, amount: 178000 },
+  { vendor: 'TRAC', invoices: 65, amount: 130000 },
+  { vendor: 'FLEXIVAN', invoices: 34, amount: 68000 },
+]
+
+const GPS_MOCK = [
+  { name: 'Samsara', value: 4200 },
+  { name: 'BlackBerry', value: 1800 },
+  { name: 'Fleetview', value: 950 },
+  { name: 'Fleetlocate', value: 620 },
+  { name: 'Anytrek', value: 430 },
+]
+
+const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+
+export default function Dashboard() {
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [loading, setLoading] = useState(true)
+  const [chassisCount, setChassisCount] = useState(0)
+  const [gpsCount, setGpsCount] = useState(0)
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-
-      // Fetch fleetlocate GPS data
-      // @ts-ignore
-      const { data: gpsData, error: gpsError } = await supabase
-        // @ts-ignore
-        .from('fleetlocate_stg')
-        .select('*')
-        .limit(500);
-
-      if (gpsError) throw gpsError;
-      setFleetlocateData(gpsData || []);
-
-      // Fetch chassis data
-      // @ts-ignore
-      const { data: chassisDataResult, error: chassisError } = await supabase
-        // @ts-ignore
-        .from('chassis_master')
-        .select('*');
-
-      if (chassisError) throw chassisError;
-      setChassisData(chassisDataResult || []);
-
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
+    async function load() {
+      setLoading(true)
+      try {
+        const [actRes, chassisRes, gpsRes] = await Promise.all([
+          supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(10),
+          supabase.from('chassis').select('id', { count: 'exact', head: true }),
+          supabase.from('gps_data').select('id', { count: 'exact', head: true }),
+        ])
+        setActivities(actRes.data || [])
+        setChassisCount(chassisRes.count || 0)
+        setGpsCount(gpsRes.count || 0)
+      } catch {
+        // silently fail — dashboard shows mock data
+      } finally {
+        setLoading(false)
+      }
     }
-  };
+    load()
+  }, [])
 
-  // Calculate chassis counts by type
-  const chassisTypeCounts = chassisData.reduce((acc, chassis) => {
-    const type = chassis.forrest_chassis_type || 'Unknown';
-    acc[type] = (acc[type] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const chassisTypeData = Object.entries(chassisTypeCounts)
-    .map(([size, count], index) => ({
-      size,
-      count: count as number,
-      color: ['#2A9D8F', '#F4A261', '#E76F51', '#E9C46A', '#264653'][index % 5]
-    }))
-    .sort((a, b) => (b.count as number) - (a.count as number))
-    .slice(0, 5);
-
-  // GPS provider data from fleetlocate
-  const gpsProviderData = [
-    { name: 'Fleetlocate', value: fleetlocateData.length, color: '#2A9D8F' },
-    { name: 'Samsara', value: 0, color: '#F4A261' },
-    { name: 'BlackBerry', value: 0, color: '#E76F51' },
-    { name: 'Fleetview', value: 0, color: '#E9C46A' },
-    { name: 'Anytrek', value: 0, color: '#264653' },
-  ].filter(provider => provider.value > 0);
-
-  // Mock data for vendor activity
-  const vendorActivityData = [
-    { name: 'DCLI', active: 85, idle: 15, repair: 5 },
-    { name: 'CCM', active: 63, idle: 22, repair: 8 },
-    { name: 'TRAC', active: 42, idle: 12, repair: 3 },
-    { name: 'FLEXIVAN', active: 38, idle: 7, repair: 4 },
-  ];
-
-  // Notifications
-  const notifications = [
-    { 
-      id: 1, 
-      title: 'Pending Validation', 
-      description: '15 chassis need validation from DCLI', 
-      type: 'warning',
-      time: '2 hours ago' 
-    },
-    { 
-      id: 2, 
-      title: 'GPS Signal Lost', 
-      description: 'Chassis CMAU1234567 has not reported in 48 hours', 
-      type: 'error',
-      time: '5 hours ago' 
-    },
-    { 
-      id: 3, 
-      title: 'New Invoice', 
-      description: 'TRAC submitted a new invoice for April 2025', 
-      type: 'info',
-      time: '1 day ago' 
-    },
-  ];
+  const gpsCoverage = chassisCount > 0 ? Math.round((gpsCount / chassisCount) * 100) : 0
 
   return (
-    <div className="dashboard-layout">
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <h1 className="dash-title">Dashboard Overview</h1>
-        
-        <div className="flex gap-3">
-          <Button variant="outline" className="gap-2">
-            <UploadCloud size={18} />
-            Upload GPS File
-          </Button>
-          <Button variant="outline" className="gap-2">
-            <FileCheck size={18} />
-            Vendor Validation
-          </Button>
-          <Button className="gap-2">
-            <PlusCircle size={18} />
-            Add New Chassis
-          </Button>
-        </div>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground">Chassis Compass Navigator — Fleet Overview</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="card-stats">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium">Total Chassis</CardTitle>
-          </CardHeader>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Chassis</CardTitle></CardHeader>
           <CardContent>
-            <div className="stats-value">{chassisData.length}</div>
-            <div className="stats-label">Active in fleet</div>
-            
-            <div className="mt-4">
-              {loading ? (
-                <div className="text-sm text-muted-foreground">Loading...</div>
-              ) : (
-                chassisTypeData.map(item => (
-                  <div key={item.size} className="flex justify-between items-center mt-2">
-                    <div className="text-sm">{item.size}</div>
-                    <div className="font-medium">{item.count}</div>
-                  </div>
-                ))
-              )}
-            </div>
+            <p className="text-3xl font-bold">{chassisCount.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground mt-1">Active fleet units</p>
           </CardContent>
         </Card>
-        
-        <Card className="card-stats">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium">GPS Coverage</CardTitle>
-          </CardHeader>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">GPS Coverage</CardTitle></CardHeader>
           <CardContent>
-            <div className="stats-value">{loading ? '...' : `${Math.round((fleetlocateData.length / Math.max(chassisData.length, 1)) * 100)}%`}</div>
-            <div className="stats-label">Fleet visibility</div>
-            
-            <div className="mt-4">
-              <div className="w-full bg-muted rounded-full h-2.5">
-                <div className="bg-secondary h-2.5 rounded-full" style={{ width: `${Math.min((fleetlocateData.length / Math.max(chassisData.length, 1)) * 100, 100)}%` }}></div>
-              </div>
-              
-              <div className="flex justify-between items-center mt-2">
-                <div className="text-sm text-muted-foreground">
-                  {loading ? 'Loading...' : `${fleetlocateData.length} chassis with GPS`}
-                </div>
-                <Badge variant="outline" className="text-xs">Fleetlocate</Badge>
-              </div>
-            </div>
+            <p className="text-3xl font-bold">{gpsCoverage}%</p>
+            <p className="text-xs text-muted-foreground mt-1">{gpsCount.toLocaleString()} tracked units</p>
           </CardContent>
         </Card>
-        
-        <Card className="card-stats">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium">Recent Activity</CardTitle>
-          </CardHeader>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Recent Activity</CardTitle></CardHeader>
           <CardContent>
-            <div className="stats-value">73</div>
-            <div className="stats-label">Actions this week</div>
-            
-            <div className="mt-4 space-y-2">
-              <div className="flex justify-between items-center">
-                <div className="text-sm">Uploads</div>
-                <div className="font-medium">32</div>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="text-sm">Validations</div>
-                <div className="font-medium">24</div>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="text-sm">New chassis</div>
-                <div className="font-medium">17</div>
-              </div>
-            </div>
+            <p className="text-3xl font-bold">{activities.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">Last 10 events</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Map and Activity Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg font-medium">Fleet Location Map</CardTitle>
-          </CardHeader>
-          <CardContent className="p-2">
-            <div className="h-[400px] rounded-md overflow-hidden">
-              <DashboardMap fleetlocateData={fleetlocateData} />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <ActivityLog />
-      </div>
-
-      {/* Charts and Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-lg font-medium">Vendor Usage</CardTitle>
-              <Tabs defaultValue="week" value={timeRange} onValueChange={setTimeRange}>
-                <TabsList className="grid w-[200px] grid-cols-3">
-                  <TabsTrigger value="week">Week</TabsTrigger>
-                  <TabsTrigger value="month">Month</TabsTrigger>
-                  <TabsTrigger value="year">Year</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </div>
-          </CardHeader>
+          <CardHeader><CardTitle>Vendor Invoice Volume</CardTitle></CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={vendorActivityData}
-                  margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="active" stackId="a" name="Active" fill="#2A9D8F" />
-                  <Bar dataKey="idle" stackId="a" name="Idle" fill="#E9C46A" />
-                  <Bar dataKey="repair" stackId="a" name="In Repair" fill="#E76F51" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={VENDOR_MOCK}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="vendor" />
+                <YAxis />
+                <Tooltip formatter={(value, name) => name === 'amount' ? formatCurrency(value as number) : value} />
+                <Bar dataKey="invoices" fill="#3b82f6" name="Invoices" />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
-        
+
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg font-medium">GPS Provider Distribution</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>GPS Provider Distribution</CardTitle></CardHeader>
           <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={gpsProviderData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {gpsProviderData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie data={GPS_MOCK} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`}>
+                  {GPS_MOCK.map((_, index) => <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+                </Pie>
+                <Legend />
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-medium">Recent Chassis Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <RecentActivityList />
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader><CardTitle>Fleet Map</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-48 bg-gradient-to-br from-blue-100 via-green-50 to-blue-200 rounded-lg flex items-center justify-center border">
+              <div className="text-center">
+                <p className="text-lg font-medium text-muted-foreground">Fleet Map</p>
+                <p className="text-sm text-muted-foreground">Connect Google Maps API</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-export default Dashboard;
+        <Card>
+          <CardHeader><CardTitle>Recent Activity</CardTitle></CardHeader>
+          <CardContent>
+            {loading ? (
+              <p className="text-muted-foreground">Loading...</p>
+            ) : activities.length === 0 ? (
+              <div className="space-y-2">
+                {[
+                  'DCLI invoice #INV-2024-001 uploaded',
+                  'TRAC invoice reviewed and approved',
+                  'New GPS data from Samsara — 45 units',
+                  'POLA yard report updated',
+                  'CCM dispute #D-1042 resolved',
+                ].map((msg, i) => (
+                  <div key={i} className="flex justify-between text-sm border-b pb-2">
+                    <span>{msg}</span>
+                    <Badge variant="outline" className="text-xs">System</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {activities.map(a => (
+                  <li key={a.id} className="flex justify-between text-sm border-b pb-2">
+                    <span>{a.description}</span>
+                    <span className="text-muted-foreground text-xs">{formatDate(a.created_at)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}

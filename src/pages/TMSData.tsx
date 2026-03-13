@@ -1,129 +1,111 @@
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
+import { formatDate } from '@/utils/dateUtils'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
-import React, { useState } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Database, 
-  Search, 
-  Upload,
-  Route,
-  FileText,
-  FileX,
-  Truck
-} from 'lucide-react';
+interface TMSSummary {
+  name: string
+  code: string
+  table: string
+  route: string
+  description: string
+  totalRecords: number
+  lastSync: string
+  loading: boolean
+}
 
-// Import our components with improved type definitions
-import TMSFilters from '@/components/tms/TMSFilters';
-import TMSTable from '@/components/tms/TMSTable';
-import TMSTabPlaceholder from '@/components/tms/TMSTabPlaceholder';
-import { TMSFiltersState } from '@/hooks/useTMSData';
+const TMS_SYSTEMS = [
+  { name: 'Mercury Gate', code: 'MG', table: 'mg_tms', route: '/tms/mercurygate', description: 'MercuryGate TMS — Load planning and tracking' },
+  { name: 'Port Pro', code: 'PP', table: 'portpro_tms', route: '/tms/portpro', description: 'Port Pro TMS — Port drayage management' },
+]
 
-const TMSData = () => {
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedFilters, setSelectedFilters] = useState<TMSFiltersState>({
-    source: '',
-    type: '',
-    status: '',
-    searchTerm: '',
-  });
+export default function TMSData() {
+  const [systems, setSystems] = useState<TMSSummary[]>(
+    TMS_SYSTEMS.map(s => ({ ...s, totalRecords: 0, lastSync: '', loading: true }))
+  )
+  const [totalRecords, setTotalRecords] = useState(0)
 
-  /**
-   * Resets all filters to their default state
-   */
-  const resetFilters = (): void => {
-    setSelectedFilters({
-      source: '',
-      type: '',
-      status: '',
-      searchTerm: '',
-    });
-    setSearchTerm('');
-  };
+  useEffect(() => {
+    async function load() {
+      const results = await Promise.all(
+        TMS_SYSTEMS.map(async (sys) => {
+          try {
+            const { data } = await supabase.from(sys.table).select('created_at').order('created_at', { ascending: false })
+            const records = data || []
+            return {
+              ...sys,
+              totalRecords: records.length,
+              lastSync: records[0]?.created_at || '',
+              loading: false,
+            }
+          } catch {
+            return { ...sys, totalRecords: 0, lastSync: '', loading: false }
+          }
+        })
+      )
+      setSystems(results)
+      setTotalRecords(results.reduce((sum, s) => sum + s.totalRecords, 0))
+    }
+    load()
+  }, [])
 
   return (
-    <div className="dashboard-layout">
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Database className="h-6 w-6 text-primary" />
-          <h1 className="dash-title">TMS Data Integration</h1>
-        </div>
-        
-        <div className="flex gap-3">
-          <Button className="gap-2">
-            <Upload size={18} />
-            Import TMS Data
-          </Button>
-          <Button variant="outline" className="gap-2">
-            <Route size={18} />
-            Link to Chassis
-          </Button>
-        </div>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">TMS Data</h1>
+        <p className="text-muted-foreground">Transportation Management System data sources and integration</p>
       </div>
-      
-      <Tabs defaultValue="all" className="mt-6">
-        <TabsList className="grid w-full max-w-md grid-cols-4 mb-6">
-          <TabsTrigger value="all">All Data</TabsTrigger>
-          <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="dispatches">Dispatches</TabsTrigger>
-          <TabsTrigger value="shipments">Shipments</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="all">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <CardTitle className="text-lg font-medium">Transportation Management System Data</CardTitle>
-                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                  <div className="relative flex-1 sm:w-64">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search by ID or Reference"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-8"
-                    />
-                  </div>
-                  <Button variant="outline" className="gap-2" onClick={resetFilters}>
-                    <FileX size={16} />
-                    Clear Filters
-                  </Button>
-                </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total TMS Records</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold">{totalRecords}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">TMS Systems</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold">{TMS_SYSTEMS.length}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Active Integrations</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold">{systems.filter(s => s.totalRecords > 0).length}</p></CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {systems.map((sys) => (
+          <Card key={sys.code} className="hover:shadow-md transition-shadow">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl">{sys.name}</CardTitle>
+                <Badge variant={sys.totalRecords > 0 ? 'default' : 'outline'}>{sys.code}</Badge>
               </div>
+              <p className="text-sm text-muted-foreground">{sys.description}</p>
             </CardHeader>
-            <CardContent>
-              <TMSFilters 
-                selectedFilters={selectedFilters} 
-                setSelectedFilters={setSelectedFilters} 
-              />
-              <TMSTable 
-                onViewDetails={() => {}} 
-                selectedFilters={{ ...selectedFilters, searchTerm }} 
-              />
+            <CardContent className="space-y-4">
+              {sys.loading ? (
+                <p className="text-muted-foreground text-sm">Loading...</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="p-3 bg-muted rounded text-center">
+                    <p className="text-2xl font-bold">{sys.totalRecords.toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground">Total Records</p>
+                  </div>
+                  <div className="p-3 bg-blue-50 rounded text-center">
+                    <p className="text-xs font-medium text-blue-700">Last Sync</p>
+                    <p className="text-xs text-blue-600">{sys.lastSync ? formatDate(sys.lastSync) : 'Never'}</p>
+                  </div>
+                </div>
+              )}
+              <Link to={sys.route}>
+                <Button className="w-full" variant="outline">View TMS Data</Button>
+              </Link>
             </CardContent>
           </Card>
-        </TabsContent>
-        
-        <TabsContent value="orders">
-          <TMSTabPlaceholder icon={FileText} message="Order data will be displayed here" />
-        </TabsContent>
-        
-        <TabsContent value="dispatches">
-          <TMSTabPlaceholder icon={Truck} message="Dispatch data will be displayed here" />
-        </TabsContent>
-        
-        <TabsContent value="shipments">
-          <TMSTabPlaceholder icon={Route} message="Shipment data will be displayed here" />
-        </TabsContent>
-      </Tabs>
+        ))}
+      </div>
     </div>
-  );
-};
-
-export default TMSData;
+  )
+}

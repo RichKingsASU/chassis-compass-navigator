@@ -1,250 +1,159 @@
-import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, Check, X, MessageSquare, Calendar, Clock, BarChart3, TrendingUp } from 'lucide-react';
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-const ChassisValidation = () => {
-  const [selectedVendor, setSelectedVendor] = useState("");
-  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState("analytics");
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import { formatDate, formatCurrency } from '@/utils/dateUtils'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-  // Mock data for vendors
-  const vendors = [{
-    id: "dcli",
-    name: "DCLI"
-  }, {
-    id: "ccm",
-    name: "CCM"
-  }, {
-    id: "scspa",
-    name: "SCSPA"
-  }, {
-    id: "wccp",
-    name: "WCCP"
-  }, {
-    id: "trac",
-    name: "TRAC"
-  }, {
-    id: "flexivan",
-    name: "FLEXIVAN"
-  }];
+interface ValidationResult {
+  id: string
+  chassis_number: string
+  vendor: string
+  invoice_number: string
+  invoice_amount: number
+  tms_amount: number
+  variance: number
+  status: string
+  match_type: string
+  created_at: string
+}
 
-  // Mock data for validation items
-  const validationItems = {
-    dcli: [{
-      id: 1,
-      chassisId: "CMAU1234567",
-      dateRange: "Apr 1-15, 2025",
-      usageDays: 15,
-      disputeStatus: "pending",
-      hasDocument: false,
-      notes: ""
-    }, {
-      id: 2,
-      chassisId: "FSCU5555123",
-      dateRange: "Apr 1-10, 2025",
-      usageDays: 10,
-      disputeStatus: "accepted",
-      hasDocument: true,
-      notes: "Confirmed with GPS data"
-    }],
-    trac: [{
-      id: 4,
-      chassisId: "TCLU7654321",
-      dateRange: "Apr 1-30, 2025",
-      usageDays: 30,
-      disputeStatus: "pending",
-      hasDocument: false,
-      notes: ""
-    }],
-    ccm: [],
-    flexivan: [],
-    scspa: [],
-    wccp: []
-  };
-  const getDisputeStatusBadge = (status: string) => {
-    switch (status) {
-      case 'accepted':
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Accepted</Badge>;
-      case 'disputed':
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-200">Disputed</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Pending</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
+export default function ChassisValidation() {
+  const [results, setResults] = useState<ValidationResult[]>([])
+  const [loading, setLoading] = useState(true)
+  const [running, setRunning] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('validation_results')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(200)
+        if (fetchErr) throw fetchErr
+        setResults(data || [])
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load validation results')
+      } finally {
+        setLoading(false)
+      }
     }
-  };
-  const handleAddNote = (item: any) => {
-    setSelectedItem(item);
-    setNoteDialogOpen(true);
-  };
-  const handleSaveNote = () => {
-    setNoteDialogOpen(false);
-  };
-  const handleToggleDispute = (item: any, newStatus: string) => {
-    console.log("Toggling dispute for", item.chassisId, "to", newStatus);
-  };
-  return <div className="dashboard-layout">
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <h1 className="dash-title">Vendor Dashboard</h1>
+    load()
+  }, [])
+
+  async function runFullValidation() {
+    setRunning(true)
+    setError(null)
+    try {
+      const { error: rpcErr } = await supabase.rpc('run_full_chassis_validation')
+      if (rpcErr) throw rpcErr
+      window.location.reload()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Validation failed')
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  const matched = results.filter(r => r.match_type === 'exact').length
+  const unmatched = results.filter(r => !r.tms_amount).length
+  const disputed = results.filter(r => r.status === 'disputed').length
+  const totalVariance = results.reduce((sum, r) => sum + Math.abs(r.variance || 0), 0)
+
+  const vendors = [...new Set(results.map(r => r.vendor).filter(Boolean))]
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Chassis Validation</h1>
+          <p className="text-muted-foreground">Invoice validation against TMS data across all vendors</p>
+        </div>
+        <Button onClick={runFullValidation} disabled={running}>
+          {running ? 'Running...' : 'Run Full Validation'}
+        </Button>
       </div>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        
-        
-        <TabsContent value="analytics" className="space-y-6 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="card-stats">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Total Validations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="stats-value text-primary">47</div>
-                <Badge variant="outline" className="text-xs">All Vendors</Badge>
-              </CardContent>
-            </Card>
-            <Card className="card-stats">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Pending Review</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="stats-value text-amber-600">12</div>
-                <Badge variant="secondary" className="text-xs">25% of total</Badge>
-              </CardContent>
-            </Card>
-            <Card className="card-stats">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Acceptance Rate</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="stats-value text-green-600">74.5%</div>
-                <Badge variant="outline" className="text-xs">+2.1% vs last month</Badge>
-              </CardContent>
-            </Card>
-            <Card className="card-stats">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">Dispute Rate</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="stats-value text-red-600">14.9%</div>
-                <Badge variant="outline" className="text-xs">-1.2% vs last month</Badge>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="validation" className="pt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg font-medium">Validation Workflow</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-6">
-                <Label className="mb-2 block">Select Vendor</Label>
-                <Select value={selectedVendor} onValueChange={setSelectedVendor}>
-                  <SelectTrigger className="w-full sm:w-72">
-                    <SelectValue placeholder="Choose a vendor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vendors.map(vendor => <SelectItem key={vendor.id} value={vendor.id}>{vendor.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {selectedVendor && <div className="rounded-md border">
+
+      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Matched</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold text-green-600">{matched}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Unmatched</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold text-red-600">{unmatched}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Disputed</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold text-yellow-600">{disputed}</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Variance</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold text-red-600">{formatCurrency(totalVariance)}</p></CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="all">
+        <TabsList>
+          <TabsTrigger value="all">All Results</TabsTrigger>
+          {vendors.map(v => <TabsTrigger key={v} value={v}>{v}</TabsTrigger>)}
+        </TabsList>
+
+        {['all', ...vendors].map(tab => (
+          <TabsContent key={tab} value={tab} className="space-y-4">
+            <Card>
+              <CardContent className="pt-4">
+                {loading ? <p className="text-muted-foreground">Loading...</p> : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Chassis ID</TableHead>
-                        <TableHead>Date Range</TableHead>
-                        <TableHead>Usage Days</TableHead>
-                        <TableHead>Document</TableHead>
+                        <TableHead>Chassis #</TableHead>
+                        <TableHead>Vendor</TableHead>
+                        <TableHead>Invoice #</TableHead>
+                        <TableHead>Invoice Amt</TableHead>
+                        <TableHead>TMS Amt</TableHead>
+                        <TableHead>Variance</TableHead>
+                        <TableHead>Match</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
+                        <TableHead>Date</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {validationItems[selectedVendor as keyof typeof validationItems].length > 0 ? validationItems[selectedVendor as keyof typeof validationItems].map(item => <TableRow key={item.id}>
-                            <TableCell className="font-medium">{item.chassisId}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Calendar size={14} className="text-muted-foreground" />
-                                {item.dateRange}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Clock size={14} className="text-muted-foreground" />
-                                {item.usageDays} days
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {item.hasDocument ? <Badge variant="outline" className="bg-blue-50 text-blue-800 border-blue-200">
-                                  Uploaded
-                                </Badge> : <Button variant="outline" size="sm" className="gap-1">
-                                  <Upload size={14} />
-                                  Upload
-                                </Button>}
-                            </TableCell>
-                            <TableCell>{getDisputeStatusBadge(item.disputeStatus)}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                {item.disputeStatus === "pending" && <>
-                                    <Button variant="ghost" size="sm" className="text-green-600 hover:text-green-800 hover:bg-green-50" onClick={() => handleToggleDispute(item, "accepted")}>
-                                      <Check size={16} />
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-800 hover:bg-red-50" onClick={() => handleToggleDispute(item, "disputed")}>
-                                      <X size={16} />
-                                    </Button>
-                                  </>}
-                                <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => handleAddNote(item)}>
-                                  <MessageSquare size={16} />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>) : <TableRow>
-                          <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
-                            No pending validations for this vendor.
+                      {(tab === 'all' ? results : results.filter(r => r.vendor === tab)).slice(0, 100).map(r => (
+                        <TableRow key={r.id}>
+                          <TableCell className="font-mono text-sm">{r.chassis_number}</TableCell>
+                          <TableCell><Badge variant="outline">{r.vendor}</Badge></TableCell>
+                          <TableCell className="font-mono text-sm">{r.invoice_number}</TableCell>
+                          <TableCell>{formatCurrency(r.invoice_amount)}</TableCell>
+                          <TableCell>{formatCurrency(r.tms_amount)}</TableCell>
+                          <TableCell className={Math.abs(r.variance || 0) > 0 ? 'text-red-600 font-medium' : 'text-green-600'}>{formatCurrency(r.variance)}</TableCell>
+                          <TableCell>
+                            {r.match_type === 'exact' ? <Badge variant="default">Exact</Badge>
+                              : r.match_type === 'partial' ? <Badge variant="secondary">Partial</Badge>
+                              : <Badge variant="destructive">None</Badge>}
                           </TableCell>
-                        </TableRow>}
+                          <TableCell><Badge variant="outline">{r.status}</Badge></TableCell>
+                          <TableCell className="text-sm">{formatDate(r.created_at)}</TableCell>
+                        </TableRow>
+                      ))}
+                      {results.length === 0 && (
+                        <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">No validation results. Run validation to generate results.</TableCell></TableRow>
+                      )}
                     </TableBody>
                   </Table>
-                </div>}
-              
-              {!selectedVendor && <div className="text-center py-12 text-muted-foreground">
-                  Select a vendor to see pending validations.
-                </div>}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ))}
       </Tabs>
-      
-      <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Note</DialogTitle>
-            <DialogDescription>
-              Add a note for Chassis ID: {selectedItem?.chassisId}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Textarea placeholder="Enter your note here..." className="min-h-[120px]" defaultValue={selectedItem?.notes || ""} />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNoteDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveNote}>Save Note</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>;
-};
-export default ChassisValidation;
+    </div>
+  )
+}
