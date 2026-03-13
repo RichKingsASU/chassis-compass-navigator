@@ -95,15 +95,15 @@ create table if not exists yard_audit_log (
 -- ============================================================
 alter table yards enable row level security;
 create policy "yards_read_all"   on yards for select using (true);
-create policy "yards_write_auth" on yards for all   using (auth.role() = 'authenticated');
+create policy "yards_write_auth" on yards for all   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 alter table yard_inventory enable row level security;
 create policy "inventory_read_all"   on yard_inventory for select using (true);
-create policy "inventory_write_auth" on yard_inventory for all   using (auth.role() = 'authenticated');
+create policy "inventory_write_auth" on yard_inventory for all   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 alter table yard_audit_log enable row level security;
 create policy "audit_read_all"   on yard_audit_log for select using (true);
-create policy "audit_insert_auth" on yard_audit_log for insert using (auth.role() = 'authenticated');
+create policy "audit_insert_auth" on yard_audit_log for insert with check (auth.role() = 'authenticated');
 
 -- ============================================================
 -- SEED: Insert the 17th ST Yard as the first yard

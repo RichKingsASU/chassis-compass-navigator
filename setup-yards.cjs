@@ -98,13 +98,13 @@ alter table yards enable row level security;
 drop policy if exists "yards_read_all" on yards;
 create policy "yards_read_all"   on yards for select using (true);
 drop policy if exists "yards_write_auth" on yards;
-create policy "yards_write_auth" on yards for all using (auth.role() = 'authenticated');
+create policy "yards_write_auth" on yards for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 alter table yard_inventory enable row level security;
 drop policy if exists "inventory_read_all" on yard_inventory;
 create policy "inventory_read_all"   on yard_inventory for select using (true);
 drop policy if exists "inventory_write_auth" on yard_inventory;
-create policy "inventory_write_auth" on yard_inventory for all using (auth.role() = 'authenticated');
+create policy "inventory_write_auth" on yard_inventory for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 alter table yard_audit_log enable row level security;
 drop policy if exists "audit_read_all" on yard_audit_log;
