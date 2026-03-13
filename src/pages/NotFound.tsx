@@ -1,13 +1,26 @@
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
-import { Home } from 'lucide-react'
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-      <h1 className="text-6xl font-bold text-muted-foreground">404</h1>
-      <p className="text-xl text-muted-foreground">Page not found</p>
-      <Button asChild><Link to="/"><Home className="mr-2 h-4 w-4" /> Back to Dashboard</Link></Button>
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="text-center space-y-6 max-w-md">
+        <div className="text-8xl font-black text-muted-foreground/30">404</div>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold">Page Not Found</h1>
+          <p className="text-muted-foreground">
+            The page you are looking for does not exist or has been moved.
+          </p>
+        </div>
+        <div className="flex gap-3 justify-center">
+          <Link to="/">
+            <Button>Go to Dashboard</Button>
+          </Link>
+          <Button variant="outline" onClick={() => window.history.back()}>
+            Go Back
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

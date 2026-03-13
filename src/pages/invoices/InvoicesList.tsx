@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface InvoiceLine {
   id: string
-  invoice_id: string
   chassis_number: string
   container_number: string
-  vendor: string
+  provider: string
+  invoice_number: string
   pickup_date: string
   return_date: string
   days: number
+  rate: number
   amount: number
   status: string
   created_at: string
@@ -24,223 +26,156 @@ interface InvoiceLine {
 function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status?.toLowerCase()) {
     case 'matched': return 'default'
-    case 'approved': return 'default'
     case 'disputed': return 'destructive'
-    case 'unmatched': return 'destructive'
     case 'pending': return 'secondary'
+    case 'unmatched': return 'destructive'
     default: return 'outline'
   }
 }
 
-const PAGE_SIZE = 25
-
 export default function InvoicesList() {
-  const navigate = useNavigate()
   const [lines, setLines] = useState<InvoiceLine[]>([])
+  const [filtered, setFiltered] = useState<InvoiceLine[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [page, setPage] = useState(0)
-  const [total, setTotal] = useState(0)
+  const [providerFilter, setProviderFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
-    loadLines()
-  }, [page, search])
-
-  async function loadLines() {
-    setLoading(true)
-    setError(null)
-    try {
-      let query = supabase
-        .from('invoice_lines')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
-
-      if (search.trim()) {
-        query = query.or(
-          `chassis_number.ilike.%${search}%,container_number.ilike.%${search}%,vendor.ilike.%${search}%`
-        )
+    async function load() {
+      setLoading(true)
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('invoice_lines')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(500)
+        if (fetchErr) throw fetchErr
+        setLines(data || [])
+        setFiltered(data || [])
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load invoice lines')
+      } finally {
+        setLoading(false)
       }
-
-      const { data, error: fetchErr, count } = await query
-      if (fetchErr) throw fetchErr
-      setLines(data || [])
-      setTotal(count || 0)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load invoice lines')
-    } finally {
-      setLoading(false)
     }
-  }
+    load()
+  }, [])
 
-  const totalPages = Math.ceil(total / PAGE_SIZE)
+  useEffect(() => {
+    let result = lines
+    if (search) {
+      const q = search.toUpperCase()
+      result = result.filter(l =>
+        l.chassis_number?.includes(q) ||
+        l.container_number?.includes(q) ||
+        l.invoice_number?.includes(q)
+      )
+    }
+    if (providerFilter !== 'all') result = result.filter(l => l.provider === providerFilter)
+    if (statusFilter !== 'all') result = result.filter(l => l.status?.toLowerCase() === statusFilter)
+    setFiltered(result)
+  }, [search, providerFilter, statusFilter, lines])
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-    setPage(0)
-    loadLines()
-  }
+  const providers = [...new Set(lines.map(l => l.provider).filter(Boolean))]
+  const totalAmount = lines.reduce((sum, l) => sum + (l.amount || 0), 0)
+  const disputedCount = lines.filter(l => l.status?.toLowerCase() === 'disputed').length
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Invoice Lines</h1>
-          <p className="text-muted-foreground mt-1">All invoice line items across vendors</p>
-        </div>
-        <Badge variant="outline" className="text-sm px-3 py-1">{total.toLocaleString()} total records</Badge>
+      <div>
+        <h1 className="text-3xl font-bold">Invoice Lines</h1>
+        <p className="text-muted-foreground">All invoice line items across all vendors</p>
       </div>
 
       {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Lines</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{total.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">Across all vendors</p>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Lines</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold">{lines.length.toLocaleString()}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Current Page</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{page + 1} / {totalPages || 1}</p>
-            <p className="text-xs text-muted-foreground mt-1">Page {page + 1} of {totalPages || 1}</p>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Amount</CardTitle></CardHeader>
+          <CardContent><p className="text-2xl font-bold">{formatCurrency(totalAmount)}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Showing</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{lines.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">Records this page</p>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Disputed</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold text-red-600">{disputedCount}</p></CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-4">
-            <CardTitle>Invoice Lines</CardTitle>
-            <form onSubmit={handleSearch} className="flex gap-2">
-              <Input
-                placeholder="Search chassis, container, vendor..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-64"
-              />
-              <Button type="submit" variant="outline" size="sm">Search</Button>
-              {search && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => { setSearch(''); setPage(0); }}
-                >
-                  Clear
-                </Button>
-              )}
-            </form>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-center text-muted-foreground py-8">Loading invoice lines...</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Chassis #</TableHead>
-                    <TableHead>Container #</TableHead>
-                    <TableHead>Vendor</TableHead>
-                    <TableHead>Pickup Date</TableHead>
-                    <TableHead>Return Date</TableHead>
-                    <TableHead>Days</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lines.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                        {search ? 'No results found for your search.' : 'No invoice lines found.'}
-                      </TableCell>
-                    </TableRow>
-                  ) : lines.map(line => (
-                    <TableRow key={line.id}>
-                      <TableCell className="font-mono text-sm">{line.chassis_number}</TableCell>
-                      <TableCell className="font-mono text-sm">{line.container_number}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{line.vendor || '—'}</Badge>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {line.pickup_date ? new Date(line.pickup_date).toLocaleDateString() : '—'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {line.return_date ? new Date(line.return_date).toLocaleDateString() : '—'}
-                      </TableCell>
-                      <TableCell>{line.days ?? '—'}</TableCell>
-                      <TableCell className="text-sm">
-                        {line.amount != null ? `$${Number(line.amount).toFixed(2)}` : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusVariant(line.status)}>
-                          {line.status || 'unknown'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Link to={`/invoices/line/${line.id}`}>
-                            <Button variant="outline" size="sm">View</Button>
-                          </Link>
-                          <Link to={`/invoices/line/${line.id}/dispute`}>
-                            <Button variant="ghost" size="sm" className="text-destructive">Dispute</Button>
-                          </Link>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+      <div className="flex gap-3 flex-wrap">
+        <input
+          type="text"
+          placeholder="Search chassis, container, invoice#..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 min-w-48 px-3 py-2 border rounded-md text-sm"
+        />
+        <Select value={providerFilter} onValueChange={setProviderFilter}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Provider" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Providers</SelectItem>
+            {providers.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="matched">Matched</SelectItem>
+            <SelectItem value="disputed">Disputed</SelectItem>
+            <SelectItem value="unmatched">Unmatched</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button variant="outline" onClick={() => { setSearch(''); setProviderFilter('all'); setStatusFilter('all') }}>Clear</Button>
+      </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total.toLocaleString()} records
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.max(0, p - 1))}
-                  disabled={page === 0 || loading}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                  disabled={page >= totalPages - 1 || loading}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+      <Card>
+        <CardContent className="pt-4">
+          {loading ? <p className="text-muted-foreground">Loading invoice lines...</p> : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Chassis #</TableHead>
+                  <TableHead>Container #</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Pickup</TableHead>
+                  <TableHead>Return</TableHead>
+                  <TableHead>Days</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">No invoice lines found.</TableCell></TableRow>
+                ) : filtered.slice(0, 100).map(line => (
+                  <TableRow key={line.id}>
+                    <TableCell className="font-mono text-sm">{line.chassis_number}</TableCell>
+                    <TableCell className="font-mono text-sm">{line.container_number || 'N/A'}</TableCell>
+                    <TableCell><Badge variant="outline">{line.provider}</Badge></TableCell>
+                    <TableCell className="font-mono text-sm">{line.invoice_number}</TableCell>
+                    <TableCell className="text-sm">{formatDate(line.pickup_date)}</TableCell>
+                    <TableCell className="text-sm">{formatDate(line.return_date)}</TableCell>
+                    <TableCell>{line.days}</TableCell>
+                    <TableCell>{formatCurrency(line.amount)}</TableCell>
+                    <TableCell><Badge variant={getStatusVariant(line.status)}>{line.status || 'N/A'}</Badge></TableCell>
+                    <TableCell className="flex gap-1">
+                      <Link to={`/invoices/line/${line.id}`}><Button variant="outline" size="sm">View</Button></Link>
+                      <Link to={`/invoices/line/${line.id}/dispute`}><Button variant="destructive" size="sm">Dispute</Button></Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
+          {filtered.length > 100 && <p className="text-sm text-muted-foreground text-center mt-2">Showing 100 of {filtered.length} lines.</p>}
         </CardContent>
       </Card>
     </div>
