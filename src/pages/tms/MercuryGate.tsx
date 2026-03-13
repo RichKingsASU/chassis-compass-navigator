@@ -8,15 +8,15 @@ import { Button } from '@/components/ui/button'
 
 interface MGRecord {
   id: string
-  ld_number: string
-  so_number: string
+  ld_num: string
+  so_num: string
   shipment_number: string
   chassis_number: string
   container_number: string
-  pickup_date: string
-  delivery_date: string
-  carrier: string
-  customer: string
+  pickup_actual_date: string
+  delivery_actual_date: string
+  carrier_name: string
+  customer_name: string
   status: string
   created_at: string
 }
@@ -55,12 +55,12 @@ export default function MercuryGate() {
     if (search) {
       const q = search.toUpperCase()
       result = result.filter(r =>
-        r.ld_number?.includes(q) ||
+        r.ld_num?.includes(q) ||
         r.chassis_number?.includes(q) ||
         r.container_number?.includes(q) ||
         r.shipment_number?.includes(q) ||
-        r.customer?.toUpperCase().includes(q) ||
-        r.carrier?.toUpperCase().includes(q)
+        r.customer_name?.toUpperCase().includes(q) ||
+        r.carrier_name?.toUpperCase().includes(q)
       )
     }
     if (statusFilter !== 'all') {
@@ -139,15 +139,15 @@ export default function MercuryGate() {
                     <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
                   ) : filtered.slice(0, 100).map(r => (
                     <TableRow key={r.id}>
-                      <TableCell className="font-mono text-sm">{r.ld_number || 'N/A'}</TableCell>
-                      <TableCell className="font-mono text-sm">{r.so_number || 'N/A'}</TableCell>
+                      <TableCell className="font-mono text-sm">{r.ld_num || 'N/A'}</TableCell>
+                      <TableCell className="font-mono text-sm">{r.so_num || 'N/A'}</TableCell>
                       <TableCell className="font-mono text-sm">{r.shipment_number || 'N/A'}</TableCell>
                       <TableCell className="font-mono text-sm">{r.chassis_number || 'N/A'}</TableCell>
                       <TableCell className="font-mono text-sm">{r.container_number || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{formatDate(r.pickup_date)}</TableCell>
-                      <TableCell className="text-sm">{formatDate(r.delivery_date)}</TableCell>
-                      <TableCell className="text-sm">{r.carrier || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.customer || 'N/A'}</TableCell>
+                      <TableCell className="text-sm">{formatDate(r.pickup_actual_date)}</TableCell>
+                      <TableCell className="text-sm">{formatDate(r.delivery_actual_date)}</TableCell>
+                      <TableCell className="text-sm">{r.carrier_name || 'N/A'}</TableCell>
+                      <TableCell className="text-sm">{r.customer_name || 'N/A'}</TableCell>
                       <TableCell><Badge variant="outline">{r.status || 'N/A'}</Badge></TableCell>
                     </TableRow>
                   ))}
