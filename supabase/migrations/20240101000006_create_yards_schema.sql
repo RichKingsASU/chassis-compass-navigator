@@ -106,7 +106,7 @@ create policy "audit_read_all"   on yard_audit_log for select using (true);
 create policy "audit_insert_auth" on yard_audit_log for insert with check (auth.role() = 'authenticated');
 
 -- ============================================================
--- SEED: Insert the 17th ST Yard as the first yard
+-- SEED: Insert the Demo Yard as the first yard
 -- ============================================================
 insert into yards (
   name, short_code, address_line1, city, state, zip,
@@ -114,12 +114,12 @@ insert into yards (
   billing_snapshot_am, billing_snapshot_pm,
   timezone, active, notes
 ) values (
-  '17th ST Yard',
-  '17TH',
-  '17th Street',
-  'Long Beach',
+  'Demo Yard A',
+  'DEMOA',
+  '100 Industrial Blvd',
+  'Anytown',
   'CA',
-  '90813',
+  '90000',
   30,
   25.00,
   25.00,
@@ -127,17 +127,17 @@ insert into yards (
   '20:00',
   'America/Los_Angeles',
   true,
-  'Primary chassis storage yard - Forrest Transportation'
+  'Primary demo chassis storage yard'
 ) on conflict (short_code) do nothing;
 
 -- ============================================================
--- SEED: Demo inventory data
+-- SEED: Demo inventory data (generic / randomized)
 -- ============================================================
 do $$
 declare
   v_yard_id uuid;
 begin
-  select id into v_yard_id from yards where short_code = '17TH';
+  select id into v_yard_id from yards where short_code = 'DEMOA';
 
   insert into yard_inventory (
     id, yard_id, date_in, time_in, container_number, chassis_number,
@@ -145,22 +145,22 @@ begin
     inbound_carrier, inbound_driver_name, inbound_plate_cdl,
     shop_reason, planned_exit_date, bk_seal
   ) values
-  ('REC-001', v_yard_id, '2026-02-04', '10:54', null,          'FRQZ400064', 'SHOP',      'FORREST 40', 'FORREST 40',  '',          'ZP05698',       'CARLOS M.',    'CA12345', 'OUT OF SERVICE SWAP AXLE', '2026-01-28', null),
-  ('REC-002', v_yard_id, '2026-02-10', '11:12', null,          'FRQZ400048', 'SHOP',      'FORREST 40', 'FORREST 40',  '',          'JED',           'SAM P.',       'TX99881', 'OUT OF SERVICE SWAP AXLE', '2026-01-28', null),
-  ('REC-003', v_yard_id, '2026-01-13', '12:35', null,          'FRQZ400084', 'SHOP',      'FORREST 40', 'FORREST 40',  '',          'JED',           'SAM P.',       'TX99881', 'OUT OF SERVICE SWAP AXLE', null,         null),
-  ('REC-004', v_yard_id, '2026-01-13', '17:15', null,          'FRQZ400063', 'SHOP',      'FORREST 40', 'FORREST 40',  '',          'JED',           'SAM P.',       'TX99881', 'OUT OF SERVICE SWAP AXLE', null,         null),
-  ('REC-005', v_yard_id, '2026-01-28', '15:05', null,          'MCCZ410500', 'SHOP',      'FORREST 40', 'FORREST 40',  '',          'JED',           'SAM P.',       'TX99881', 'OUT OF SERVICE SWAP AXLE', '2026-01-28', null),
-  ('REC-006', v_yard_id, '2026-01-23', '13:18', null,          'MCCZ410529', 'SHOP',      'FORREST 40', 'FORREST 40',  '',          'JED',           'SAM P.',       'TX99881', 'OUT OF SERVICE SWAP AXLE', '2026-01-28', null),
-  ('REC-007', v_yard_id, '2026-02-06', '18:15', null,          'MCCZ404477', 'SHOP',      'FORREST 40', 'FORREST 40',  '',          'JED',           'SAM P.',       'TX99881', 'Remove decals, LOF LOR ROR and RIR Tires, Paint bolsters', null, null),
-  ('REC-008', v_yard_id, '2026-02-09', '20:07', null,          'MCCZ408277', 'SHOP',      'FORREST 40', 'FORREST 40',  '',          'NEXGEN',        'ROBERTO L.',   'NV44552', 'Remove Decals, Paint bolsters', null, null),
-  ('REC-009', v_yard_id, '2026-02-10', '01:06', null,          'MCCZ407668', 'SHOP',      'FORREST 40', 'FORREST 40',  '',          'BRIANA',        'MARCO S.',     'CA77881', 'Remove decals, Paint bolsters', null, null),
-  ('REC-010', v_yard_id, '2026-02-11', '13:55', null,          'MCCZ407980', 'SHOP',      'FORREST 40', null,          '',          'Z LINE',        'ZACH T.',      'AZ88123', 'NEEDS REPAIR', null, null),
-  ('REC-033', v_yard_id, '2026-02-13', '20:49', 'CMAU4785508', 'FRQZ400041', 'LOADED',    'FORREST 40', 'CMA 40HC',    'CROCS TEAM','FOREST',        'DANNY G.',     'CA44556', 'NEEDS CHASSIS BRAKE REPAIR', null, 'L4808147'),
-  ('REC-034', v_yard_id, '2026-02-17', '21:10', 'FFAU6403819', 'MCCZ422838', 'LOADED',    'FORREST 40', null,          '',          'RELIABLE ROAD', 'ESTEBAN R.',   'CA66778', null, null, 'VN35755AP'),
-  ('REC-035', v_yard_id, '2026-02-18', '00:05', 'TCNU8875750', 'MCCZ410496', 'LOADED',    'FORREST 40', null,          '',          'RELIABLE ROAD', 'ESTEBAN R.',   'CA66778', null, null, 'VN37789AO'),
-  ('REC-036', v_yard_id, '2026-02-13', '15:04', 'BEAU2655637', 'MCHZ300219', 'EMPTY',     'FORREST 20 TRIAXLE', 'KMD 20ST', 'LEO',  'LEO',          'SYSTEM ENTRY', 'PENDING', null, null, null),
-  ('REC-037', v_yard_id, '2026-02-17', '17:54', 'DFSU4273394', 'PTAZ401581', 'EMPTY',     'FORREST 40', 'CMA 40ST',    'EFL TEAM',  'EFL TEAM',      'SYSTEM ENTRY', 'PENDING', null, null, null),
-  ('REC-038', v_yard_id, '2026-02-17', '19:29', 'SEGU4305183', 'MCCZ411502', 'EMPTY',     'FORREST 40', 'ONE 40HC',    'EFL TEAM',  'EFL TEAM',      'SYSTEM ENTRY', 'PENDING', null, null, null)
+  ('REC-001', v_yard_id, '2026-02-04', '10:54', null,          'DEMO400001', 'SHOP',   'Standard 40', 'Standard 40', '', 'CARRIER-A',  'DRIVER A.',  'XX11111', 'Axle replacement',    '2026-01-28', null),
+  ('REC-002', v_yard_id, '2026-02-10', '11:12', null,          'DEMO400002', 'SHOP',   'Standard 40', 'Standard 40', '', 'TEAM1',      'DRIVER B.',  'XX22222', 'Axle replacement',    '2026-01-28', null),
+  ('REC-003', v_yard_id, '2026-01-13', '12:35', null,          'DEMO400003', 'SHOP',   'Standard 40', 'Standard 40', '', 'TEAM1',      'DRIVER B.',  'XX22222', 'Axle replacement',    null,         null),
+  ('REC-004', v_yard_id, '2026-01-13', '17:15', null,          'DEMO400004', 'SHOP',   'Standard 40', 'Standard 40', '', 'TEAM1',      'DRIVER B.',  'XX22222', 'Axle replacement',    null,         null),
+  ('REC-005', v_yard_id, '2026-01-28', '15:05', null,          'DEMO400005', 'SHOP',   'Standard 40', 'Standard 40', '', 'TEAM1',      'DRIVER B.',  'XX22222', 'Axle replacement',    '2026-01-28', null),
+  ('REC-006', v_yard_id, '2026-01-23', '13:18', null,          'DEMO400006', 'SHOP',   'Standard 40', 'Standard 40', '', 'TEAM1',      'DRIVER B.',  'XX22222', 'Axle replacement',    '2026-01-28', null),
+  ('REC-007', v_yard_id, '2026-02-06', '18:15', null,          'DEMO400007', 'SHOP',   'Standard 40', 'Standard 40', '', 'TEAM1',      'DRIVER B.',  'XX22222', 'Tire replacement and cosmetic repair', null, null),
+  ('REC-008', v_yard_id, '2026-02-09', '20:07', null,          'DEMO400008', 'SHOP',   'Standard 40', 'Standard 40', '', 'CARRIER-B',  'DRIVER C.',  'XX33333', 'Cosmetic repair',     null, null),
+  ('REC-009', v_yard_id, '2026-02-10', '01:06', null,          'DEMO400009', 'SHOP',   'Standard 40', 'Standard 40', '', 'CARRIER-C',  'DRIVER D.',  'XX44444', 'Cosmetic repair',     null, null),
+  ('REC-010', v_yard_id, '2026-02-11', '13:55', null,          'DEMO400010', 'SHOP',   'Standard 40', null,          '', 'CARRIER-D',  'DRIVER E.',  'XX55555', 'General repair',      null, null),
+  ('REC-033', v_yard_id, '2026-02-13', '20:49', 'CNTR0001001', 'DEMO400011', 'LOADED', 'Standard 40', 'SSL 40HC',    'TEAM2',     'CARRIER-E',  'DRIVER F.',  'XX66666', 'Brake repair needed', null, 'BK-1001'),
+  ('REC-034', v_yard_id, '2026-02-17', '21:10', 'CNTR0002002', 'DEMO400012', 'LOADED', 'Standard 40', null,          '', 'CARRIER-F',  'DRIVER G.',  'XX77777', null,                  null, 'BK-2002'),
+  ('REC-035', v_yard_id, '2026-02-18', '00:05', 'CNTR0003003', 'DEMO400013', 'LOADED', 'Standard 40', null,          '', 'CARRIER-F',  'DRIVER G.',  'XX77777', null,                  null, 'BK-3003'),
+  ('REC-036', v_yard_id, '2026-02-13', '15:04', 'CNTR0004004', 'DEMO400014', 'EMPTY',  'Triaxle 20',  'SSL 20ST',    'TEAM3',     'TEAM3',      'SYSTEM',     'PENDING', null,        null, null),
+  ('REC-037', v_yard_id, '2026-02-17', '17:54', 'CNTR0005005', 'DEMO400015', 'EMPTY',  'Standard 40', 'SSL 40ST',    'TEAM4',     'TEAM4',      'SYSTEM',     'PENDING', null,        null, null),
+  ('REC-038', v_yard_id, '2026-02-17', '19:29', 'CNTR0006006', 'DEMO400016', 'EMPTY',  'Standard 40', 'SSL 40HC',    'TEAM4',     'TEAM4',      'SYSTEM',     'PENDING', null,        null, null)
   on conflict (id) do nothing;
 
 end $$;
