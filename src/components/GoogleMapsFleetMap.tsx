@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
-import { supabase } from '@/lib/supabase'
+import { getAppSetting } from '@/lib/supabase'
 
 interface ChassisLocation {
   id: string
@@ -30,12 +30,8 @@ export default function GoogleMapsFleetMap({ locations }: GoogleMapsFleetMapProp
   useEffect(() => {
     async function fetchKey() {
       try {
-        const { data } = await supabase
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'google_maps_api_key')
-          .single()
-        setApiKey(data?.value || null)
+        const val = await getAppSetting('google_maps_api_key')
+        setApiKey(val)
       } catch {
         setApiKey(null)
       } finally {

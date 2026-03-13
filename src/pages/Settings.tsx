@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, getAppSetting, setAppSetting, APP_SETTINGS_TABLE_SQL } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,16 +20,14 @@ export default function Settings() {
   const [mapsKeySaving, setMapsKeySaving] = useState(false)
   const [mapsKeySaved, setMapsKeySaved] = useState(false)
   const [mapsKeyError, setMapsKeyError] = useState<string | null>(null)
+  const [mapsKeyLocal, setMapsKeyLocal] = useState(false)
   const [showApiKey, setShowApiKey] = useState(false)
+  const [showSetupSql, setShowSetupSql] = useState(false)
 
   useEffect(() => {
     async function loadApiKey() {
-      const { data } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'google_maps_api_key')
-        .single()
-      if (data?.value) setGoogleMapsApiKey(data.value)
+      const val = await getAppSetting('google_maps_api_key')
+      if (val) setGoogleMapsApiKey(val)
     }
     loadApiKey()
   }, [])
@@ -38,21 +36,16 @@ export default function Settings() {
     setMapsKeySaving(true)
     setMapsKeySaved(false)
     setMapsKeyError(null)
-    try {
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert(
-          { key: 'google_maps_api_key', value: googleMapsApiKey.trim() },
-          { onConflict: 'key' }
-        )
-      if (error) throw error
+    setMapsKeyLocal(false)
+    const result = await setAppSetting('google_maps_api_key', googleMapsApiKey.trim())
+    if (result.ok) {
       setMapsKeySaved(true)
-      setTimeout(() => setMapsKeySaved(false), 2000)
-    } catch (err: unknown) {
-      setMapsKeyError(err instanceof Error ? err.message : 'Failed to save API key')
-    } finally {
-      setMapsKeySaving(false)
+      setMapsKeyLocal(result.useLocal)
+      setTimeout(() => setMapsKeySaved(false), 3000)
+    } else {
+      setMapsKeyError(result.error || 'Failed to save API key')
     }
+    setMapsKeySaving(false)
   }
 
   async function handleSave() {
@@ -159,10 +152,36 @@ export default function Settings() {
               </Button>
             </div>
             {mapsKeyError && <p className="text-xs text-destructive mt-1">{mapsKeyError}</p>}
+            {mapsKeySaved && mapsKeyLocal && (
+              <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                <p className="text-xs text-amber-800 font-medium">Saved to browser storage (the app_settings table is not set up in Supabase yet).</p>
+                <p className="text-xs text-amber-700 mt-1">
+                  For persistent storage across devices,{' '}
+                  <button onClick={() => setShowSetupSql(!showSetupSql)} className="underline font-medium hover:text-amber-900">
+                    run the setup SQL
+                  </button>{' '}
+                  in your Supabase SQL Editor.
+                </p>
+              </div>
+            )}
           </div>
           <Button onClick={handleSaveApiKey} disabled={mapsKeySaving || !googleMapsApiKey.trim()} size="sm">
             {mapsKeySaving ? 'Saving...' : mapsKeySaved ? 'Saved!' : 'Save API Key'}
           </Button>
+          {showSetupSql && (
+            <div className="mt-3 p-3 bg-muted rounded-md">
+              <p className="text-xs font-medium mb-2">Run this in Supabase Dashboard → SQL Editor:</p>
+              <pre className="text-xs bg-background p-2 rounded border overflow-x-auto whitespace-pre-wrap">{APP_SETTINGS_TABLE_SQL}</pre>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => { navigator.clipboard.writeText(APP_SETTINGS_TABLE_SQL); }}
+              >
+                Copy SQL
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
