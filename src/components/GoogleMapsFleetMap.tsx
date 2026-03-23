@@ -104,6 +104,7 @@ function MapInner({
   setSelectedMarker: (loc: ChassisLocation | null) => void
 }) {
   const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
     googleMapsApiKey: apiKey,
   })
 
