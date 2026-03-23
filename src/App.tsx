@@ -18,6 +18,7 @@ const ChassisManagement = lazy(() => import('@/pages/ChassisManagement'))
 const ChassisDetail = lazy(() => import('@/pages/ChassisDetail'))
 const ChassisLocator = lazy(() => import('@/pages/ChassisLocator'))
 const ChassisValidation = lazy(() => import('@/pages/ChassisValidation'))
+const ChassisUtilization = lazy(() => import('@/pages/ChassisUtilization'))
 const TMSData = lazy(() => import('@/pages/TMSData'))
 const GpsOverview = lazy(() => import('@/pages/GpsOverview'))
 const Settings = lazy(() => import('@/pages/Settings'))
@@ -123,6 +124,7 @@ export default function App() {
                   <Route path="/chassis/:id" element={<ProtectedPage><ChassisDetail /></ProtectedPage>} />
                   <Route path="/chassis/locator" element={<ProtectedPage><ChassisLocator /></ProtectedPage>} />
                   <Route path="/validation" element={<ProtectedPage><ChassisValidation /></ProtectedPage>} />
+                  <Route path="/utilization" element={<ProtectedPage><ChassisUtilization /></ProtectedPage>} />
 
                   {/* TMS */}
                   <Route path="/tms" element={<ProtectedPage><TMSData /></ProtectedPage>} />

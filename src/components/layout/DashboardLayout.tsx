@@ -12,11 +12,13 @@ import {
   MapPin,
   Database,
   FileText,
+  BarChart3,
 } from 'lucide-react'
 
 const navItems = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
   { title: 'Chassis Management', path: '/chassis', icon: Truck },
+  { title: 'Utilization', path: '/utilization', icon: BarChart3 },
   { title: 'TMS Data', path: '/tms', icon: Database },
   {
     title: 'Yard Report',

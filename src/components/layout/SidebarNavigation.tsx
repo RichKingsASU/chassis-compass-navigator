@@ -26,6 +26,7 @@ import {
   FileText,
   ChevronRight,
   Warehouse,
+  BarChart3,
 } from 'lucide-react'
 
 interface NavigationItem {
@@ -65,6 +66,7 @@ const navItems: NavigationItem[] = [
       { title: 'JED YARD', path: '/yards/jed' },
     ],
   },
+  { title: 'Utilization', path: '/utilization', icon: BarChart3 },
   { title: 'Yard Management', path: '/yard', icon: Warehouse },
   {
     title: 'GPS Providers',

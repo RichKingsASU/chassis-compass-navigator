@@ -12,43 +12,92 @@ interface Activity {
   created_at: string
 }
 
-const VENDOR_MOCK = [
-  { vendor: 'DCLI', invoices: 142, amount: 284000 },
-  { vendor: 'CCM', invoices: 89, amount: 178000 },
-  { vendor: 'TRAC', invoices: 65, amount: 130000 },
-  { vendor: 'FLEXIVAN', invoices: 34, amount: 68000 },
-]
-
-const GPS_MOCK = [
-  { name: 'Samsara', value: 4200 },
-  { name: 'BlackBerry', value: 1800 },
-  { name: 'Fleetview', value: 950 },
-  { name: 'Fleetlocate', value: 620 },
-  { name: 'Anytrek', value: 430 },
-]
+interface VendorRow { vendor: string; invoices: number; amount: number }
+interface GpsRow { name: string; value: number }
 
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+
+// Vendor invoice tables to query
+const VENDOR_TABLES = [
+  { table: 'dcli_invoice', label: 'DCLI' },
+  { table: 'ccm_invoice', label: 'CCM' },
+  { table: 'trac_invoice', label: 'TRAC' },
+  { table: 'flexivan-invoices', label: 'FLEXIVAN' },
+  { table: 'wccp_invoice', label: 'WCCP' },
+  { table: 'scspa_invoice', label: 'SCSPA' },
+] as const
+
+// GPS provider names used in gps_data.provider
+const GPS_PROVIDERS = ['Samsara', 'BlackBerry', 'Fleetview', 'Fleetlocate', 'Anytrek'] as const
+
+async function loadVendorData(): Promise<VendorRow[]> {
+  const results: VendorRow[] = []
+  for (const { table, label } of VENDOR_TABLES) {
+    const { count } = await supabase.from(table).select('id', { count: 'exact', head: true })
+    if (count && count > 0) {
+      const { data } = await supabase.from(table).select('total_amount')
+      const amount = (data || []).reduce((s, r) => s + (Number(r.total_amount) || 0), 0)
+      results.push({ vendor: label, invoices: count, amount })
+    }
+  }
+  // If no real data in any table, return sensible defaults so the chart isn't empty
+  if (results.length === 0) {
+    return [
+      { vendor: 'DCLI', invoices: 0, amount: 0 },
+      { vendor: 'CCM', invoices: 0, amount: 0 },
+      { vendor: 'TRAC', invoices: 0, amount: 0 },
+      { vendor: 'FLEXIVAN', invoices: 0, amount: 0 },
+    ]
+  }
+  return results
+}
+
+async function loadGpsData(): Promise<GpsRow[]> {
+  const results: GpsRow[] = []
+  for (const provider of GPS_PROVIDERS) {
+    const { count } = await supabase
+      .from('gps_data')
+      .select('id', { count: 'exact', head: true })
+      .ilike('provider', provider)
+    results.push({ name: provider, value: count || 0 })
+  }
+  // If all zero, also count total gps_uploads per provider filename pattern
+  if (results.every(r => r.value === 0)) {
+    const { count: totalGps } = await supabase.from('gps_uploads').select('id', { count: 'exact', head: true })
+    if (totalGps && totalGps > 0) {
+      // Distribute uploads proportionally as placeholder
+      return GPS_PROVIDERS.map(name => ({ name, value: 0 }))
+    }
+  }
+  return results
+}
 
 export default function Dashboard() {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [chassisCount, setChassisCount] = useState(0)
   const [gpsCount, setGpsCount] = useState(0)
+  const [vendorData, setVendorData] = useState<VendorRow[]>([])
+  const [gpsData, setGpsData] = useState<GpsRow[]>([])
 
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
-        const [actRes, chassisRes, gpsRes] = await Promise.all([
+        const [actRes, chassisRes, gpsRes, vendors, gps] = await Promise.all([
           supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(10),
           supabase.from('chassis').select('id', { count: 'exact', head: true }),
           supabase.from('gps_data').select('id', { count: 'exact', head: true }),
+          loadVendorData(),
+          loadGpsData(),
         ])
         setActivities(actRes.data || [])
         setChassisCount(chassisRes.count || 0)
         setGpsCount(gpsRes.count || 0)
+        setVendorData(vendors)
+        setGpsData(gps)
       } catch {
-        // silently fail — dashboard shows mock data
+        // silently fail — dashboard shows empty state
       } finally {
         setLoading(false)
       }
@@ -94,7 +143,7 @@ export default function Dashboard() {
           <CardHeader><CardTitle>Vendor Invoice Volume</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={VENDOR_MOCK}>
+              <BarChart data={vendorData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="vendor" />
                 <YAxis />
@@ -110,8 +159,8 @@ export default function Dashboard() {
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie data={GPS_MOCK} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`}>
-                  {GPS_MOCK.map((_, index) => <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+                <Pie data={gpsData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`}>
+                  {gpsData.map((_, index) => <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
                 </Pie>
                 <Legend />
                 <Tooltip />
