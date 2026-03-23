@@ -23,7 +23,6 @@ import {
   Settings,
   MapPin,
   Database,
-  FileText,
   ChevronRight,
   Warehouse,
   BarChart3,
@@ -54,16 +53,6 @@ const navItems: NavigationItem[] = [
     subItems: [
       { title: 'Mercury Gate', path: '/tms/mercury-gate' },
       { title: 'Port Pro', path: '/tms/port-pro' },
-    ],
-  },
-  {
-    title: 'Yard Report',
-    path: '/yards',
-    icon: FileText,
-    subItems: [
-      { title: 'Overview', path: '/yards' },
-      { title: 'PIER S', path: '/yards/pola' },
-      { title: 'JED YARD', path: '/yards/jed' },
     ],
   },
   { title: 'Utilization', path: '/utilization', icon: BarChart3 },
