@@ -36,11 +36,12 @@ export default function ChassisLocator() {
         const { data, error: fetchErr } = await supabase
           .from('gps_data')
           .select('*')
-          .order('timestamp', { ascending: false })
+          .order('recorded_at', { ascending: false })
           .limit(500)
         if (fetchErr) throw fetchErr
-        setLocations(data || [])
-        setFiltered(data || [])
+        const normalised = (data || []).map((d: Record<string, unknown>) => ({ ...d, timestamp: d.recorded_at })) as ChassisLocation[]
+        setLocations(normalised)
+        setFiltered(normalised)
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load location data')
       } finally {

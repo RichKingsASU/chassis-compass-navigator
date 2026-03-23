@@ -261,7 +261,7 @@ export default function ChassisUtilization() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis domain={[0, 100]} unit="%" />
-                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <Tooltip formatter={(v: number | string | readonly (number | string)[] | undefined) => typeof v === 'number' ? `${v}%` : ''} />
                   <Area type="monotone" dataKey="utilization" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.2} name="Avg Utilization" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -297,7 +297,7 @@ export default function ChassisUtilization() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis />
-                  <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                  <Tooltip formatter={(v: number | string | readonly (number | string)[] | undefined) => typeof v === 'number' ? formatCurrency(v) : ''} />
                   <Bar dataKey="revenue" fill="#10b981" name="Revenue" />
                 </BarChart>
               </ResponsiveContainer>
@@ -312,7 +312,7 @@ export default function ChassisUtilization() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                  <Tooltip formatter={(v: number | string | readonly (number | string)[] | undefined) => typeof v === 'number' ? formatCurrency(v) : ''} />
                   <Legend />
                   <Bar dataKey="revenue" fill="#3b82f6" name="Revenue" />
                   <Bar dataKey="margin" fill="#10b981" name="Margin" />
@@ -330,10 +330,10 @@ export default function ChassisUtilization() {
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
-                    <Pie data={revenueShare} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={(p: { name: string; percent: number }) => `${p.name} ${(p.percent * 100).toFixed(0)}%`}>
+                    <Pie data={revenueShare} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={(p: { name?: string; percent?: number }) => `${p.name ?? ''} ${((p.percent ?? 0) * 100).toFixed(0)}%`}>
                       {revenueShare.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                    <Tooltip formatter={(v: number | string | readonly (number | string)[] | undefined) => typeof v === 'number' ? formatCurrency(v) : ''} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -365,7 +365,7 @@ export default function ChassisUtilization() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis domain={[0, 100]} unit="%" />
-                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <Tooltip formatter={(v: number | string | readonly (number | string)[] | undefined) => typeof v === 'number' ? `${v}%` : ''} />
                   <Bar dataKey="utilization" name="Avg Utilization">
                     {chassisList.map((c, i) => (
                       <Cell key={i} fill={c.avg_utilization >= 60 ? '#10b981' : c.avg_utilization >= 40 ? '#f59e0b' : '#ef4444'} />
@@ -406,7 +406,7 @@ export default function ChassisUtilization() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
-                  <Tooltip formatter={(v: number, name: string) => name === 'cost' ? formatCurrency(v) : `${v} days`} />
+                  <Tooltip formatter={(v: number | string | readonly (number | string)[] | undefined, name?: string | number | undefined) => typeof v === 'number' ? (name === 'cost' ? formatCurrency(v) : `${v} days`) : ''} />
                   <Legend />
                   <Bar dataKey="cost" fill="#ef4444" name="M&R Cost" />
                 </BarChart>
