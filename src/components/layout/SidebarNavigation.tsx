@@ -23,7 +23,6 @@ import {
   Settings,
   MapPin,
   Database,
-  FileText,
   ChevronRight,
   Warehouse,
   BarChart3,
@@ -43,7 +42,10 @@ const navItems: NavigationItem[] = [
     path: '/chassis',
     icon: Truck,
     subItems: [
-      { title: 'Overview', path: '/chassis' },
+      { title: 'Fleet List', path: '/chassis' },
+      { title: 'Overview', path: '/chassis/overview' },
+      { title: 'Long Term', path: '/chassis/long-term' },
+      { title: 'Short Term', path: '/chassis/short-term' },
       { title: 'Chassis Locator', path: '/chassis/locator' },
     ],
   },
@@ -54,16 +56,6 @@ const navItems: NavigationItem[] = [
     subItems: [
       { title: 'Mercury Gate', path: '/tms/mercury-gate' },
       { title: 'Port Pro', path: '/tms/port-pro' },
-    ],
-  },
-  {
-    title: 'Yard Report',
-    path: '/yards',
-    icon: FileText,
-    subItems: [
-      { title: 'Overview', path: '/yards' },
-      { title: 'PIER S', path: '/yards/pola' },
-      { title: 'JED YARD', path: '/yards/jed' },
     ],
   },
   { title: 'Utilization', path: '/utilization', icon: BarChart3 },

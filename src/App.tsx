@@ -15,6 +15,9 @@ const Signup = lazy(() => import('@/pages/Signup'))
 // Main pages
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const ChassisManagement = lazy(() => import('@/pages/ChassisManagement'))
+const ChassisOverview = lazy(() => import('@/pages/ChassisOverview'))
+const LongTermChassis = lazy(() => import('@/pages/LongTermChassis'))
+const ShortTermChassis = lazy(() => import('@/pages/ShortTermChassis'))
 const ChassisDetail = lazy(() => import('@/pages/ChassisDetail'))
 const ChassisLocator = lazy(() => import('@/pages/ChassisLocator'))
 const ChassisValidation = lazy(() => import('@/pages/ChassisValidation'))
@@ -23,7 +26,6 @@ const TMSData = lazy(() => import('@/pages/TMSData'))
 const GpsOverview = lazy(() => import('@/pages/GpsOverview'))
 const Settings = lazy(() => import('@/pages/Settings'))
 const VendorValidation = lazy(() => import('@/pages/VendorValidation'))
-const YardReportOverview = lazy(() => import('@/pages/YardReportOverview'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
 
 // GPS Provider pages
@@ -38,9 +40,7 @@ const MercuryGate = lazy(() => import('@/pages/tms/MercuryGate'))
 const PortPro = lazy(() => import('@/pages/tms/PortPro'))
 
 // Yard pages
-const POLAYard = lazy(() => import('@/pages/yards/POLAYard'))
-const JEDYard = lazy(() => import('@/pages/yards/JEDYard'))
-const YardToolPage = lazy(() => import('@/pages/YardToolPage'))
+const YardManagementHub = lazy(() => import('@/pages/YardManagementHub'))
 
 // Vendor pages
 const DCLI = lazy(() => import('@/pages/vendors/DCLI'))
@@ -121,6 +121,9 @@ export default function App() {
 
                   {/* Chassis */}
                   <Route path="/chassis" element={<ProtectedPage><ChassisManagement /></ProtectedPage>} />
+                  <Route path="/chassis/overview" element={<ProtectedPage><ChassisOverview /></ProtectedPage>} />
+                  <Route path="/chassis/long-term" element={<ProtectedPage><LongTermChassis /></ProtectedPage>} />
+                  <Route path="/chassis/short-term" element={<ProtectedPage><ShortTermChassis /></ProtectedPage>} />
                   <Route path="/chassis/:id" element={<ProtectedPage><ChassisDetail /></ProtectedPage>} />
                   <Route path="/chassis/locator" element={<ProtectedPage><ChassisLocator /></ProtectedPage>} />
                   <Route path="/validation" element={<ProtectedPage><ChassisValidation /></ProtectedPage>} />
@@ -132,10 +135,7 @@ export default function App() {
                   <Route path="/tms/port-pro" element={<ProtectedPage><PortPro /></ProtectedPage>} />
 
                   {/* Yards */}
-                  <Route path="/yards" element={<ProtectedPage><YardReportOverview /></ProtectedPage>} />
-                  <Route path="/yards/pola" element={<ProtectedPage><POLAYard /></ProtectedPage>} />
-                  <Route path="/yards/jed" element={<ProtectedPage><JEDYard /></ProtectedPage>} />
-                  <Route path="/yard" element={<ProtectedPage><YardToolPage /></ProtectedPage>} />
+                  <Route path="/yard" element={<ProtectedPage><YardManagementHub /></ProtectedPage>} />
 
                   {/* GPS */}
                   <Route path="/gps" element={<ProtectedPage><GpsOverview /></ProtectedPage>} />

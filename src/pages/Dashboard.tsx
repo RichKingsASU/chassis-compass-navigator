@@ -51,14 +51,6 @@ async function loadGpsData(): Promise<GpsRow[]> {
       .ilike('provider', provider)
     results.push({ name: provider, value: count || 0 })
   }
-  // If all zero, also count total gps_uploads per provider filename pattern
-  if (results.every(r => r.value === 0)) {
-    const { count: totalGps } = await supabase.from('gps_uploads').select('id', { count: 'exact', head: true })
-    if (totalGps && totalGps > 0) {
-      // Distribute uploads proportionally as placeholder
-      return GPS_PROVIDERS.map(name => ({ name, value: 0 }))
-    }
-  }
   return results
 }
 
