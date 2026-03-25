@@ -1,24 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
-import { formatDate } from '@/utils/dateUtils'
+import { getChassisUnified } from '@/services/chassisService'
+import type { ChassisUnifiedRow } from '@/types/chassis'
+import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-
-interface Chassis {
-  id: string
-  chassis_number: string
-  provider: string
-  status: string
-  type: string
-  year: number
-  location: string
-  last_seen: string
-  created_at: string
-}
 
 function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status?.toLowerCase()) {
@@ -32,26 +21,21 @@ function getStatusVariant(status: string): 'default' | 'secondary' | 'destructiv
 }
 
 export default function ChassisManagement() {
-  const [chassis, setChassis] = useState<Chassis[]>([])
-  const [filtered, setFiltered] = useState<Chassis[]>([])
+  const [chassis, setChassis] = useState<ChassisUnifiedRow[]>([])
+  const [filtered, setFiltered] = useState<ChassisUnifiedRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [providerFilter, setProviderFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState('all')
 
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
-        const { data, error: fetchErr } = await supabase
-          .from('chassis')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(500)
-        if (fetchErr) throw fetchErr
-        setChassis(data || [])
-        setFiltered(data || [])
+        const data = await getChassisUnified()
+        setChassis(data)
+        setFiltered(data)
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load chassis data')
       } finally {
@@ -65,17 +49,21 @@ export default function ChassisManagement() {
     let result = chassis
     if (search) {
       const q = search.toUpperCase()
-      result = result.filter(c => c.chassis_number?.includes(q) || c.location?.toUpperCase().includes(q))
+      result = result.filter(c =>
+        c.chassis_number?.toUpperCase().includes(q) ||
+        c.customer_name?.toUpperCase().includes(q) ||
+        c.latest_dcli_location?.toUpperCase().includes(q)
+      )
     }
-    if (providerFilter !== 'all') result = result.filter(c => c.provider === providerFilter)
-    if (statusFilter !== 'all') result = result.filter(c => c.status?.toLowerCase() === statusFilter)
+    if (statusFilter !== 'all') result = result.filter(c => c.chassis_status?.toLowerCase() === statusFilter)
+    if (typeFilter !== 'all') result = result.filter(c => c.chassis_type === typeFilter)
     setFiltered(result)
-  }, [search, providerFilter, statusFilter, chassis])
+  }, [search, statusFilter, typeFilter, chassis])
 
-  const providers = [...new Set(chassis.map(c => c.provider).filter(Boolean))]
+  const types = [...new Set(chassis.map(c => c.chassis_type).filter(Boolean))] as string[]
   const total = chassis.length
-  const active = chassis.filter(c => ['active', 'in_use'].includes(c.status?.toLowerCase())).length
-  const available = chassis.filter(c => c.status?.toLowerCase() === 'available').length
+  const active = chassis.filter(c => ['active', 'in_use'].includes(c.chassis_status?.toLowerCase() ?? '')).length
+  const available = chassis.filter(c => c.chassis_status?.toLowerCase() === 'available').length
 
   return (
     <div className="p-6 space-y-6">
@@ -104,16 +92,16 @@ export default function ChassisManagement() {
       <div className="flex gap-3 flex-wrap">
         <input
           type="text"
-          placeholder="Search chassis number or location..."
+          placeholder="Search chassis #, customer, or location..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="flex-1 min-w-48 px-3 py-2 border rounded-md text-sm"
         />
-        <Select value={providerFilter} onValueChange={setProviderFilter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Provider" /></SelectTrigger>
+        <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <SelectTrigger className="w-40"><SelectValue placeholder="Type" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Providers</SelectItem>
-            {providers.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            <SelectItem value="all">All Types</SelectItem>
+            {types.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -127,44 +115,48 @@ export default function ChassisManagement() {
             <SelectItem value="retired">Retired</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={() => { setSearch(''); setProviderFilter('all'); setStatusFilter('all') }}>Clear</Button>
+        <Button variant="outline" onClick={() => { setSearch(''); setStatusFilter('all'); setTypeFilter('all') }}>Clear</Button>
       </div>
 
       <Card>
         <CardContent className="pt-4">
           {loading ? <p className="text-muted-foreground">Loading chassis data...</p> : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Chassis #</TableHead>
-                  <TableHead>Provider</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Year</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Last Seen</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">No chassis found.</TableCell></TableRow>
-                ) : filtered.slice(0, 100).map(c => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-mono font-medium">{c.chassis_number}</TableCell>
-                    <TableCell><Badge variant="outline">{c.provider || 'N/A'}</Badge></TableCell>
-                    <TableCell className="text-sm">{c.type || 'N/A'}</TableCell>
-                    <TableCell>{c.year || 'N/A'}</TableCell>
-                    <TableCell className="text-sm">{c.location || 'N/A'}</TableCell>
-                    <TableCell className="text-sm">{formatDate(c.last_seen)}</TableCell>
-                    <TableCell><Badge variant={getStatusVariant(c.status)}>{c.status || 'Unknown'}</Badge></TableCell>
-                    <TableCell>
-                      <Link to={`/chassis/${c.id}`}><Button variant="outline" size="sm">View</Button></Link>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Chassis #</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Load Status</TableHead>
+                    <TableHead className="text-right">Total Loads</TableHead>
+                    <TableHead className="text-right">Total Revenue</TableHead>
+                    <TableHead>Last Load</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">No chassis found.</TableCell></TableRow>
+                  ) : filtered.slice(0, 100).map(c => (
+                    <TableRow key={c.chassis_id}>
+                      <TableCell className="font-mono font-medium">{c.chassis_number}</TableCell>
+                      <TableCell className="text-sm">{c.chassis_type || 'N/A'}</TableCell>
+                      <TableCell><Badge variant={getStatusVariant(c.chassis_status || '')}>{c.chassis_status || 'Unknown'}</Badge></TableCell>
+                      <TableCell className="text-sm max-w-[160px] truncate">{c.customer_name || '—'}</TableCell>
+                      <TableCell className="text-sm">{c.latest_load_status || '—'}</TableCell>
+                      <TableCell className="text-right tabular-nums">{c.total_loads ?? 0}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatCurrency(c.total_revenue)}</TableCell>
+                      <TableCell className="text-sm">{formatDate(c.last_load_date)}</TableCell>
+                      <TableCell>
+                        <Link to={`/chassis/${c.chassis_id}`}><Button variant="outline" size="sm">View</Button></Link>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
           {filtered.length > 100 && <p className="text-sm text-muted-foreground text-center mt-2">Showing 100 of {filtered.length} chassis.</p>}
         </CardContent>
