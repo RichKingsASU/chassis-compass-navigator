@@ -42,7 +42,10 @@ const navItems: NavigationItem[] = [
     path: '/chassis',
     icon: Truck,
     subItems: [
-      { title: 'Overview', path: '/chassis' },
+      { title: 'Fleet List', path: '/chassis' },
+      { title: 'Overview', path: '/chassis/overview' },
+      { title: 'Long Term', path: '/chassis/long-term' },
+      { title: 'Short Term', path: '/chassis/short-term' },
       { title: 'Chassis Locator', path: '/chassis/locator' },
     ],
   },

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 
 interface Activity {
@@ -40,14 +39,8 @@ async function loadVendorData(): Promise<VendorRow[]> {
       results.push({ vendor: label, invoices: count, amount })
     }
   }
-  // If no real data in any table, return sensible defaults so the chart isn't empty
   if (results.length === 0) {
-    return [
-      { vendor: 'DCLI', invoices: 0, amount: 0 },
-      { vendor: 'CCM', invoices: 0, amount: 0 },
-      { vendor: 'TRAC', invoices: 0, amount: 0 },
-      { vendor: 'FLEXIVAN', invoices: 0, amount: 0 },
-    ]
+    return []
   }
   return results
 }
@@ -60,14 +53,6 @@ async function loadGpsData(): Promise<GpsRow[]> {
       .select('id', { count: 'exact', head: true })
       .ilike('provider', provider)
     results.push({ name: provider, value: count || 0 })
-  }
-  // If all zero, also count total gps_uploads per provider filename pattern
-  if (results.every(r => r.value === 0)) {
-    const { count: totalGps } = await supabase.from('gps_uploads').select('id', { count: 'exact', head: true })
-    if (totalGps && totalGps > 0) {
-      // Distribute uploads proportionally as placeholder
-      return GPS_PROVIDERS.map(name => ({ name, value: 0 }))
-    }
   }
   return results
 }
@@ -189,19 +174,9 @@ export default function Dashboard() {
             {loading ? (
               <p className="text-muted-foreground">Loading...</p>
             ) : activities.length === 0 ? (
-              <div className="space-y-2">
-                {[
-                  'DCLI invoice #INV-2024-001 uploaded',
-                  'TRAC invoice reviewed and approved',
-                  'New GPS data from Samsara — 45 units',
-                  'POLA yard report updated',
-                  'CCM dispute #D-1042 resolved',
-                ].map((msg, i) => (
-                  <div key={i} className="flex justify-between text-sm border-b pb-2">
-                    <span>{msg}</span>
-                    <Badge variant="outline" className="text-xs">System</Badge>
-                  </div>
-                ))}
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <p className="text-sm text-muted-foreground">No recent activity</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">Activity will appear here as you use the system</p>
               </div>
             ) : (
               <ul className="space-y-2">

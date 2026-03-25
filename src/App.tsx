@@ -15,6 +15,9 @@ const Signup = lazy(() => import('@/pages/Signup'))
 // Main pages
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const ChassisManagement = lazy(() => import('@/pages/ChassisManagement'))
+const ChassisOverview = lazy(() => import('@/pages/ChassisOverview'))
+const LongTermChassis = lazy(() => import('@/pages/LongTermChassis'))
+const ShortTermChassis = lazy(() => import('@/pages/ShortTermChassis'))
 const ChassisDetail = lazy(() => import('@/pages/ChassisDetail'))
 const ChassisLocator = lazy(() => import('@/pages/ChassisLocator'))
 const ChassisValidation = lazy(() => import('@/pages/ChassisValidation'))
@@ -118,6 +121,9 @@ export default function App() {
 
                   {/* Chassis */}
                   <Route path="/chassis" element={<ProtectedPage><ChassisManagement /></ProtectedPage>} />
+                  <Route path="/chassis/overview" element={<ProtectedPage><ChassisOverview /></ProtectedPage>} />
+                  <Route path="/chassis/long-term" element={<ProtectedPage><LongTermChassis /></ProtectedPage>} />
+                  <Route path="/chassis/short-term" element={<ProtectedPage><ShortTermChassis /></ProtectedPage>} />
                   <Route path="/chassis/:id" element={<ProtectedPage><ChassisDetail /></ProtectedPage>} />
                   <Route path="/chassis/locator" element={<ProtectedPage><ChassisLocator /></ProtectedPage>} />
                   <Route path="/validation" element={<ProtectedPage><ChassisValidation /></ProtectedPage>} />
