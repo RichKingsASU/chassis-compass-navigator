@@ -44,6 +44,9 @@ export interface ChassisUnifiedRow {
   margin_rate: number | null
   load_created_date: string | null
 
+  // DCLI / GPS location
+  latest_dcli_location?: string | null
+
   // Aggregates
   total_loads: number | null
   total_revenue: number | null
