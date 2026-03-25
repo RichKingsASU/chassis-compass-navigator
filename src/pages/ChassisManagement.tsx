@@ -11,6 +11,57 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
+import { useSupabaseTable } from '@/hooks/useSupabaseTable'
+
+// --- Shared sub-components ---
+
+function SortableHead({
+  label, column, currentSort, ascending, onSort, tooltip,
+}: {
+  label: string; column: string; currentSort: string | null;
+  ascending: boolean; onSort: (col: string) => void; tooltip?: string;
+}) {
+  const active = currentSort === column
+  return (
+    <TableHead>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button className="flex items-center gap-1 hover:text-foreground" onClick={() => onSort(column)}>
+            {label}
+            <ArrowUpDown className={`h-3 w-3 ${active ? 'text-foreground' : 'text-muted-foreground/50'}`} />
+            {active && <span className="text-[10px]">{ascending ? '↑' : '↓'}</span>}
+          </button>
+        </TooltipTrigger>
+        {tooltip && <TooltipContent><p className="text-xs font-mono">{tooltip}</p></TooltipContent>}
+      </Tooltip>
+    </TableHead>
+  )
+}
+
+function PaginationControls({
+  page, totalPages, totalCount, pageSize, setPage,
+}: {
+  page: number; totalPages: number; totalCount: number; pageSize: number;
+  setPage: (p: number) => void;
+}) {
+  if (totalPages <= 1) return null
+  const from = page * pageSize + 1
+  const to = Math.min((page + 1) * pageSize, totalCount)
+  return (
+    <div className="flex items-center justify-between pt-4 text-sm">
+      <span className="text-muted-foreground">Showing {from}–{to} of {totalCount}</span>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
+          <ChevronLeft className="h-4 w-4" /> Prev
+        </Button>
+        <span className="text-muted-foreground text-xs">Page {page + 1} of {totalPages}</span>
+        <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
+          Next <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 // --- Overview tab types & helpers ---
 
@@ -25,7 +76,7 @@ function getStatusVariant(status: string): 'default' | 'secondary' | 'destructiv
   }
 }
 
-export default function ChassisManagement() {
+function OverviewTab() {
   const [chassis, setChassis] = useState<ChassisUnifiedRow[]>([])
   const [filtered, setFiltered] = useState<ChassisUnifiedRow[]>([])
   const [loading, setLoading] = useState(true)

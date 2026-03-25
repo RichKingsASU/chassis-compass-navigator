@@ -82,7 +82,7 @@ export async function getChassisDetail(chassisNumber: string): Promise<ChassisDe
 
   return {
     chassis: unifiedRes.data as ChassisUnifiedRow,
-    loads: (loadsRes.data as MgLoadSummary[]) || [],
+    loads: loadsRes.error ? [] : ((loadsRes.data ?? []) as MgLoadSummary[]),
   }
 }
 
@@ -106,7 +106,7 @@ export async function getChassisLoadHistory(chassisNumber: string): Promise<MgLo
     .limit(50)
 
   if (error) throw error
-  return (data as MgLoadSummary[]) || []
+  return (data ?? []) as MgLoadSummary[]
 }
 
 /**
