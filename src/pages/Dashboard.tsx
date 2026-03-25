@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 
 interface Activity {
@@ -39,15 +38,6 @@ async function loadVendorData(): Promise<VendorRow[]> {
       const amount = (data || []).reduce((s, r) => s + (Number(r.total_amount) || 0), 0)
       results.push({ vendor: label, invoices: count, amount })
     }
-  }
-  // If no real data in any table, return sensible defaults so the chart isn't empty
-  if (results.length === 0) {
-    return [
-      { vendor: 'DCLI', invoices: 0, amount: 0 },
-      { vendor: 'CCM', invoices: 0, amount: 0 },
-      { vendor: 'TRAC', invoices: 0, amount: 0 },
-      { vendor: 'FLEXIVAN', invoices: 0, amount: 0 },
-    ]
   }
   return results
 }
@@ -189,20 +179,7 @@ export default function Dashboard() {
             {loading ? (
               <p className="text-muted-foreground">Loading...</p>
             ) : activities.length === 0 ? (
-              <div className="space-y-2">
-                {[
-                  'DCLI invoice #INV-2024-001 uploaded',
-                  'TRAC invoice reviewed and approved',
-                  'New GPS data from Samsara — 45 units',
-                  'POLA yard report updated',
-                  'CCM dispute #D-1042 resolved',
-                ].map((msg, i) => (
-                  <div key={i} className="flex justify-between text-sm border-b pb-2">
-                    <span>{msg}</span>
-                    <Badge variant="outline" className="text-xs">System</Badge>
-                  </div>
-                ))}
-              </div>
+              <p className="text-sm text-muted-foreground text-center py-8">No recent activity</p>
             ) : (
               <ul className="space-y-2">
                 {activities.map(a => (
