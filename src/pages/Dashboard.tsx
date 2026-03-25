@@ -39,9 +39,6 @@ async function loadVendorData(): Promise<VendorRow[]> {
       results.push({ vendor: label, invoices: count, amount })
     }
   }
-  if (results.length === 0) {
-    return []
-  }
   return results
 }
 
@@ -174,10 +171,7 @@ export default function Dashboard() {
             {loading ? (
               <p className="text-muted-foreground">Loading...</p>
             ) : activities.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <p className="text-sm text-muted-foreground">No recent activity</p>
-                <p className="text-xs text-muted-foreground/70 mt-1">Activity will appear here as you use the system</p>
-              </div>
+              <p className="text-sm text-muted-foreground text-center py-8">No recent activity</p>
             ) : (
               <ul className="space-y-2">
                 {activities.map(a => (
