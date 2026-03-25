@@ -23,7 +23,6 @@ const TMSData = lazy(() => import('@/pages/TMSData'))
 const GpsOverview = lazy(() => import('@/pages/GpsOverview'))
 const Settings = lazy(() => import('@/pages/Settings'))
 const VendorValidation = lazy(() => import('@/pages/VendorValidation'))
-const YardReportOverview = lazy(() => import('@/pages/YardReportOverview'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
 
 // GPS Provider pages
@@ -38,9 +37,7 @@ const MercuryGate = lazy(() => import('@/pages/tms/MercuryGate'))
 const PortPro = lazy(() => import('@/pages/tms/PortPro'))
 
 // Yard pages
-const POLAYard = lazy(() => import('@/pages/yards/POLAYard'))
-const JEDYard = lazy(() => import('@/pages/yards/JEDYard'))
-const YardToolPage = lazy(() => import('@/pages/YardToolPage'))
+const YardManagementHub = lazy(() => import('@/pages/YardManagementHub'))
 
 // Vendor pages
 const DCLI = lazy(() => import('@/pages/vendors/DCLI'))
@@ -132,10 +129,7 @@ export default function App() {
                   <Route path="/tms/port-pro" element={<ProtectedPage><PortPro /></ProtectedPage>} />
 
                   {/* Yards */}
-                  <Route path="/yards" element={<ProtectedPage><YardReportOverview /></ProtectedPage>} />
-                  <Route path="/yards/pola" element={<ProtectedPage><POLAYard /></ProtectedPage>} />
-                  <Route path="/yards/jed" element={<ProtectedPage><JEDYard /></ProtectedPage>} />
-                  <Route path="/yard" element={<ProtectedPage><YardToolPage /></ProtectedPage>} />
+                  <Route path="/yard" element={<ProtectedPage><YardManagementHub /></ProtectedPage>} />
 
                   {/* GPS */}
                   <Route path="/gps" element={<ProtectedPage><GpsOverview /></ProtectedPage>} />

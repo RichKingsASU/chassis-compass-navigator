@@ -36,6 +36,7 @@ export default function GoogleMapsFleetMap({ locations }: GoogleMapsFleetMapProp
           .eq('key', 'google_maps_api_key')
           .single()
         setApiKey(data?.value || null)
+        console.log('Maps API key loaded:', data?.value ? `${data.value.slice(0, 8)}...` : 'NOT FOUND')
       } catch {
         setApiKey(null)
       } finally {
@@ -104,6 +105,7 @@ function MapInner({
   setSelectedMarker: (loc: ChassisLocation | null) => void
 }) {
   const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
     googleMapsApiKey: apiKey,
   })
 
@@ -119,11 +121,13 @@ function MapInner({
   )
 
   if (loadError) {
+    console.error('Google Maps load error:', loadError)
     return (
       <div className="h-full bg-gradient-to-br from-red-50 to-red-100 rounded-lg flex items-center justify-center border-2 border-dashed border-red-300">
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-2 p-4">
           <p className="text-lg font-medium text-red-600">Map Failed to Load</p>
-          <p className="text-sm text-red-500">Check that your Google Maps API key is valid and has the Maps JavaScript API enabled.</p>
+          <p className="text-sm text-red-500 font-mono">{loadError.message}</p>
+          <p className="text-xs text-red-400">Check browser console for details. Common fixes: enable Maps JavaScript API in Google Cloud Console, add agents-institute.com to allowed referrers, ensure billing is enabled.</p>
         </div>
       </div>
     )

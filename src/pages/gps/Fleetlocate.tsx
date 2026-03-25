@@ -8,13 +8,14 @@ import { Badge } from '@/components/ui/badge'
 
 interface GpsRecord {
   id: string
-  chassis_number: string
+  device_id: string
+  provider: string
   latitude: number
   longitude: number
-  timestamp: string
+  recorded_at: string
   speed: number
-  status: string
-  location_name: string
+  heading: number
+  raw_data: Record<string, unknown> | string | null
 }
 
 interface UploadedFile {
@@ -27,6 +28,13 @@ interface UploadedFile {
 
 const PROVIDER_NAME = 'Fleetlocate'
 const BUCKET_NAME = 'gps-fleetlocate'
+
+function parseRawData(raw: unknown): Record<string, unknown> {
+  if (!raw) return {}
+  if (typeof raw === 'string') { try { return JSON.parse(raw) } catch { return {} } }
+  if (typeof raw === 'object') return raw as Record<string, unknown>
+  return {}
+}
 
 export default function FleetlocatePage() {
   const [records, setRecords] = useState<GpsRecord[]>([])
@@ -41,7 +49,7 @@ export default function FleetlocatePage() {
       setLoading(true)
       try {
         const [recRes, fileRes] = await Promise.all([
-          supabase.from('gps_data').select('*').eq('provider', PROVIDER_NAME).order('timestamp', { ascending: false }).limit(100),
+          supabase.from('gps_data').select('*').eq('provider', PROVIDER_NAME).order('recorded_at', { ascending: false }).limit(100),
           supabase.from('gps_uploads').select('*').eq('provider', PROVIDER_NAME).order('created_at', { ascending: false }),
         ])
         setRecords(recRes.data || [])
@@ -79,7 +87,7 @@ export default function FleetlocatePage() {
     }
   }
 
-  const totalChassis = new Set(records.map(r => r.chassis_number)).size
+  const totalChassis = new Set(records.map(r => r.device_id)).size
 
   return (
     <div className="p-6 space-y-6">
@@ -126,13 +134,17 @@ export default function FleetlocatePage() {
             <CardContent>
               {loading ? <p className="text-muted-foreground">Loading...</p> : records.length === 0 ? <p className="text-muted-foreground">No GPS data.</p> : (
                 <ul className="space-y-2">
-                  {records.slice(0, 5).map(r => (
-                    <li key={r.id} className="flex justify-between text-sm border-b pb-2">
-                      <span className="font-mono">{r.chassis_number}</span>
-                      <span className="text-muted-foreground">{r.location_name || `${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}`}</span>
-                      <span className="text-muted-foreground">{formatDate(r.timestamp)}</span>
-                    </li>
-                  ))}
+                  {records.slice(0, 5).map(r => {
+                    const rd = parseRawData(r.raw_data)
+                    const locationName = (rd.location_name as string | null)
+                    return (
+                      <li key={r.id} className="flex justify-between text-sm border-b pb-2">
+                        <span className="font-mono">{r.device_id}</span>
+                        <span className="text-muted-foreground">{locationName || `${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}`}</span>
+                        <span className="text-muted-foreground">{formatDate(r.recorded_at)}</span>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </CardContent>
@@ -157,15 +169,20 @@ export default function FleetlocatePage() {
                   <TableBody>
                     {records.length === 0 ? (
                       <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No data uploaded yet.</TableCell></TableRow>
-                    ) : records.map(r => (
-                      <TableRow key={r.id}>
-                        <TableCell className="font-mono">{r.chassis_number}</TableCell>
-                        <TableCell>{formatDate(r.timestamp)}</TableCell>
-                        <TableCell className="text-sm">{r.location_name || `${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}`}</TableCell>
-                        <TableCell>{r.speed ? `${r.speed} mph` : 'N/A'}</TableCell>
-                        <TableCell><Badge variant="outline">{r.status || 'N/A'}</Badge></TableCell>
-                      </TableRow>
-                    ))}
+                    ) : records.map(r => {
+                      const rd = parseRawData(r.raw_data)
+                      const locationName = (rd.location_name as string | null)
+                      const status = (rd.status as string | null)
+                      return (
+                        <TableRow key={r.id}>
+                          <TableCell className="font-mono">{r.device_id}</TableCell>
+                          <TableCell>{formatDate(r.recorded_at)}</TableCell>
+                          <TableCell className="text-sm">{locationName || `${r.latitude?.toFixed(4)}, ${r.longitude?.toFixed(4)}`}</TableCell>
+                          <TableCell>{r.speed ? `${r.speed} mph` : 'N/A'}</TableCell>
+                          <TableCell><Badge variant="outline">{status || 'N/A'}</Badge></TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               )}

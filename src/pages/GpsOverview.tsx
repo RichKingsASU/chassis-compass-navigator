@@ -9,17 +9,17 @@ import { Button } from '@/components/ui/button'
 interface ProviderCount {
   provider: string
   count: number
-  last_upload: string
+  last_ping: string
   route: string
   description: string
 }
 
 const GPS_PROVIDERS = [
-  { provider: 'Samsara', route: '/gps/samsara', description: 'Samsara Fleet Telematics' },
-  { provider: 'BlackBerry', route: '/gps/blackberry', description: 'BlackBerry Radar Asset Tracking' },
-  { provider: 'Fleetview', route: '/gps/fleetview', description: 'Fleetview GPS Tracking' },
-  { provider: 'Fleetlocate', route: '/gps/fleetlocate', description: 'Fleetlocate Trailer Tracking' },
-  { provider: 'Anytrek', route: '/gps/anytrek', description: 'Anytrek GPS Solutions' },
+  { provider: 'Samsara',          route: '/gps/samsara',    description: 'Samsara Fleet Telematics' },
+  { provider: 'BlackBerry Radar', route: '/gps/blackberry', description: 'BlackBerry Radar Asset Tracking' },
+  { provider: 'Fleetview',        route: '/gps/fleetview',  description: 'Fleetview GPS Tracking' },
+  { provider: 'Fleetlocate',      route: '/gps/fleetlocate',description: 'Fleetlocate Trailer Tracking' },
+  { provider: 'Anytrek',          route: '/gps/anytrek',    description: 'Anytrek GPS Solutions' },
 ]
 
 export default function GpsOverview() {
@@ -31,26 +31,34 @@ export default function GpsOverview() {
     async function load() {
       setLoading(true)
       try {
-        const { data } = await supabase.from('gps_uploads').select('provider, created_at')
-        const uploads = data || []
-        setTotalRecords(uploads.length)
+        // Get total GPS ping count from gps_data
+        const { count } = await supabase
+          .from('gps_data')
+          .select('*', { count: 'exact', head: true })
+        setTotalRecords(count ?? 0)
+
+        // Get all pings with provider + recorded_at for per-provider stats
+        const { data } = await supabase
+          .from('gps_data')
+          .select('provider, recorded_at')
+          .order('recorded_at', { ascending: false })
+        const pings = data || []
 
         const merged = GPS_PROVIDERS.map(p => {
-          const matching = uploads.filter((u: { provider: string; created_at: string }) =>
-            u.provider?.toLowerCase() === p.provider.toLowerCase()
+          const matching = pings.filter(
+            (row: { provider: string | null }) =>
+              row.provider === p.provider
           )
-          const latest = matching.sort((a: { created_at: string }, b: { created_at: string }) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          )[0]
+          const latest = matching[0] as { recorded_at: string } | undefined
           return {
             ...p,
             count: matching.length,
-            last_upload: latest?.created_at || '',
+            last_ping: latest?.recorded_at || '',
           }
         })
         setProviderData(merged)
       } catch {
-        setProviderData(GPS_PROVIDERS.map(p => ({ ...p, count: 0, last_upload: '' })))
+        setProviderData(GPS_PROVIDERS.map(p => ({ ...p, count: 0, last_ping: '' })))
       } finally {
         setLoading(false)
       }
@@ -68,7 +76,7 @@ export default function GpsOverview() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total GPS Records</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{totalRecords}</p></CardContent>
+          <CardContent><p className="text-3xl font-bold">{totalRecords.toLocaleString()}</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Active Providers</CardTitle></CardHeader>
@@ -97,12 +105,12 @@ export default function GpsOverview() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="p-2 bg-muted rounded text-center">
-                  <p className="text-2xl font-bold">{provider.count}</p>
-                  <p className="text-xs text-muted-foreground">Total Uploads</p>
+                  <p className="text-2xl font-bold">{provider.count.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Total Pings</p>
                 </div>
                 <div className="p-2 bg-blue-50 rounded text-center">
-                  <p className="text-xs font-medium text-blue-700">Last Upload</p>
-                  <p className="text-xs text-blue-600">{provider.last_upload ? formatDate(provider.last_upload) : 'Never'}</p>
+                  <p className="text-xs font-medium text-blue-700">Last Ping</p>
+                  <p className="text-xs text-blue-600">{provider.last_ping ? formatDate(provider.last_ping) : 'Never'}</p>
                 </div>
               </div>
               <Link to={provider.route}>
