@@ -31,7 +31,7 @@ export async function getChassisUnified(filters?: {
   const { data, error } = await query.limit(1000)
   if (error) throw error
 
-  let rows = (data as ChassisUnifiedRow[]) || []
+  let rows = (data as unknown as ChassisUnifiedRow[]) || []
 
   // Client-side dormancy filtering (days since last_load_date)
   if (filters?.min_dormant_days != null || filters?.max_dormant_days != null) {
@@ -81,8 +81,8 @@ export async function getChassisDetail(chassisNumber: string): Promise<ChassisDe
   if (unifiedRes.error) throw unifiedRes.error
 
   return {
-    chassis: unifiedRes.data as ChassisUnifiedRow,
-    loads: loadsRes.error ? [] : ((loadsRes.data ?? []) as MgLoadSummary[]),
+    chassis: unifiedRes.data as unknown as ChassisUnifiedRow,
+    loads: loadsRes.error ? [] : ((loadsRes.data ?? []) as unknown as MgLoadSummary[]),
   }
 }
 
@@ -106,7 +106,7 @@ export async function getChassisLoadHistory(chassisNumber: string): Promise<MgLo
     .limit(50)
 
   if (error) throw error
-  return (data ?? []) as MgLoadSummary[]
+  return (data ?? []) as unknown as MgLoadSummary[]
 }
 
 /**
