@@ -30,6 +30,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Shared auth helper (JWT or Bearer)
+from radar_auth import auth_headers, auth_mode  # noqa: E402
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -66,12 +69,8 @@ HISTORY_WINDOWS = [7, 30, 60, 90, 180, 365, 730]
 
 
 def _auth_headers() -> dict[str, str]:
-    """Return authorization headers. Supports Bearer token and x-api-key."""
-    headers: dict[str, str] = {"Accept": "application/json"}
-    if API_KEY:
-        # Try Bearer first; the report will note which style works
-        headers["Authorization"] = f"Bearer {API_KEY}"
-    return headers
+    """Return authorization headers via shared auth module (JWT or Bearer)."""
+    return auth_headers()
 
 
 def _alt_auth_headers() -> dict[str, str]:
@@ -154,6 +153,9 @@ async def probe_endpoint(
             result["error"] = f"HTTP {resp.status_code}"
             break
 
+        except httpx.ProxyError as exc:
+            result["error"] = f"Proxy blocked: {exc}"
+            break
         except httpx.RequestError as exc:
             result["error"] = str(exc)
             break
@@ -275,6 +277,7 @@ async def discover():
     print("=" * 70)
     print(f"  Base URL : {BASE_URL or '(not set)'}")
     print(f"  API Key  : {'***' + API_KEY[-4:] if len(API_KEY) > 4 else '(not set)'}")
+    print(f"  Auth     : {auth_mode()}")
     print(f"  Time     : {datetime.now(timezone.utc).isoformat()}")
     print("=" * 70)
 

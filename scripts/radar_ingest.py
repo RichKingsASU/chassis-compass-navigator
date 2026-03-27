@@ -31,6 +31,10 @@ from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
+
+load_dotenv()
+
+from radar_auth import auth_headers as _auth_headers_fn, auth_mode  # noqa: E402
 from supabase import create_client, Client
 from tenacity import (
     retry,
@@ -41,8 +45,6 @@ from tenacity import (
 )
 from tqdm import tqdm
 import logging
-
-load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -89,10 +91,7 @@ class AuthError(Exception):
 # HTTP helpers
 # ---------------------------------------------------------------------------
 def _headers() -> dict[str, str]:
-    return {
-        "Authorization": f"Bearer {API_KEY}",
-        "Accept": "application/json",
-    }
+    return _auth_headers_fn()
 
 
 @retry(
