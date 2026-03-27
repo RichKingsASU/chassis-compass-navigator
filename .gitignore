@@ -26,5 +26,12 @@ dist-ssr
 # Environment variables
 .env
 
+# Python
+__pycache__/
+*.pyc
+
+# Generated reports
+reports/
+
 # Reference repo (analysis only)
 reference/
