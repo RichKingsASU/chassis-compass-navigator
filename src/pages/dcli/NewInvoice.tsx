@@ -131,28 +131,6 @@ export default function DCLINewInvoice() {
     if (selected) processFile(selected)
   }
 
-  function onDragOver(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    e.stopPropagation()
-    e.currentTarget.classList.add('border-primary', 'bg-primary/5')
-  }
-
-  function onDragLeave(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    e.stopPropagation()
-    e.currentTarget.classList.remove('border-primary', 'bg-primary/5')
-  }
-
-  function onDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    e.stopPropagation()
-    e.currentTarget.classList.remove('border-primary', 'bg-primary/5')
-    const droppedFile = e.dataTransfer.files?.[0]
-    if (!droppedFile) return
-    const fakeEvent = { target: { files: [droppedFile] } } as unknown as React.ChangeEvent<HTMLInputElement>
-    handleFileChange(fakeEvent)
-  }
-
   async function handleSubmit() {
     if (!validateHeader() || !file) return
     setSubmitting(true); setSubmitError(null)
@@ -162,37 +140,43 @@ export default function DCLINewInvoice() {
       if (uploadError) throw uploadError
 
       const now = new Date().toISOString()
-      const firstSheet = parsedData[0]
-      const rows = firstSheet ? firstSheet.rows : []
 
       // Insert invoice header
       const { data: invoice, error: invoiceError } = await supabase.from('dcli_invoice').insert({
-        invoice_number: file.name.replace(/\.\w+$/, ''),
-        invoice_date: now,
+        invoice_number: form.invoice_number,
+        invoice_date: form.invoice_date || now,
+        due_date: form.due_date || null,
+        billing_date: form.billing_date || null,
+        account_code: form.account_code || null,
         vendor: 'DCLI',
-        total_amount: rows.reduce((sum, r) => sum + (Number((r as any).line_total) || 0), 0),
+        total_amount: parseFloat(form.total_amount) || 0,
         status: 'pending',
-        portal_status: 'OK TO PAY',
+        portal_status: form.portal_status || 'OK TO PAY',
+        internal_notes: form.internal_notes || null,
         file_name: file.name,
         file_path: filePath,
+        file_type: isPdf ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         created_at: now,
         updated_at: now,
       }).select().single()
       if (invoiceError) throw invoiceError
 
       // Insert line items
-      const lineItems = rows.map(row => ({
-        invoice_id: invoice.id,
-        line_invoice_number: (row as any).invoice_number ?? null,
-        chassis: (row as any).chassis ?? null,
-        container: (row as any).container ?? null,
-        date_out: (row as any).date_out ?? null,
-        date_in: (row as any).date_in ?? null,
-        days_used: Number((row as any).days_used) || null,
-        daily_rate: Number((row as any).daily_rate) || null,
-        line_total: Number((row as any).line_total) || null,
-      }))
-      if (lineItems.length > 0) {
+      if (rows.length > 0) {
+        const lineItems = rows.map(row => {
+          const mapped = mapDcliRow(row)
+          return {
+            invoice_id: invoice.id,
+            line_invoice_number: mapped.line_invoice_number || null,
+            chassis: mapped.chassis || null,
+            container: mapped.container || null,
+            date_out: mapped.date_out,
+            date_in: mapped.date_in,
+            days_used: mapped.days_used,
+            daily_rate: mapped.daily_rate,
+            line_total: mapped.line_total,
+          }
+        })
         const { error: lineError } = await supabase.from('dcli_invoice_line_item').insert(lineItems)
         if (lineError) throw lineError
       }
@@ -216,7 +200,8 @@ export default function DCLINewInvoice() {
       })
       if (eventError) throw eventError
 
-      setStep('submit')
+      setCreatedId(invoice.id)
+      setStep('confirm')
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : 'Submission failed')
     } finally { setSubmitting(false) }
@@ -271,16 +256,80 @@ export default function DCLINewInvoice() {
               <input
                 type="file"
                 accept=".xlsx,.xls,.pdf"
-                onChange={handleFileChange}
+                onChange={onInputChange}
                 className="hidden"
                 id="file-upload"
-                disabled={loading}
+                disabled={parsing}
               />
               <div className="space-y-2">
                 <div className="text-4xl mb-4">📁</div>
                 <p className="text-lg font-medium">Click to upload or drag and drop</p>
                 <p className="text-sm text-muted-foreground">Supports .xlsx, .xls, .pdf</p>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {step === 'header' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Invoice Information</CardTitle>
+            <p className="text-sm text-muted-foreground">Fill in the invoice header details. Fields marked with * are required.</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {file && (
+              <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg text-sm">
+                {isPdf ? <FileText size={14} className="text-muted-foreground" /> : <FileSpreadsheet size={14} className="text-muted-foreground" />}
+                <span className="font-medium">{file.name}</span>
+                <span className="text-muted-foreground">({(file.size / 1024).toFixed(1)} KB)</span>
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="invoice_number">Invoice Number *</Label>
+                <Input id="invoice_number" value={form.invoice_number} onChange={e => setField('invoice_number', e.target.value)} />
+                {formErrors.invoice_number && <p className="text-xs text-destructive">{formErrors.invoice_number}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="invoice_date">Invoice Date *</Label>
+                <Input id="invoice_date" type="date" value={form.invoice_date} onChange={e => setField('invoice_date', e.target.value)} />
+                {formErrors.invoice_date && <p className="text-xs text-destructive">{formErrors.invoice_date}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="due_date">Due Date</Label>
+                <Input id="due_date" type="date" value={form.due_date} onChange={e => setField('due_date', e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="billing_date">Billing Date</Label>
+                <Input id="billing_date" type="date" value={form.billing_date} onChange={e => setField('billing_date', e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="account_code">Account Code</Label>
+                <Input id="account_code" value={form.account_code} onChange={e => setField('account_code', e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="total_amount">Total Amount *</Label>
+                <Input id="total_amount" type="number" step="0.01" value={form.total_amount} onChange={e => setField('total_amount', e.target.value)} />
+                {formErrors.total_amount && <p className="text-xs text-destructive">{formErrors.total_amount}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="portal_status">Portal Status</Label>
+                <Select value={form.portal_status} onValueChange={v => setField('portal_status', v)}>
+                  <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                  <SelectContent>
+                    {INVOICE_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="internal_notes">Internal Notes</Label>
+              <Textarea id="internal_notes" value={form.internal_notes} onChange={e => setField('internal_notes', e.target.value)} rows={3} />
+            </div>
+            <div className="flex justify-between pt-2">
+              <Button variant="outline" onClick={() => setStep('upload')}>← Back</Button>
+              <Button onClick={() => { if (validateHeader()) setStep('review') }}>Review Data →</Button>
             </div>
           </CardContent>
         </Card>
@@ -354,7 +403,7 @@ export default function DCLINewInvoice() {
           <CardContent className="space-y-4">
             <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
               <p className="text-green-800 text-lg font-medium">Invoice successfully uploaded!</p>
-              <p className="text-green-700 text-sm mt-1">Invoice and {parsedData[0]?.rows.length ?? 0} line items have been saved.</p>
+              <p className="text-green-700 text-sm mt-1">Invoice and {rows.length} line items have been saved.</p>
             </div>
             <div className="flex gap-3 flex-wrap">
               {createdId && <Button onClick={() => navigate(`/vendors/dcli/invoices/${createdId}/detail`)}>View Invoice Details</Button>}
