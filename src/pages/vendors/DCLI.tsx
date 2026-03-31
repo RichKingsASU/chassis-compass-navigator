@@ -5,34 +5,18 @@ import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-
-interface DcliInvoice {
-  id: string
-  invoice_number: string
-  invoice_date: string
-  due_date: string
-  total_amount: number
-  status: string
-  created_at: string
-}
+import {
+  type DcliInvoice,
+  INVOICE_STATUSES,
+  statusBadgeClass,
+} from '@/types/invoice'
 
 interface DcliActivity {
   id: string
   description: string
   created_at: string
-}
-
-function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (status?.toLowerCase()) {
-    case 'paid': return 'default'
-    case 'pending': return 'secondary'
-    case 'disputed': return 'destructive'
-    case 'overdue': return 'destructive'
-    default: return 'outline'
-  }
 }
 
 export default function DCLIPage() {
@@ -65,13 +49,15 @@ export default function DCLIPage() {
   }, [])
 
   const totalInvoices = invoices.length
-  const pendingInvoices = invoices.filter(i => i.status?.toLowerCase() === 'pending').length
-  const disputedInvoices = invoices.filter(i => i.status?.toLowerCase() === 'disputed').length
+  const pendingInvoices = invoices.filter(i => !i.portal_status || i.portal_status === null).length
+  const disputedInvoices = invoices.filter(i => i.portal_status?.includes('DISPUTE')).length
   const totalAmount = invoices.reduce((sum, i) => sum + (i.total_amount || 0), 0)
-  const paidAmount = invoices.filter(i => i.status?.toLowerCase() === 'paid').reduce((sum, i) => sum + (i.total_amount || 0), 0)
+  const paidAmount = invoices.filter(i => i.portal_status === 'PAID').reduce((sum, i) => sum + (i.total_amount || 0), 0)
   const outstandingAmount = totalAmount - paidAmount
 
-  const filteredInvoices = statusFilter === 'all' ? invoices : invoices.filter(i => i.status?.toLowerCase() === statusFilter)
+  const filteredInvoices = statusFilter === 'all'
+    ? invoices
+    : invoices.filter(i => i.portal_status === statusFilter)
 
   return (
     <div className="p-6 space-y-6">
@@ -80,9 +66,14 @@ export default function DCLIPage() {
           <h1 className="text-3xl font-bold">DCLI</h1>
           <p className="text-muted-foreground">Direct ChassisLink Inc. — Vendor Dashboard</p>
         </div>
-        <Link to="/dcli/new-invoice">
-          <Button>+ New Invoice</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/vendors/dcli/invoices/tracker">
+            <Button variant="outline">Invoice Tracker</Button>
+          </Link>
+          <Link to="/vendors/dcli/invoices/new">
+            <Button>+ New Invoice</Button>
+          </Link>
+        </div>
       </div>
 
       {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
@@ -101,11 +92,11 @@ export default function DCLIPage() {
               <CardContent><p className="text-3xl font-bold">{totalInvoices}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">No Status</CardTitle></CardHeader>
               <CardContent><p className="text-3xl font-bold text-yellow-600">{pendingInvoices}</p></CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Disputed</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Disputes</CardTitle></CardHeader>
               <CardContent><p className="text-3xl font-bold text-red-600">{disputedInvoices}</p></CardContent>
             </Card>
             <Card>
@@ -171,18 +162,17 @@ export default function DCLIPage() {
             <h2 className="text-xl font-semibold">Invoices</h2>
             <div className="flex gap-3 items-center">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Filter by status" />
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by portal status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="disputed">Disputed</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
+                  {INVOICE_STATUSES.map(s => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              <Link to="/dcli/new-invoice">
+              <Link to="/vendors/dcli/invoices/new">
                 <Button size="sm">+ New Invoice</Button>
               </Link>
             </div>
@@ -199,7 +189,7 @@ export default function DCLIPage() {
                     <TableHead>Invoice Date</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Portal Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -208,13 +198,17 @@ export default function DCLIPage() {
                     <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No invoices found.</TableCell></TableRow>
                   ) : filteredInvoices.map(inv => (
                     <TableRow key={inv.id}>
-                      <TableCell className="font-medium">{inv.invoice_number || inv.id}</TableCell>
-                      <TableCell>{formatDate(inv.invoice_date)}</TableCell>
-                      <TableCell>{formatDate(inv.due_date)}</TableCell>
-                      <TableCell>{formatCurrency(inv.total_amount)}</TableCell>
-                      <TableCell><Badge variant={getStatusVariant(inv.status)}>{inv.status || 'Unknown'}</Badge></TableCell>
+                      <TableCell className="font-medium">{inv.invoice_number || inv.id.slice(0, 8)}</TableCell>
+                      <TableCell>{inv.invoice_date ? formatDate(inv.invoice_date) : '—'}</TableCell>
+                      <TableCell>{inv.due_date ? formatDate(inv.due_date) : '—'}</TableCell>
+                      <TableCell>{inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}</TableCell>
                       <TableCell>
-                        <Link to={`/dcli/invoice/${inv.id}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(inv.portal_status)}`}>
+                          {inv.portal_status || 'Not Set'}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Link to={`/vendors/dcli/invoices/${inv.id}/detail`}>
                           <Button variant="outline" size="sm">View</Button>
                         </Link>
                       </TableCell>
@@ -244,7 +238,7 @@ export default function DCLIPage() {
           </div>
 
           <Card>
-            <CardHeader><CardTitle>Invoice Breakdown by Status</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Invoice Breakdown by Portal Status</CardTitle></CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
@@ -255,12 +249,17 @@ export default function DCLIPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {['paid', 'pending', 'disputed', 'overdue'].map(status => {
-                    const statusInvoices = invoices.filter(i => i.status?.toLowerCase() === status)
+                  {INVOICE_STATUSES.map(status => {
+                    const statusInvoices = invoices.filter(i => i.portal_status === status)
+                    if (statusInvoices.length === 0) return null
                     const statusTotal = statusInvoices.reduce((sum, i) => sum + (i.total_amount || 0), 0)
                     return (
                       <TableRow key={status}>
-                        <TableCell><Badge variant={getStatusVariant(status)}>{status}</Badge></TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(status)}`}>
+                            {status}
+                          </span>
+                        </TableCell>
                         <TableCell>{statusInvoices.length}</TableCell>
                         <TableCell>{formatCurrency(statusTotal)}</TableCell>
                       </TableRow>

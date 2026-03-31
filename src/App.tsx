@@ -54,6 +54,7 @@ const SCSPA = lazy(() => import('@/pages/vendors/SCSPA'))
 const DCLINewInvoice = lazy(() => import('@/pages/dcli/NewInvoice'))
 const DCLIInvoiceReview = lazy(() => import('@/pages/dcli/InvoiceReview'))
 const DCLIInvoiceDetail = lazy(() => import('@/pages/dcli/InvoiceDetail'))
+const DCLIInvoiceTracker = lazy(() => import('@/pages/dcli/InvoiceTracker'))
 const DCLIInvoiceLineDetails = lazy(() => import('@/pages/dcli/InvoiceLineDetails'))
 const DCLIInvoiceLineDispute = lazy(() => import('@/pages/dcli/InvoiceLineDispute'))
 
@@ -149,6 +150,7 @@ export default function App() {
                   <Route path="/vendor-validation" element={<ProtectedPage><VendorValidation /></ProtectedPage>} />
                   <Route path="/vendors/dcli" element={<ProtectedPage><DCLI /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoices/new" element={<ProtectedPage><DCLINewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/dcli/invoices/tracker" element={<ProtectedPage><DCLIInvoiceTracker /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoices/:invoiceId/review" element={<ProtectedPage><DCLIInvoiceReview /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoices/:invoiceId/detail" element={<ProtectedPage><DCLIInvoiceDetail /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoice-line/:lineId" element={<ProtectedPage><DCLIInvoiceLineDetails /></ProtectedPage>} />

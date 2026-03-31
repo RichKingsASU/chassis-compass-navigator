@@ -8,25 +8,12 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-
-interface LineItem {
-  id: string
-  invoice_id: string
-  chassis_number: string
-  container_number: string
-  pickup_date: string
-  return_date: string
-  days: number
-  amount: number
-  status: string
-  dispute_reason: string
-  dispute_status: string
-}
+import { type DcliLineItem, statusBadgeClass } from '@/types/invoice'
 
 export default function DCLIInvoiceLineDispute() {
   const { lineId } = useParams<{ lineId: string }>()
   const navigate = useNavigate()
-  const [line, setLine] = useState<LineItem | null>(null)
+  const [line, setLine] = useState<DcliLineItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,10 +28,11 @@ export default function DCLIInvoiceLineDispute() {
       if (!lineId) return
       setLoading(true)
       try {
-        const { data, error: fetchErr } = await supabase.from('dcli_invoice_data').select('*').eq('id', lineId).single()
+        const { data, error: fetchErr } = await supabase.from('dcli_invoice_line_item').select('*').eq('id', lineId).single()
         if (fetchErr) throw fetchErr
         setLine(data)
         setDisputeReason(data.dispute_reason || '')
+        setNotes(data.dispute_notes || '')
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load line item')
       } finally {
@@ -56,19 +44,28 @@ export default function DCLIInvoiceLineDispute() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!lineId || !disputeType || !disputeReason) return
+    if (!lineId || !disputeType || !disputeReason || !line) return
     setSubmitting(true)
     setError(null)
     try {
-      const { error: updateErr } = await supabase.from('dcli_invoice_data').update({
-        status: 'disputed',
-        dispute_status: 'open',
+      const { error: updateErr } = await supabase.from('dcli_invoice_line_item').update({
+        portal_status: 'DISPUTE',
         dispute_reason: disputeReason,
-        dispute_type: disputeType,
         dispute_notes: notes,
-        disputed_at: new Date().toISOString(),
       }).eq('id', lineId)
       if (updateErr) throw updateErr
+
+      // Log event
+      await supabase.from('dcli_invoice_events').insert({
+        invoice_id: line.invoice_id,
+        line_item_id: lineId,
+        event_type: 'line_status_change',
+        from_status: line.portal_status,
+        to_status: 'DISPUTE',
+        note: `${disputeType}: ${disputeReason}`,
+        metadata: { dispute_type: disputeType },
+      })
+
       setSuccess(true)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to submit dispute')
@@ -78,15 +75,26 @@ export default function DCLIInvoiceLineDispute() {
   }
 
   async function handleCloseDispute() {
-    if (!lineId) return
+    if (!lineId || !line) return
     setSubmitting(true)
     try {
-      const { error: updateErr } = await supabase.from('dcli_invoice_data').update({
-        status: 'pending',
-        dispute_status: 'closed',
-        closed_at: new Date().toISOString(),
+      const { error: updateErr } = await supabase.from('dcli_invoice_line_item').update({
+        portal_status: null,
+        dispute_reason: null,
+        dispute_notes: null,
       }).eq('id', lineId)
       if (updateErr) throw updateErr
+
+      await supabase.from('dcli_invoice_events').insert({
+        invoice_id: line.invoice_id,
+        line_item_id: lineId,
+        event_type: 'line_status_change',
+        from_status: 'DISPUTE',
+        to_status: null,
+        note: 'Dispute closed',
+        metadata: {},
+      })
+
       navigate(-1)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to close dispute')
@@ -125,20 +133,27 @@ export default function DCLIInvoiceLineDispute() {
             <CardHeader><CardTitle>Line Item Summary</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div><p className="text-muted-foreground">Chassis #</p><p className="font-mono font-medium">{line.chassis_number}</p></div>
-                <div><p className="text-muted-foreground">Container #</p><p className="font-mono">{line.container_number}</p></div>
-                <div><p className="text-muted-foreground">Days</p><p>{line.days}</p></div>
-                <div><p className="text-muted-foreground">Amount</p><p className="font-bold">{formatCurrency(line.amount)}</p></div>
-                <div><p className="text-muted-foreground">Pickup</p><p>{formatDate(line.pickup_date)}</p></div>
-                <div><p className="text-muted-foreground">Return</p><p>{formatDate(line.return_date)}</p></div>
-                <div><p className="text-muted-foreground">Status</p><Badge variant="outline">{line.status}</Badge></div>
-                {line.dispute_status && <div><p className="text-muted-foreground">Dispute Status</p><Badge variant="destructive">{line.dispute_status}</Badge></div>}
+                <div><p className="text-muted-foreground">Chassis</p><p className="font-mono font-medium">{line.chassis ?? '—'}</p></div>
+                <div><p className="text-muted-foreground">Container</p><p className="font-mono">{line.container ?? '—'}</p></div>
+                <div><p className="text-muted-foreground">Days Used</p><p>{line.days_used ?? '—'}</p></div>
+                <div><p className="text-muted-foreground">Line Total</p><p className="font-bold">{line.line_total != null ? formatCurrency(line.line_total) : '—'}</p></div>
+                <div><p className="text-muted-foreground">Date Out</p><p>{line.date_out ? formatDate(line.date_out) : '—'}</p></div>
+                <div><p className="text-muted-foreground">Date In</p><p>{line.date_in ? formatDate(line.date_in) : '—'}</p></div>
+                <div>
+                  <p className="text-muted-foreground">Portal Status</p>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(line.portal_status)}`}>
+                    {line.portal_status || 'Not Set'}
+                  </span>
+                </div>
+                {line.dispute_reason && (
+                  <div><p className="text-muted-foreground">Current Dispute</p><Badge variant="destructive">Active</Badge></div>
+                )}
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader><CardTitle>{line.dispute_status === 'open' ? 'Update Dispute' : 'Open Dispute'}</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{line.dispute_reason ? 'Update Dispute' : 'Open Dispute'}</CardTitle></CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -185,7 +200,7 @@ export default function DCLIInvoiceLineDispute() {
                   <Button type="submit" variant="destructive" disabled={submitting || !disputeType || !disputeReason}>
                     {submitting ? 'Submitting...' : 'Submit Dispute'}
                   </Button>
-                  {line.dispute_status === 'open' && (
+                  {line.dispute_reason && (
                     <Button type="button" variant="outline" onClick={handleCloseDispute} disabled={submitting}>
                       Close Dispute
                     </Button>
