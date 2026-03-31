@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import EmptyState from '@/components/shared/EmptyState'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { X, Copy, Truck, Package, History, Activity, Warehouse } from 'lucide-react'
 import { toast } from 'sonner'
 
