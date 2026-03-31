@@ -49,6 +49,7 @@ const TRAC = lazy(() => import('@/pages/vendors/TRAC'))
 const FLEXIVAN = lazy(() => import('@/pages/vendors/FLEXIVAN'))
 const WCCP = lazy(() => import('@/pages/vendors/WCCP'))
 const SCSPA = lazy(() => import('@/pages/vendors/SCSPA'))
+const VendorComingSoon = lazy(() => import('@/pages/vendors/VendorComingSoon'))
 
 // DCLI invoice pages
 const DCLINewInvoice = lazy(() => import('@/pages/dcli/NewInvoice'))
@@ -57,6 +58,9 @@ const DCLIInvoiceDetail = lazy(() => import('@/pages/dcli/InvoiceDetail'))
 const DCLIInvoiceTracker = lazy(() => import('@/pages/dcli/InvoiceTracker'))
 const DCLIInvoiceLineDetails = lazy(() => import('@/pages/dcli/InvoiceLineDetails'))
 const DCLIInvoiceLineDispute = lazy(() => import('@/pages/dcli/InvoiceLineDispute'))
+const DCLIActivity = lazy(() => import('@/pages/dcli/Activity'))
+const DCLIFinancials = lazy(() => import('@/pages/dcli/Financials'))
+const DCLIDocuments = lazy(() => import('@/pages/dcli/Documents'))
 
 // CCM invoice pages
 const CCMNewInvoice = lazy(() => import('@/pages/ccm/NewInvoice'))
@@ -156,16 +160,29 @@ export default function App() {
                   <Route path="/vendors/dcli/invoices/:invoiceId/detail" element={<ProtectedPage><DCLIInvoiceDetail /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoice-line/:lineId" element={<ProtectedPage><DCLIInvoiceLineDetails /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoice-line/:lineId/dispute" element={<ProtectedPage><DCLIInvoiceLineDispute /></ProtectedPage>} />
+                  <Route path="/vendors/dcli/activity" element={<ProtectedPage><DCLIActivity /></ProtectedPage>} />
+                  <Route path="/vendors/dcli/financials" element={<ProtectedPage><DCLIFinancials /></ProtectedPage>} />
+                  <Route path="/vendors/dcli/documents" element={<ProtectedPage><DCLIDocuments /></ProtectedPage>} />
 
                   <Route path="/vendors/ccm" element={<ProtectedPage><CCM /></ProtectedPage>} />
                   <Route path="/vendors/ccm/invoices/new" element={<ProtectedPage><CCMNewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/ccm/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/ccm/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/ccm/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
                   <Route path="/vendors/ccm/invoice-line/:lineId" element={<ProtectedPage><CCMInvoiceLineDetails /></ProtectedPage>} />
 
                   <Route path="/vendors/scspa" element={<ProtectedPage><SCSPA /></ProtectedPage>} />
                   <Route path="/vendors/scspa/invoices/new" element={<ProtectedPage><SCSPANewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/scspa/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/scspa/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/scspa/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
 
                   <Route path="/vendors/trac" element={<ProtectedPage><TRAC /></ProtectedPage>} />
                   <Route path="/vendors/trac/invoices/new" element={<ProtectedPage><TRACNewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/trac/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/trac/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/trac/financials" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/trac/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
                   <Route path="/vendors/trac/invoices/:invoiceId/review" element={<ProtectedPage><TRACInvoiceReview /></ProtectedPage>} />
                   <Route path="/vendors/trac/invoices/:invoiceId/validate" element={<ProtectedPage><TRACInvoiceValidate /></ProtectedPage>} />
                   <Route path="/vendors/trac/invoice-line/:lineId" element={<ProtectedPage><TRACInvoiceLineDetails /></ProtectedPage>} />
@@ -173,9 +190,16 @@ export default function App() {
 
                   <Route path="/vendors/flexivan" element={<ProtectedPage><FLEXIVAN /></ProtectedPage>} />
                   <Route path="/vendors/flexivan/invoices/new" element={<ProtectedPage><FLEXIVANNewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/flexivan/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/flexivan/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/flexivan/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
 
                   <Route path="/vendors/wccp" element={<ProtectedPage><WCCP /></ProtectedPage>} />
                   <Route path="/vendors/wccp/invoices/new" element={<ProtectedPage><WCCPNewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/wccp/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/wccp/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/wccp/financials" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/wccp/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
                   <Route path="/vendors/wccp/invoices/:invoiceId/review" element={<ProtectedPage><WCCPInvoiceReview /></ProtectedPage>} />
                   <Route path="/vendors/wccp/invoice-line/:lineId" element={<ProtectedPage><WCCPInvoiceLineDetails /></ProtectedPage>} />
                   <Route path="/vendors/wccp/invoice-line/:lineId/dispute" element={<ProtectedPage><WCCPInvoiceLineDispute /></ProtectedPage>} />
