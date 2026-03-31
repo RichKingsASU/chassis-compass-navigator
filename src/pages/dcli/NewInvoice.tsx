@@ -35,6 +35,28 @@ export default function DCLINewInvoice() {
     }
   }
 
+  function onDragOver(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    e.currentTarget.classList.add('border-primary', 'bg-primary/5')
+  }
+
+  function onDragLeave(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    e.currentTarget.classList.remove('border-primary', 'bg-primary/5')
+  }
+
+  function onDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    e.stopPropagation()
+    e.currentTarget.classList.remove('border-primary', 'bg-primary/5')
+    const droppedFile = e.dataTransfer.files?.[0]
+    if (!droppedFile) return
+    const fakeEvent = { target: { files: [droppedFile] } } as unknown as React.ChangeEvent<HTMLInputElement>
+    handleFileChange(fakeEvent)
+  }
+
   async function handleSubmit() {
     if (!file || parsedData.length === 0) return
     setUploading(true)
@@ -44,15 +66,60 @@ export default function DCLINewInvoice() {
       const { error: uploadError } = await supabase.storage.from('dcli-invoices').upload(filePath, file)
       if (uploadError) throw uploadError
 
-      const stagingRows = parsedData.map(row => ({
-        ...row,
-        source_file: filePath,
-        provider: 'DCLI',
-        status: 'staged',
-        created_at: new Date().toISOString(),
+      const now = new Date().toISOString()
+      const firstSheet = parsedData[0]
+      const rows = firstSheet ? firstSheet.rows : []
+
+      // Insert invoice header
+      const { data: invoice, error: invoiceError } = await supabase.from('dcli_invoice').insert({
+        invoice_number: file.name.replace(/\.\w+$/, ''),
+        invoice_date: now,
+        vendor: 'DCLI',
+        total_amount: rows.reduce((sum, r) => sum + (Number((r as any).line_total) || 0), 0),
+        status: 'pending',
+        portal_status: 'OK TO PAY',
+        file_name: file.name,
+        file_path: filePath,
+        created_at: now,
+        updated_at: now,
+      }).select().single()
+      if (invoiceError) throw invoiceError
+
+      // Insert line items
+      const lineItems = rows.map(row => ({
+        invoice_id: invoice.id,
+        line_invoice_number: (row as any).invoice_number ?? null,
+        chassis: (row as any).chassis ?? null,
+        container: (row as any).container ?? null,
+        date_out: (row as any).date_out ?? null,
+        date_in: (row as any).date_in ?? null,
+        days_used: Number((row as any).days_used) || null,
+        daily_rate: Number((row as any).daily_rate) || null,
+        line_total: Number((row as any).line_total) || null,
       }))
-      const { error: insertError } = await supabase.from('dcli_invoice_staging').insert(stagingRows)
-      if (insertError) throw insertError
+      if (lineItems.length > 0) {
+        const { error: lineError } = await supabase.from('dcli_invoice_line_item').insert(lineItems)
+        if (lineError) throw lineError
+      }
+
+      // Insert document record
+      const { error: docError } = await supabase.from('dcli_invoice_documents').insert({
+        invoice_id: invoice.id,
+        file_name: file.name,
+        file_path: filePath,
+        file_type: file.type || 'application/octet-stream',
+        uploaded_at: now,
+      })
+      if (docError) throw docError
+
+      // Insert audit log entry
+      const { error: eventError } = await supabase.from('dcli_invoice_events').insert({
+        invoice_id: invoice.id,
+        event_type: 'created',
+        description: `Invoice uploaded from file ${file.name}`,
+        created_at: now,
+      })
+      if (eventError) throw eventError
 
       setStep('submit')
     } catch (err: unknown) {
@@ -94,7 +161,13 @@ export default function DCLINewInvoice() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">Upload an Excel (.xlsx) or PDF file containing the DCLI invoice data.</p>
-            <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-12 text-center">
+            <div
+              className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-12 text-center cursor-pointer"
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+              onClick={() => document.getElementById('file-upload')?.click()}
+            >
               <input
                 type="file"
                 accept=".xlsx,.xls,.pdf"
@@ -103,11 +176,11 @@ export default function DCLINewInvoice() {
                 id="file-upload"
                 disabled={loading}
               />
-              <label htmlFor="file-upload" className="cursor-pointer space-y-2 block">
+              <div className="space-y-2">
                 <div className="text-4xl mb-4">📁</div>
                 <p className="text-lg font-medium">Click to upload or drag and drop</p>
                 <p className="text-sm text-muted-foreground">Supports .xlsx, .xls, .pdf</p>
-              </label>
+              </div>
             </div>
             {loading && <p className="text-center text-muted-foreground">Parsing file...</p>}
           </CardContent>
@@ -160,8 +233,8 @@ export default function DCLINewInvoice() {
           <CardHeader><CardTitle>Invoice Submitted</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
-              <p className="text-green-800 text-lg font-medium">Invoice successfully uploaded and staged!</p>
-              <p className="text-green-700 text-sm mt-1">{parsedData.length} rows have been saved to the staging table for review.</p>
+              <p className="text-green-800 text-lg font-medium">Invoice successfully uploaded!</p>
+              <p className="text-green-700 text-sm mt-1">Invoice and {parsedData[0]?.rows.length ?? 0} line items have been saved.</p>
             </div>
             <div className="flex gap-3">
               <Button onClick={() => navigate('/vendors/dcli')}>Back to DCLI</Button>
