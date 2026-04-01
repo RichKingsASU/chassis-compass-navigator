@@ -83,7 +83,7 @@ export function parseExcel(
     // Skip metadata rows (textbox12 = "Total Count:")
     if (raw['textbox12'] === 'Total Count:') continue
 
-    const row: Partial<InventoryRow> = {}
+    const mapped: Record<string, unknown> = {}
 
     for (const [excelCol, value] of Object.entries(raw)) {
       if (IGNORED_COLUMNS.has(excelCol)) continue
@@ -92,44 +92,42 @@ export function parseExcel(
 
       switch (dbField) {
         case 'last_gate_in_date':
-          row[dbField] = normalizeDate(value)
+          mapped[dbField] = normalizeDate(value)
           break
         case 'size':
         case 'last_gate_in_time':
         case 'days_onsite':
-          row[dbField] = toIntOrNull(value)
+          mapped[dbField] = toIntOrNull(value)
           break
         case 'booking_no':
           // Always cast to string (comes as number like 718910910)
-          row[dbField] = value != null ? String(value) : null
+          mapped[dbField] = value != null ? String(value) : null
           break
         default:
-          row[dbField] = toStringOrNull(value) as string | null
+          mapped[dbField] = toStringOrNull(value)
           break
       }
     }
 
-    row.source_file = fileName
-
     // Only include rows that have an equip_no (even if blank, we still capture for audit)
     rows.push({
-      equip_group_id: row.equip_group_id ?? null,
-      eq_type: row.eq_type ?? null,
-      equip_no: row.equip_no ?? '',
-      size: row.size ?? null,
-      iso_code: row.iso_code ?? null,
-      cust_code: row.cust_code ?? null,
-      lic_no: row.lic_no ?? null,
-      lic_state: row.lic_state ?? null,
-      last_gate_in_date: row.last_gate_in_date ?? null,
-      last_gate_in_time: row.last_gate_in_time ?? null,
-      load_type: row.load_type ?? null,
-      last_carrier: row.last_carrier ?? null,
-      last_carrier_name: row.last_carrier_name ?? null,
-      booking_no: row.booking_no ?? null,
-      days_onsite: row.days_onsite ?? null,
-      comment: row.comment ?? null,
-      resource_name: row.resource_name ?? null,
+      equip_group_id: (mapped.equip_group_id as string) ?? null,
+      eq_type: (mapped.eq_type as string) ?? null,
+      equip_no: (mapped.equip_no as string) ?? '',
+      size: (mapped.size as number) ?? null,
+      iso_code: (mapped.iso_code as string) ?? null,
+      cust_code: (mapped.cust_code as string) ?? null,
+      lic_no: (mapped.lic_no as string) ?? null,
+      lic_state: (mapped.lic_state as string) ?? null,
+      last_gate_in_date: (mapped.last_gate_in_date as string) ?? null,
+      last_gate_in_time: (mapped.last_gate_in_time as number) ?? null,
+      load_type: (mapped.load_type as string) ?? null,
+      last_carrier: (mapped.last_carrier as string) ?? null,
+      last_carrier_name: (mapped.last_carrier_name as string) ?? null,
+      booking_no: (mapped.booking_no as string) ?? null,
+      days_onsite: (mapped.days_onsite as number) ?? null,
+      comment: (mapped.comment as string) ?? null,
+      resource_name: (mapped.resource_name as string) ?? null,
       source_file: fileName,
     })
   }
