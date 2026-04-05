@@ -55,7 +55,6 @@ const navItems: NavigationItem[] = [
     subItems: [
       { title: 'Mercury Gate', path: '/tms/mercury-gate' },
       { title: 'Port Pro', path: '/tms/port-pro' },
-      { title: 'Unbilled Loads', path: '/unbilled-loads' },
     ],
   },
   {
@@ -99,11 +98,11 @@ const navItems: NavigationItem[] = [
   },
   {
     title: 'Finance',
-    path: '/finance',
+    path: '/unbilled-loads',
     icon: DollarSign,
     subItems: [
       { title: 'Unbilled Loads', path: '/unbilled-loads' },
-      { title: 'Per Diem Recon', path: '/per-diem' },
+      { title: 'Per Diem Recon', path: '/perdiem' },
     ],
   },
   { title: 'Settings', path: '/settings', icon: Settings },

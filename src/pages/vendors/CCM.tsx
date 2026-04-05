@@ -1,23 +1,35 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { formatDate } from '@/utils/dateUtils'
+import { safeDate, safeAmount } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 
-interface CcmRecord {
+// ccm_invoice_data actual columns
+interface CcmInvoice {
   id: string
+  invoice_number: string
+  invoice_date: string
+  due_date: string
+  terms: string
+  billing_period: string
+  bill_from_party: string
+  bill_to_party: string
+  invoice_total: number
+  starting_usage: number
+  current_usage: number
+  ytd_usage: number
+  source_file: string
+  created_at: string
   [key: string]: unknown
 }
 
 export default function CCMPage() {
-  const [records, setRecords] = useState<CcmRecord[]>([])
+  const [invoices, setInvoices] = useState<CcmInvoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
 
   useEffect(() => {
     async function loadData() {
@@ -25,20 +37,13 @@ export default function CCMPage() {
       setError(null)
       try {
         const { data, error: fetchErr } = await supabase
-          .from('ccm_activity')
+          .from('ccm_invoice_data')
           .select('*')
-          .order('date_out', { ascending: false })
+          .order('invoice_date', { ascending: false })
           .limit(500)
-        if (fetchErr) {
-          // If date_out doesn't exist, try without ordering
-          const retry = await supabase.from('ccm_activity').select('*').limit(500)
-          if (retry.error) throw retry.error
-          setRecords(retry.data || [])
-          return
-        }
-        setRecords(data || [])
-      } catch (err) {
-        console.error('[CCM] load failed:', err)
+        if (fetchErr) throw fetchErr
+        setInvoices(data || [])
+      } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load data')
       } finally {
         setLoading(false)
@@ -47,47 +52,38 @@ export default function CCMPage() {
     loadData()
   }, [])
 
-  const filtered = search
-    ? records.filter(r => String(r.chassis_number || r.chassis || '').toUpperCase().trim().includes(search.toUpperCase().trim()))
-    : records
+  const totalInvoices = invoices.length
+  const totalAmount = invoices.reduce((sum, i) => sum + (Number(i.invoice_total) || 0), 0)
+  const totalUsage = invoices.reduce((sum, i) => sum + (Number(i.current_usage) || 0), 0)
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">CCM</h1>
-          <p className="text-muted-foreground">Consolidated Chassis Management — Vendor Dashboard</p>
-        </div>
-        <Link to="/vendors/ccm/invoices/new">
-          <Button>+ Upload Invoice</Button>
-        </Link>
+      <div>
+        <h1 className="text-3xl font-bold">CCM</h1>
+        <p className="text-muted-foreground">Consolidated Chassis Management — Vendor Dashboard</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/20">{error}</div>}
+      {error && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
 
       <Tabs defaultValue="dashboard">
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="activity">Activity ({records.length})</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices ({totalInvoices})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle></CardHeader>
-              <CardContent><p className="text-3xl font-bold">{records.length}</p></CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Invoices</CardTitle></CardHeader>
+              <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{totalInvoices}</p>}</CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Unique Chassis</CardTitle></CardHeader>
-              <CardContent>
-                <p className="text-3xl font-bold">
-                  {new Set(records.map(r => String(r.chassis_number || r.chassis || '').trim()).filter(Boolean)).size}
-                </p>
-              </CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Billed</CardTitle></CardHeader>
+              <CardContent>{loading ? <Skeleton className="h-9 w-24" /> : <p className="text-3xl font-bold">{safeAmount(totalAmount)}</p>}</CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Provider</CardTitle></CardHeader>
-              <CardContent><p className="text-xl font-bold">CCM</p></CardContent>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Current Usage</CardTitle></CardHeader>
+              <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{totalUsage.toLocaleString()}</p>}</CardContent>
             </Card>
           </div>
 
@@ -102,7 +98,7 @@ export default function CCMPage() {
             </Card>
             <Card>
               <CardHeader><CardTitle>Important Notices</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent>
                 <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                   <p className="text-sm font-medium text-yellow-800">Dispute Policy</p>
                   <p className="text-sm text-yellow-700">All billing disputes must be submitted within 45 days.</p>
@@ -112,51 +108,36 @@ export default function CCMPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="activity" className="space-y-4">
-          <div className="flex gap-3">
-            <input
-              type="text"
-              placeholder="Search chassis number..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="flex-1 px-3 py-2 border rounded-md text-sm"
-            />
-            <Button variant="outline" onClick={() => setSearch('')}>Clear</Button>
-          </div>
-          <p className="text-sm text-muted-foreground">{filtered.length} records</p>
-
+        <TabsContent value="invoices" className="space-y-4">
+          <h2 className="text-xl font-semibold">CCM Invoices</h2>
           {loading ? (
-            <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-8 bg-muted animate-pulse rounded" />)}</div>
-          ) : filtered.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No activity records found.</p>
+            <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
           ) : (
             <Card>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Chassis #</TableHead>
-                    <TableHead>Pick Up Location</TableHead>
-                    <TableHead>Location In</TableHead>
-                    <TableHead>Days Out</TableHead>
-                    <TableHead>Date Out</TableHead>
-                    <TableHead>Date In</TableHead>
-                    <TableHead>Pool Contract</TableHead>
-                    <TableHead>Container</TableHead>
-                    <TableHead>SS SCAC</TableHead>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Invoice Date</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Billing Period</TableHead>
+                    <TableHead>Bill From</TableHead>
+                    <TableHead>Usage</TableHead>
+                    <TableHead>Invoice Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.slice(0, 100).map(r => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-mono text-sm">{String(r.chassis_number || r.chassis || '').trim() || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{String(r.pick_up_location || r.pickup_location || '') || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{String(r.location_in || '') || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.days_out ?? 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{formatDate(r.date_out as string)}</TableCell>
-                      <TableCell className="text-sm">{formatDate(r.date_in as string)}</TableCell>
-                      <TableCell className="text-sm">{String(r.pool_contract || '') || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{String(r.container || r.container_number || '') || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{String(r.ss_scac || '') || 'N/A'}</TableCell>
+                  {invoices.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No invoices found.</TableCell></TableRow>
+                  ) : invoices.map(inv => (
+                    <TableRow key={inv.id}>
+                      <TableCell className="font-mono text-sm">{inv.invoice_number || 'N/A'}</TableCell>
+                      <TableCell className="text-sm">{safeDate(inv.invoice_date)}</TableCell>
+                      <TableCell className="text-sm">{safeDate(inv.due_date)}</TableCell>
+                      <TableCell className="text-sm">{inv.billing_period || 'N/A'}</TableCell>
+                      <TableCell className="text-sm">{inv.bill_from_party || 'N/A'}</TableCell>
+                      <TableCell>{inv.current_usage ?? 'N/A'}</TableCell>
+                      <TableCell className="font-medium">{safeAmount(inv.invoice_total)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

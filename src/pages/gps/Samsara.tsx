@@ -39,7 +39,7 @@ export default function SamsaraPage() {
       setLoading(true)
       try {
         const [recRes, fileRes] = await Promise.all([
-          supabase.from('samsara_gps').select('*').order('recorded_at', { ascending: false }).limit(100),
+          supabase.from('samsara_gps').select('*').order('created_at', { ascending: false }).limit(100),
           supabase.from('gps_uploads').select('*').eq('provider', 'Samsara').order('created_at', { ascending: false }),
         ])
         setRecords(recRes.data || [])

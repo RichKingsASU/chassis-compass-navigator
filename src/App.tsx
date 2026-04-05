@@ -15,6 +15,9 @@ const Signup = lazy(() => import('@/pages/Signup'))
 // Main pages
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const ChassisManagement = lazy(() => import('@/pages/ChassisManagement'))
+const ChassisOverview = lazy(() => import('@/pages/ChassisOverview'))
+const LongTermChassis = lazy(() => import('@/pages/LongTermChassis'))
+const ShortTermChassis = lazy(() => import('@/pages/ShortTermChassis'))
 const ChassisDetail = lazy(() => import('@/pages/ChassisDetail'))
 const ChassisLocator = lazy(() => import('@/pages/ChassisLocator'))
 const ChassisValidation = lazy(() => import('@/pages/ChassisValidation'))
@@ -23,8 +26,13 @@ const TMSData = lazy(() => import('@/pages/TMSData'))
 const GpsOverview = lazy(() => import('@/pages/GpsOverview'))
 const Settings = lazy(() => import('@/pages/Settings'))
 const VendorValidation = lazy(() => import('@/pages/VendorValidation'))
-const YardReportOverview = lazy(() => import('@/pages/YardReportOverview'))
+const ActiveLoads = lazy(() => import('@/pages/ActiveLoads'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
+const UnbilledLoadsPage = lazy(() => import('@/features/unbilled-loads/UnbilledLoadsPage'))
+const PerDiemPage = lazy(() => import('@/features/perdiem/PerDiemPage'))
+
+// PerDiem reconciliation (alias for route compatibility)
+const PerDiemReconciliationPage = PerDiemPage
 
 // GPS Provider pages
 const Samsara = lazy(() => import('@/pages/gps/Samsara'))
@@ -38,9 +46,7 @@ const MercuryGate = lazy(() => import('@/pages/tms/MercuryGate'))
 const PortPro = lazy(() => import('@/pages/tms/PortPro'))
 
 // Yard pages
-const POLAYard = lazy(() => import('@/pages/yards/POLAYard'))
-const JEDYard = lazy(() => import('@/pages/yards/JEDYard'))
-const YardToolPage = lazy(() => import('@/pages/YardToolPage'))
+const YardManagementHub = lazy(() => import('@/pages/YardManagementHub'))
 
 // Vendor pages
 const DCLI = lazy(() => import('@/pages/vendors/DCLI'))
@@ -49,13 +55,18 @@ const TRAC = lazy(() => import('@/pages/vendors/TRAC'))
 const FLEXIVAN = lazy(() => import('@/pages/vendors/FLEXIVAN'))
 const WCCP = lazy(() => import('@/pages/vendors/WCCP'))
 const SCSPA = lazy(() => import('@/pages/vendors/SCSPA'))
+const VendorComingSoon = lazy(() => import('@/pages/vendors/VendorComingSoon'))
 
 // DCLI invoice pages
 const DCLINewInvoice = lazy(() => import('@/pages/dcli/NewInvoice'))
 const DCLIInvoiceReview = lazy(() => import('@/pages/dcli/InvoiceReview'))
 const DCLIInvoiceDetail = lazy(() => import('@/pages/dcli/InvoiceDetail'))
+const DCLIInvoiceTracker = lazy(() => import('@/pages/dcli/InvoiceTracker'))
 const DCLIInvoiceLineDetails = lazy(() => import('@/pages/dcli/InvoiceLineDetails'))
 const DCLIInvoiceLineDispute = lazy(() => import('@/pages/dcli/InvoiceLineDispute'))
+const DCLIActivity = lazy(() => import('@/pages/dcli/Activity'))
+const DCLIFinancials = lazy(() => import('@/pages/dcli/Financials'))
+const DCLIDocuments = lazy(() => import('@/pages/dcli/Documents'))
 
 // CCM invoice pages
 const CCMNewInvoice = lazy(() => import('@/pages/ccm/NewInvoice'))
@@ -125,10 +136,18 @@ export default function App() {
 
                   {/* Chassis */}
                   <Route path="/chassis" element={<ProtectedPage><ChassisManagement /></ProtectedPage>} />
+                  <Route path="/chassis/overview" element={<ProtectedPage><ChassisOverview /></ProtectedPage>} />
+                  <Route path="/chassis/long-term" element={<ProtectedPage><LongTermChassis /></ProtectedPage>} />
+                  <Route path="/chassis/short-term" element={<ProtectedPage><ShortTermChassis /></ProtectedPage>} />
                   <Route path="/chassis/:id" element={<ProtectedPage><ChassisDetail /></ProtectedPage>} />
                   <Route path="/chassis/locator" element={<ProtectedPage><ChassisLocator /></ProtectedPage>} />
                   <Route path="/validation" element={<ProtectedPage><ChassisValidation /></ProtectedPage>} />
                   <Route path="/utilization" element={<ProtectedPage><ChassisUtilization /></ProtectedPage>} />
+
+                  {/* Active Loads / Unbilled / Finance */}
+                  <Route path="/active-loads" element={<ProtectedPage><ActiveLoads /></ProtectedPage>} />
+                  <Route path="/unbilled-loads" element={<ProtectedPage><UnbilledLoadsPage /></ProtectedPage>} />
+                  <Route path="/perdiem-reconciliation" element={<ProtectedPage><PerDiemReconciliationPage /></ProtectedPage>} />
 
                   {/* TMS */}
                   <Route path="/tms" element={<ProtectedPage><TMSData /></ProtectedPage>} />
@@ -136,10 +155,7 @@ export default function App() {
                   <Route path="/tms/port-pro" element={<ProtectedPage><PortPro /></ProtectedPage>} />
 
                   {/* Yards */}
-                  <Route path="/yards" element={<ProtectedPage><YardReportOverview /></ProtectedPage>} />
-                  <Route path="/yards/pola" element={<ProtectedPage><POLAYard /></ProtectedPage>} />
-                  <Route path="/yards/jed" element={<ProtectedPage><JEDYard /></ProtectedPage>} />
-                  <Route path="/yard" element={<ProtectedPage><YardToolPage /></ProtectedPage>} />
+                  <Route path="/yard" element={<ProtectedPage><YardManagementHub /></ProtectedPage>} />
 
                   {/* GPS */}
                   <Route path="/gps" element={<ProtectedPage><GpsOverview /></ProtectedPage>} />
@@ -152,21 +168,36 @@ export default function App() {
                   {/* Vendors */}
                   <Route path="/vendor-validation" element={<ProtectedPage><VendorValidation /></ProtectedPage>} />
                   <Route path="/vendors/dcli" element={<ProtectedPage><DCLI /></ProtectedPage>} />
+                  <Route path="/vendors/dcli/invoices" element={<ProtectedPage><DCLIInvoiceTracker /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoices/new" element={<ProtectedPage><DCLINewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/dcli/invoices/tracker" element={<ProtectedPage><DCLIInvoiceTracker /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoices/:invoiceId/review" element={<ProtectedPage><DCLIInvoiceReview /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoices/:invoiceId/detail" element={<ProtectedPage><DCLIInvoiceDetail /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoice-line/:lineId" element={<ProtectedPage><DCLIInvoiceLineDetails /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoice-line/:lineId/dispute" element={<ProtectedPage><DCLIInvoiceLineDispute /></ProtectedPage>} />
+                  <Route path="/vendors/dcli/activity" element={<ProtectedPage><DCLIActivity /></ProtectedPage>} />
+                  <Route path="/vendors/dcli/financials" element={<ProtectedPage><DCLIFinancials /></ProtectedPage>} />
+                  <Route path="/vendors/dcli/documents" element={<ProtectedPage><DCLIDocuments /></ProtectedPage>} />
 
                   <Route path="/vendors/ccm" element={<ProtectedPage><CCM /></ProtectedPage>} />
                   <Route path="/vendors/ccm/invoices/new" element={<ProtectedPage><CCMNewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/ccm/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/ccm/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/ccm/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
                   <Route path="/vendors/ccm/invoice-line/:lineId" element={<ProtectedPage><CCMInvoiceLineDetails /></ProtectedPage>} />
 
                   <Route path="/vendors/scspa" element={<ProtectedPage><SCSPA /></ProtectedPage>} />
                   <Route path="/vendors/scspa/invoices/new" element={<ProtectedPage><SCSPANewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/scspa/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/scspa/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/scspa/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
 
                   <Route path="/vendors/trac" element={<ProtectedPage><TRAC /></ProtectedPage>} />
                   <Route path="/vendors/trac/invoices/new" element={<ProtectedPage><TRACNewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/trac/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/trac/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/trac/financials" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/trac/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
                   <Route path="/vendors/trac/invoices/:invoiceId/review" element={<ProtectedPage><TRACInvoiceReview /></ProtectedPage>} />
                   <Route path="/vendors/trac/invoices/:invoiceId/validate" element={<ProtectedPage><TRACInvoiceValidate /></ProtectedPage>} />
                   <Route path="/vendors/trac/invoice-line/:lineId" element={<ProtectedPage><TRACInvoiceLineDetails /></ProtectedPage>} />
@@ -174,9 +205,16 @@ export default function App() {
 
                   <Route path="/vendors/flexivan" element={<ProtectedPage><FLEXIVAN /></ProtectedPage>} />
                   <Route path="/vendors/flexivan/invoices/new" element={<ProtectedPage><FLEXIVANNewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/flexivan/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/flexivan/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/flexivan/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
 
                   <Route path="/vendors/wccp" element={<ProtectedPage><WCCP /></ProtectedPage>} />
                   <Route path="/vendors/wccp/invoices/new" element={<ProtectedPage><WCCPNewInvoice /></ProtectedPage>} />
+                  <Route path="/vendors/wccp/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/wccp/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/wccp/financials" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+                  <Route path="/vendors/wccp/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
                   <Route path="/vendors/wccp/invoices/:invoiceId/review" element={<ProtectedPage><WCCPInvoiceReview /></ProtectedPage>} />
                   <Route path="/vendors/wccp/invoice-line/:lineId" element={<ProtectedPage><WCCPInvoiceLineDetails /></ProtectedPage>} />
                   <Route path="/vendors/wccp/invoice-line/:lineId/dispute" element={<ProtectedPage><WCCPInvoiceLineDispute /></ProtectedPage>} />
@@ -189,6 +227,10 @@ export default function App() {
                   <Route path="/invoices" element={<ProtectedPage><InvoicesList /></ProtectedPage>} />
                   <Route path="/invoices/:invoiceId/details/:lineId" element={<ProtectedPage><InvoiceLineDetails /></ProtectedPage>} />
                   <Route path="/invoices/:invoiceId/dispute/:lineId" element={<ProtectedPage><InvoiceLineDispute /></ProtectedPage>} />
+
+                  {/* Finance */}
+                  <Route path="/unbilled-loads" element={<ProtectedPage><UnbilledLoadsPage /></ProtectedPage>} />
+                  <Route path="/perdiem" element={<ProtectedPage><PerDiemPage /></ProtectedPage>} />
 
                   {/* Settings */}
                   <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />

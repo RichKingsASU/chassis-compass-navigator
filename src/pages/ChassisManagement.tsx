@@ -1,47 +1,61 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { formatDate } from '@/utils/dateUtils'
 import { safeDate, safeAmount } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
+// long_term_lease_owned actual columns
 interface LongTermChassis {
-  id: number
-  chassis_number: string
-  status: string
-  category: string
+  id: string
+  forrest_chz: string
+  chassis_status: string
+  chassis_category: string
   lessor: string
-  type: string
+  forrest_chassis_type: string
   region: string
-  rate_per_day: number
+  current_rate_per_day: string
   gps_provider: string
+  forrest_on_hire_date: string
+  forrest_off_hire_date: string
+  contract_status: string
+  notes: string
+  description: string
+  [key: string]: unknown
+}
+
+// short_term_lease actual columns
+interface ShortTermLease {
+  id: string
+  booking: string
   on_hire_date: string
   off_hire_date: string
-  contract_status: string
+  rate_per_day: string
+  size_type: string
+  location: string
+  paid_amount_w_tax: string
+  days_out: string
+  repair_costs_billed_by_milestone: string
+  total_repair_costs_forrest: string
   notes: string
   [key: string]: unknown
 }
 
-interface ShortTermChassis {
-  id: number
-  chassis_number: string
-  status: string
-  lessor: string
-  on_hire_date: string
-  off_hire_date: string
-  rate_per_day: number
-  paid_amount: number
-  repair_costs: number
-  [key: string]: unknown
+function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+  const s = status?.toLowerCase() || ''
+  if (s.includes('active') || s.includes('on hire') || s.includes('in use')) return 'default'
+  if (s.includes('available')) return 'secondary'
+  if (s.includes('off') || s.includes('maintenance')) return 'destructive'
+  return 'outline'
 }
 
 export default function ChassisManagement() {
   const [longTerm, setLongTerm] = useState<LongTermChassis[]>([])
-  const [shortTerm, setShortTerm] = useState<ShortTermChassis[]>([])
+  const [shortTerm, setShortTerm] = useState<ShortTermLease[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -50,17 +64,17 @@ export default function ChassisManagement() {
   useEffect(() => {
     async function load() {
       setLoading(true)
+      setError(null)
       try {
         const [ltRes, stRes] = await Promise.all([
-          supabase.from('long_term_lease_owned').select('*').order('chassis_number').limit(500),
-          supabase.from('short_term_lease').select('*').order('chassis_number').limit(500),
+          supabase.from('long_term_lease_owned').select('*').order('forrest_chz').limit(1000),
+          supabase.from('short_term_lease').select('*').order('booking').limit(500),
         ])
         if (ltRes.error) throw ltRes.error
         if (stRes.error) throw stRes.error
         setLongTerm(ltRes.data || [])
         setShortTerm(stRes.data || [])
-      } catch (err) {
-        console.error('[ChassisManagement] load failed:', err)
+      } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load chassis data')
       } finally {
         setLoading(false)
@@ -69,16 +83,16 @@ export default function ChassisManagement() {
     load()
   }, [])
 
-  const total = longTerm.length + shortTerm.length
-  const active = longTerm.filter(c => !c.status?.toLowerCase().includes('offhired')).length
-    + shortTerm.filter(c => !c.status?.toLowerCase().includes('offhired')).length
-  const available = total - active
+  const totalChassis = longTerm.length + shortTerm.length
+  const activeChassis = longTerm.filter(c => !c.chassis_status?.toLowerCase().includes('off')).length
+  const availableChassis = totalChassis - activeChassis
 
   const filteredLT = search
-    ? longTerm.filter(c => c.chassis_number?.toUpperCase().includes(search.toUpperCase().trim()))
+    ? longTerm.filter(c => c.forrest_chz?.trim().toUpperCase().includes(search.toUpperCase()) || c.lessor?.toUpperCase().includes(search.toUpperCase()))
     : longTerm
+
   const filteredST = search
-    ? shortTerm.filter(c => c.chassis_number?.toUpperCase().includes(search.toUpperCase().trim()))
+    ? shortTerm.filter(c => c.booking?.trim().toUpperCase().includes(search.toUpperCase()) || c.location?.toUpperCase().includes(search.toUpperCase()))
     : shortTerm
 
   return (
@@ -88,150 +102,191 @@ export default function ChassisManagement() {
         <p className="text-muted-foreground">Fleet chassis inventory and status tracking</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/20">{error}</div>}
+      {error && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Chassis</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{total.toLocaleString()}</p></CardContent>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{totalChassis.toLocaleString()}</p>}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Active / In Use</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold text-green-600">{active}</p></CardContent>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold text-green-600">{activeChassis}</p>}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Available</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold text-blue-600">{available}</p></CardContent>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold text-blue-600">{availableChassis}</p>}</CardContent>
         </Card>
       </div>
 
       <div className="flex gap-3 flex-wrap">
-        <input
-          type="text"
-          placeholder="Search chassis number..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-48 px-3 py-2 border rounded-md text-sm"
-        />
+        <input type="text" placeholder="Search chassis number or lessor..." value={search} onChange={e => setSearch(e.target.value)} className="flex-1 min-w-48 px-3 py-2 border rounded-md text-sm" />
         <Button variant="outline" onClick={() => setSearch('')}>Clear</Button>
       </div>
 
-      <Tabs defaultValue="long-term">
+      <Tabs defaultValue="overview">
         <TabsList>
-          <TabsTrigger value="long-term">Long Term ({longTerm.length})</TabsTrigger>
-          <TabsTrigger value="short-term">Short Term ({shortTerm.length})</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="long-term">Long Term Lease ({longTerm.length})</TabsTrigger>
+          <TabsTrigger value="short-term">Short Term Lease ({shortTerm.length})</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="long-term">
+        <TabsContent value="overview" className="space-y-4">
           <Card>
-            <CardContent className="pt-4">
+            <CardHeader><CardTitle>Long Term Lease / Owned</CardTitle></CardHeader>
+            <CardContent>
               {loading ? (
-                <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-8 bg-muted animate-pulse rounded" />)}</div>
-              ) : filteredLT.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No chassis found.</p>
+                <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Chassis #</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Lessor</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Region</TableHead>
-                        <TableHead>GPS Provider</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Chassis #</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Lessor</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Region</TableHead>
+                      <TableHead>GPS Provider</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLT.length === 0 ? (
+                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
+                    ) : filteredLT.slice(0, 100).map(c => (
+                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedChassis(c)}>
+                        <TableCell className="font-mono font-medium">{c.forrest_chz?.trim()}</TableCell>
+                        <TableCell><Badge variant={getStatusVariant(c.chassis_status)}>{c.chassis_status || 'N/A'}</Badge></TableCell>
+                        <TableCell>{c.chassis_category || 'N/A'}</TableCell>
+                        <TableCell>{c.lessor || 'N/A'}</TableCell>
+                        <TableCell>{c.forrest_chassis_type || 'N/A'}</TableCell>
+                        <TableCell>{c.region || 'N/A'}</TableCell>
+                        <TableCell>{c.gps_provider || 'N/A'}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredLT.slice(0, 100).map(c => (
-                        <TableRow
-                          key={c.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => setSelectedChassis(c)}
-                        >
-                          <TableCell className="font-mono font-medium">{c.chassis_number?.trim()}</TableCell>
-                          <TableCell><Badge variant="outline">{c.status || 'N/A'}</Badge></TableCell>
-                          <TableCell className="text-sm">{c.lessor || 'N/A'}</TableCell>
-                          <TableCell className="text-sm">{c.category || 'N/A'}</TableCell>
-                          <TableCell className="text-sm">{c.region || 'N/A'}</TableCell>
-                          <TableCell className="text-sm">{c.gps_provider || 'N/A'}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
-              {filteredLT.length > 100 && <p className="text-sm text-muted-foreground text-center mt-2">Showing 100 of {filteredLT.length} chassis.</p>}
+              {filteredLT.length > 100 && <p className="text-sm text-muted-foreground text-center mt-2">Showing 100 of {filteredLT.length}.</p>}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="short-term">
+        <TabsContent value="long-term" className="space-y-4">
           <Card>
             <CardContent className="pt-4">
               {loading ? (
-                <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-8 bg-muted animate-pulse rounded" />)}</div>
-              ) : filteredST.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No short term chassis found.</p>
+                <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Chassis #</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Lessor</TableHead>
-                        <TableHead>On Hire</TableHead>
-                        <TableHead>Off Hire</TableHead>
-                        <TableHead>Rate/Day</TableHead>
-                        <TableHead>Paid Amount</TableHead>
-                        <TableHead>Repair Costs</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Chassis #</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Lessor</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Region</TableHead>
+                      <TableHead>Rate/Day</TableHead>
+                      <TableHead>GPS Provider</TableHead>
+                      <TableHead>On Hire</TableHead>
+                      <TableHead>Off Hire</TableHead>
+                      <TableHead>Contract</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLT.length === 0 ? (
+                      <TableRow><TableCell colSpan={11} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
+                    ) : filteredLT.slice(0, 100).map(c => (
+                      <TableRow key={c.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedChassis(c)}>
+                        <TableCell className="font-mono font-medium">{c.forrest_chz?.trim()}</TableCell>
+                        <TableCell><Badge variant={getStatusVariant(c.chassis_status)}>{c.chassis_status || 'N/A'}</Badge></TableCell>
+                        <TableCell>{c.chassis_category || 'N/A'}</TableCell>
+                        <TableCell>{c.lessor || 'N/A'}</TableCell>
+                        <TableCell>{c.forrest_chassis_type || 'N/A'}</TableCell>
+                        <TableCell>{c.region || 'N/A'}</TableCell>
+                        <TableCell>{safeAmount(c.current_rate_per_day)}</TableCell>
+                        <TableCell>{c.gps_provider || 'N/A'}</TableCell>
+                        <TableCell>{safeDate(c.forrest_on_hire_date)}</TableCell>
+                        <TableCell>{safeDate(c.forrest_off_hire_date)}</TableCell>
+                        <TableCell>{c.contract_status || 'N/A'}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredST.slice(0, 100).map(c => (
-                        <TableRow key={c.id}>
-                          <TableCell className="font-mono font-medium">{c.chassis_number?.trim()}</TableCell>
-                          <TableCell><Badge variant="outline">{c.status || 'N/A'}</Badge></TableCell>
-                          <TableCell className="text-sm">{c.lessor || 'N/A'}</TableCell>
-                          <TableCell className="text-sm">{safeDate(c.on_hire_date)}</TableCell>
-                          <TableCell className="text-sm">{safeDate(c.off_hire_date)}</TableCell>
-                          <TableCell className="text-sm">{safeAmount(c.rate_per_day)}</TableCell>
-                          <TableCell className="text-sm">{safeAmount(c.paid_amount)}</TableCell>
-                          <TableCell className="text-sm">{safeAmount(c.repair_costs)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="short-term" className="space-y-4">
+          <Card>
+            <CardContent className="pt-4">
+              {loading ? (
+                <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Booking / Chassis</TableHead>
+                      <TableHead>Size/Type</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>On Hire</TableHead>
+                      <TableHead>Off Hire</TableHead>
+                      <TableHead>Rate/Day</TableHead>
+                      <TableHead>Days Out</TableHead>
+                      <TableHead>Paid Amount</TableHead>
+                      <TableHead>Repair Costs</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredST.length === 0 ? (
+                      <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
+                    ) : filteredST.slice(0, 100).map(c => (
+                      <TableRow key={c.id}>
+                        <TableCell className="font-mono font-medium">{c.booking?.trim() || 'N/A'}</TableCell>
+                        <TableCell>{c.size_type || 'N/A'}</TableCell>
+                        <TableCell>{c.location || 'N/A'}</TableCell>
+                        <TableCell>{safeDate(c.on_hire_date)}</TableCell>
+                        <TableCell>{safeDate(c.off_hire_date)}</TableCell>
+                        <TableCell>{safeAmount(c.rate_per_day)}</TableCell>
+                        <TableCell>{c.days_out || 'N/A'}</TableCell>
+                        <TableCell>{safeAmount(c.paid_amount_w_tax)}</TableCell>
+                        <TableCell>{safeAmount(c.repair_costs_billed_by_milestone)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Long Term Detail Drawer */}
-      <Sheet open={!!selectedChassis} onOpenChange={() => setSelectedChassis(null)}>
-        <SheetContent side="right">
+      <Sheet open={!!selectedChassis} onOpenChange={open => { if (!open) setSelectedChassis(null) }}>
+        <SheetContent>
           <SheetHeader>
-            <SheetTitle className="font-mono">{selectedChassis?.chassis_number?.trim()}</SheetTitle>
-            <SheetDescription>Long Term Chassis Details</SheetDescription>
+            <SheetTitle className="font-mono">{selectedChassis?.forrest_chz?.trim()}</SheetTitle>
+            <SheetDescription>Long Term Lease Details</SheetDescription>
           </SheetHeader>
           {selectedChassis && (
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm mt-6">
-              <Field label="Chassis #" value={selectedChassis.chassis_number?.trim()} />
-              <Field label="Status" value={selectedChassis.status} />
-              <Field label="Category" value={selectedChassis.category} />
-              <Field label="Lessor" value={selectedChassis.lessor} />
-              <Field label="Type" value={selectedChassis.type} />
-              <Field label="Region" value={selectedChassis.region} />
-              <Field label="Rate/Day" value={safeAmount(selectedChassis.rate_per_day)} />
-              <Field label="GPS Provider" value={selectedChassis.gps_provider} />
-              <Field label="On Hire" value={safeDate(selectedChassis.on_hire_date)} />
-              <Field label="Off Hire" value={safeDate(selectedChassis.off_hire_date)} />
-              <Field label="Contract Status" value={selectedChassis.contract_status} />
-              <Field label="Notes" value={selectedChassis.notes} />
-            </dl>
+            <div className="mt-6 space-y-4">
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <DetailField label="Chassis #" value={selectedChassis.forrest_chz?.trim()} />
+                <DetailField label="Status" value={selectedChassis.chassis_status} />
+                <DetailField label="Category" value={selectedChassis.chassis_category} />
+                <DetailField label="Lessor" value={selectedChassis.lessor} />
+                <DetailField label="Type" value={selectedChassis.forrest_chassis_type} />
+                <DetailField label="Region" value={selectedChassis.region} />
+                <DetailField label="Description" value={selectedChassis.description} />
+                <DetailField label="Rate/Day" value={safeAmount(selectedChassis.current_rate_per_day)} />
+                <DetailField label="GPS Provider" value={selectedChassis.gps_provider} />
+                <DetailField label="On Hire" value={safeDate(selectedChassis.forrest_on_hire_date)} />
+                <DetailField label="Off Hire" value={safeDate(selectedChassis.forrest_off_hire_date)} />
+                <DetailField label="Contract Status" value={selectedChassis.contract_status} />
+                <DetailField label="Notes" value={selectedChassis.notes} />
+              </dl>
+            </div>
           )}
         </SheetContent>
       </Sheet>
@@ -239,11 +294,11 @@ export default function ChassisManagement() {
   )
 }
 
-function Field({ label, value }: { label: string; value?: string | number | null }) {
+function DetailField({ label, value }: { label: string; value?: string | number | null }) {
   return (
     <div>
       <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className="font-medium">{value ?? 'N/A'}</dd>
+      <dd className="font-medium">{value || 'N/A'}</dd>
     </div>
   )
 }

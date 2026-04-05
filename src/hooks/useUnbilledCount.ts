@@ -6,22 +6,27 @@ export function useUnbilledCount() {
   const [totalAtRisk, setTotalAtRisk] = useState(0)
 
   useEffect(() => {
-    async function fetch() {
+    async function load() {
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('mg_data')
-          .select('cust_rate_charge')
-          .eq('unbilledflag', 'Y')
+          .select('customer_rate_amount, customer_inv_amount')
           .not('status', 'in', '("Cancelled","Void")')
-        if (error) throw error
-        const rows = data || []
-        setCount(rows.length)
-        setTotalAtRisk(rows.reduce((s, r) => s + (Number(r.cust_rate_charge) || 0), 0))
-      } catch (err) {
-        console.error('[useUnbilledCount] load failed:', err)
+          .neq('zero_rev', 'Y')
+        if (data) {
+          const unbilled = data.filter(r => {
+            const rate = parseFloat(r.customer_rate_amount) || 0
+            const inv = parseFloat(r.customer_inv_amount) || 0
+            return rate > 0 && inv === 0
+          })
+          setCount(unbilled.length)
+          setTotalAtRisk(unbilled.reduce((s, r) => s + (parseFloat(r.customer_rate_amount) || 0), 0))
+        }
+      } catch {
+        // silently fail
       }
     }
-    fetch()
+    load()
   }, [])
 
   return { count, totalAtRisk }

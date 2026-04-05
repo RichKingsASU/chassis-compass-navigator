@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
-interface FreshnessRecord {
+interface FreshnessEntry {
   refreshedAt: Date
   rowCount: number
 }
 
 export function useDataFreshness() {
-  const [data, setData] = useState<Record<string, FreshnessRecord>>({})
+  const [freshness, setFreshness] = useState<Record<string, FreshnessEntry>>({})
 
   useEffect(() => {
-    async function fetch() {
+    async function load() {
       try {
-        const { data: rows } = await supabase
+        const { data } = await supabase
           .from('data_refresh_log')
           .select('table_name, refreshed_at, row_count')
           .order('refreshed_at', { ascending: false })
-        if (!rows) return
-        const map: Record<string, FreshnessRecord> = {}
-        for (const row of rows) {
+        if (!data) return
+        const map: Record<string, FreshnessEntry> = {}
+        for (const row of data) {
           if (!map[row.table_name]) {
             map[row.table_name] = {
               refreshedAt: new Date(row.refreshed_at),
@@ -26,15 +26,15 @@ export function useDataFreshness() {
             }
           }
         }
-        setData(map)
-      } catch (err) {
-        console.error('[useDataFreshness] load failed:', err)
+        setFreshness(map)
+      } catch {
+        // table may not exist yet
       }
     }
-    fetch()
-    const interval = setInterval(fetch, 60_000)
+    load()
+    const interval = setInterval(load, 60_000)
     return () => clearInterval(interval)
   }, [])
 
-  return data
+  return freshness
 }
