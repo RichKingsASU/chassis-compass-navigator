@@ -16,7 +16,6 @@ SELECT
   id,
   ld_num,
   so_num,
-  shipment_number,
   chassis_number,
   container_number,
   container_description                          AS container_type,
