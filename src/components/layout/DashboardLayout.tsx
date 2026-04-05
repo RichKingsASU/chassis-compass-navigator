@@ -11,7 +11,7 @@ import {
   Settings,
   MapPin,
   Database,
-  FileText,
+  Warehouse,
   BarChart3,
 } from 'lucide-react'
 
@@ -20,15 +20,7 @@ const navItems = [
   { title: 'Chassis Management', path: '/chassis', icon: Truck },
   { title: 'Utilization', path: '/utilization', icon: BarChart3 },
   { title: 'TMS Data', path: '/tms', icon: Database },
-  {
-    title: 'Yard Report',
-    path: '/yards',
-    icon: FileText,
-    subItems: [
-      { title: 'PIER S', path: '/yards/pola' },
-      { title: 'JED YARD', path: '/yards/jed' },
-    ],
-  },
+  { title: 'Yard Management', path: '/yard', icon: Warehouse },
   {
     title: 'GPS Providers',
     path: '/gps',

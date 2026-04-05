@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Polyline } from '@react-google-maps/api'
 import { supabase } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -93,6 +94,7 @@ interface GpsRecord {
   recorded_at: string | null
   speed: number | null
   heading: number | null
+  raw_data: unknown
 }
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -428,37 +430,7 @@ export default function ChassisDetail() {
 
         {/* ── GPS History Tab ── */}
         <TabsContent value="gps" className="space-y-4">
-          <Card>
-            <CardHeader><CardTitle>GPS Position History</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Recorded At</TableHead>
-                    <TableHead>Coordinates</TableHead>
-                    <TableHead>Speed</TableHead>
-                    <TableHead>Heading</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {gpsHistory.length === 0 ? (
-                    <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground">No GPS history.</TableCell></TableRow>
-                  ) : gpsHistory.map(g => (
-                    <TableRow key={g.id}>
-                      <TableCell>{formatDate(g.recorded_at)}</TableCell>
-                      <TableCell className="text-xs font-mono">
-                        {g.latitude != null && g.longitude != null
-                          ? `${g.latitude.toFixed(5)}, ${g.longitude.toFixed(5)}`
-                          : 'N/A'}
-                      </TableCell>
-                      <TableCell>{g.speed != null ? `${g.speed} mph` : 'N/A'}</TableCell>
-                      <TableCell>{g.heading != null ? `${g.heading}°` : 'N/A'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <GpsHistoryTab gpsHistory={gpsHistory} loads={loads} />
         </TabsContent>
 
         {/* ── Terminal Events Tab ── */}
@@ -495,6 +467,353 @@ export default function ChassisDetail() {
         </TabsContent>
       </Tabs>
     </div>
+  )
+}
+
+// ── GPS History Tab ─────────────────────────────────────────
+
+const POLYLINE_COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#14b8a6']
+
+function parseRawData(raw: unknown): Record<string, unknown> {
+  if (!raw) return {}
+  if (typeof raw === 'string') { try { return JSON.parse(raw) } catch { return {} } }
+  if (typeof raw === 'object') return raw as Record<string, unknown>
+  return {}
+}
+
+function markerColor(locationName: string | null): string {
+  if (!locationName) return 'red'
+  const n = locationName.toLowerCase()
+  if (n.includes('terminal') || n.includes('gateway')) return 'red'
+  if (n.includes('yard') || n.includes('depot') || n.includes('staging')) return 'orange'
+  if (n.includes('origin') || n.includes('loading')) return 'green'
+  if (n.includes('delivery') || n.includes('unloading')) return 'blue'
+  return 'purple'
+}
+
+function markerUrl(color: string): string {
+  return `https://maps.google.com/mapfiles/ms/icons/${color}-dot.png`
+}
+
+function fmtDateTime(dt: string | null): string {
+  if (!dt) return 'N/A'
+  const d = new Date(dt)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+}
+
+function GpsHistoryTab({ gpsHistory, loads }: { gpsHistory: GpsRecord[]; loads: Load[] }) {
+  const [apiKey, setApiKey] = useState<string | null>(null)
+  const [loadingKey, setLoadingKey] = useState(true)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [selectedPing, setSelectedPing] = useState<GpsRecord | null>(null)
+
+  useEffect(() => {
+    async function fetchKey() {
+      try {
+        const { data } = await supabase
+          .from('app_settings').select('value').eq('key', 'google_maps_api_key').single()
+        setApiKey(data?.value || null)
+      } catch { setApiKey(null) }
+      finally { setLoadingKey(false) }
+    }
+    fetchKey()
+  }, [])
+
+  // Default date range from data
+  useEffect(() => {
+    if (gpsHistory.length === 0) return
+    const dates = gpsHistory.filter(g => g.recorded_at).map(g => g.recorded_at!)
+    if (dates.length > 0) {
+      setDateFrom(dates[0].slice(0, 10))
+      setDateTo(dates[dates.length - 1].slice(0, 10))
+    }
+  }, [gpsHistory])
+
+  const filteredPings = useMemo(() => {
+    return gpsHistory.filter(g => {
+      if (!g.recorded_at || g.latitude == null || g.longitude == null) return false
+      const d = g.recorded_at.slice(0, 10)
+      if (dateFrom && d < dateFrom) return false
+      if (dateTo && d > dateTo) return false
+      return true
+    })
+  }, [gpsHistory, dateFrom, dateTo])
+
+  const loadsByNum = useMemo(() => {
+    const m = new Map<string, Load>()
+    loads.forEach(l => m.set(l.ld_num, l))
+    return m
+  }, [loads])
+
+  const uniqueLoads = useMemo(() => {
+    const s = new Set<string>()
+    filteredPings.forEach(g => {
+      const rd = parseRawData(g.raw_data)
+      const ln = rd.load_number as string | undefined
+      if (ln) s.add(ln)
+    })
+    return s
+  }, [filteredPings])
+
+  // Group pings by load_number for polylines
+  const polylineGroups = useMemo(() => {
+    const groups = new Map<string, { lat: number; lng: number }[]>()
+    filteredPings.forEach(g => {
+      const rd = parseRawData(g.raw_data)
+      const ln = (rd.load_number as string) || '__no_load__'
+      if (!groups.has(ln)) groups.set(ln, [])
+      groups.get(ln)!.push({ lat: g.latitude!, lng: g.longitude! })
+    })
+    return groups
+  }, [filteredPings])
+
+  // Markers: only where location_name is not null
+  const markers = useMemo(() => {
+    return filteredPings.filter(g => {
+      const rd = parseRawData(g.raw_data)
+      return (rd.location_name as string | null) != null
+    })
+  }, [filteredPings])
+
+  const resetDates = () => {
+    if (gpsHistory.length === 0) return
+    const dates = gpsHistory.filter(g => g.recorded_at).map(g => g.recorded_at!)
+    if (dates.length > 0) {
+      setDateFrom(dates[0].slice(0, 10))
+      setDateTo(dates[dates.length - 1].slice(0, 10))
+    }
+  }
+
+  const tableRows = filteredPings.slice(0, 200)
+  const truncated = filteredPings.length > 200
+
+  return (
+    <>
+      {/* Date filter bar */}
+      <Card>
+        <CardContent className="py-3">
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="text-sm font-medium">From</label>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              className="border rounded px-2 py-1 text-sm" />
+            <label className="text-sm font-medium">To</label>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              className="border rounded px-2 py-1 text-sm" />
+            <button onClick={resetDates}
+              className="text-sm px-3 py-1 rounded bg-muted hover:bg-muted/80 font-medium">All</button>
+            <Badge variant="secondary">
+              {filteredPings.length} pings &middot; {uniqueLoads.size} loads
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Map */}
+      <Card>
+        <CardContent className="p-0">
+          {loadingKey ? (
+            <div className="h-[420px] flex items-center justify-center bg-gradient-to-br from-blue-100 via-green-50 to-teal-100 rounded-lg">
+              <p className="text-muted-foreground">Loading map configuration...</p>
+            </div>
+          ) : !apiKey ? (
+            <div className="h-[420px] flex items-center justify-center bg-gradient-to-br from-blue-100 via-green-50 to-teal-100 rounded-lg border-2 border-dashed border-muted-foreground/20">
+              <p className="text-muted-foreground">Add Google Maps API key in <a href="/settings" className="text-teal-600 underline">Settings &rarr; Integrations</a></p>
+            </div>
+          ) : filteredPings.length === 0 ? (
+            <div className="h-[420px] flex items-center justify-center bg-gradient-to-br from-blue-100 via-green-50 to-teal-100 rounded-lg">
+              <p className="text-muted-foreground">No GPS data for selected date range</p>
+            </div>
+          ) : (
+            <GpsMapInner
+              apiKey={apiKey}
+              filteredPings={filteredPings}
+              polylineGroups={polylineGroups}
+              markers={markers}
+              selectedPing={selectedPing}
+              setSelectedPing={setSelectedPing}
+              loadsByNum={loadsByNum}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>GPS Pings</CardTitle>
+            {truncated && <span className="text-sm text-muted-foreground">Showing 200 of {filteredPings.length} pings</span>}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Recorded At</TableHead>
+                  <TableHead>Load #</TableHead>
+                  <TableHead>TMS Route</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Speed</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tableRows.length === 0 ? (
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No GPS history.</TableCell></TableRow>
+                ) : tableRows.map(g => {
+                  const rd = parseRawData(g.raw_data)
+                  const loadNum = rd.load_number as string | null
+                  const loc = rd.location_name as string | null
+                  const status = rd.status as string | null
+                  const load = loadNum ? loadsByNum.get(loadNum) : undefined
+                  const route = load ? `${load.pickup_city ?? ''}, ${load.pickup_state ?? ''} → ${load.delivery_city ?? ''}, ${load.delivery_state ?? ''}` : '—'
+                  return (
+                    <TableRow key={g.id}>
+                      <TableCell className="text-sm">{fmtDateTime(g.recorded_at)}</TableCell>
+                      <TableCell className="font-mono text-sm">{loadNum || '—'}</TableCell>
+                      <TableCell className="text-sm">{route}</TableCell>
+                      <TableCell className="text-sm">{loc || '—'}</TableCell>
+                      <TableCell>{g.speed != null ? `${g.speed} mph` : '—'}</TableCell>
+                      <TableCell>
+                        {status ? (
+                          <Badge variant={status === 'moving' ? 'default' : 'secondary'}
+                            className={status === 'moving' ? 'bg-green-100 text-green-800' : ''}>
+                            {status}
+                          </Badge>
+                        ) : '—'}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  )
+}
+
+function GpsMapInner({
+  apiKey, filteredPings, polylineGroups, markers, selectedPing, setSelectedPing, loadsByNum,
+}: {
+  apiKey: string
+  filteredPings: GpsRecord[]
+  polylineGroups: Map<string, { lat: number; lng: number }[]>
+  markers: GpsRecord[]
+  selectedPing: GpsRecord | null
+  setSelectedPing: (g: GpsRecord | null) => void
+  loadsByNum: Map<string, Load>
+}) {
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: apiKey,
+  })
+
+  const onMapLoad = useCallback((map: google.maps.Map) => {
+    if (filteredPings.length > 0) {
+      const bounds = new google.maps.LatLngBounds()
+      filteredPings.forEach(g => bounds.extend({ lat: g.latitude!, lng: g.longitude! }))
+      map.fitBounds(bounds, 50)
+    }
+  }, [filteredPings])
+
+  if (loadError) {
+    return (
+      <div className="h-[420px] flex items-center justify-center bg-red-50 rounded-lg border-2 border-red-300">
+        <p className="text-red-600 text-sm px-4 text-center">
+          Map failed to load — check that Maps JavaScript API is enabled in Google Cloud Console and the key has no referrer restrictions blocking this domain
+        </p>
+      </div>
+    )
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="h-[420px] flex items-center justify-center bg-gradient-to-br from-blue-100 via-green-50 to-teal-100 rounded-lg">
+        <p className="text-muted-foreground">Loading Google Maps...</p>
+      </div>
+    )
+  }
+
+  const loadKeys = Array.from(polylineGroups.keys())
+
+  return (
+    <GoogleMap
+      mapContainerStyle={{ width: '100%', height: '420px' }}
+      center={{ lat: 33.0, lng: -80.0 }}
+      zoom={6}
+      onLoad={onMapLoad}
+      options={{ mapTypeControl: true, streetViewControl: false, fullscreenControl: true }}
+    >
+      {/* Polylines per load */}
+      {loadKeys.map((loadNum, i) => (
+        <Polyline
+          key={loadNum}
+          path={polylineGroups.get(loadNum)!}
+          options={{ strokeColor: POLYLINE_COLORS[i % POLYLINE_COLORS.length], strokeWeight: 3, strokeOpacity: 0.8 }}
+        />
+      ))}
+
+      {/* Markers at named locations */}
+      {markers.map(g => {
+        const rd = parseRawData(g.raw_data)
+        const locName = rd.location_name as string | null
+        const color = markerColor(locName)
+        return (
+          <Marker
+            key={g.id}
+            position={{ lat: g.latitude!, lng: g.longitude! }}
+            icon={{ url: markerUrl(color) }}
+            onClick={() => setSelectedPing(g)}
+          />
+        )
+      })}
+
+      {/* InfoWindow */}
+      {selectedPing && selectedPing.latitude != null && selectedPing.longitude != null && (
+        <InfoWindow
+          position={{ lat: selectedPing.latitude, lng: selectedPing.longitude }}
+          onCloseClick={() => setSelectedPing(null)}
+        >
+          <div style={{ minWidth: 200, fontFamily: 'system-ui, sans-serif', fontSize: 13 }}>
+            {(() => {
+              const rd = parseRawData(selectedPing.raw_data)
+              const locName = rd.location_name as string | null
+              const loadNum = rd.load_number as string | null
+              const status = rd.status as string | null
+              const load = loadNum ? loadsByNum.get(loadNum) : undefined
+              return (
+                <>
+                  {locName && <p style={{ fontWeight: 700, marginBottom: 4 }}>{locName}</p>}
+                  <p>
+                    <span style={{ color: '#666' }}>Load #:</span>{' '}
+                    {loadNum || 'N/A'}
+                    {load && <span> — {load.pickup_city}, {load.pickup_state} → {load.delivery_city}, {load.delivery_state}</span>}
+                  </p>
+                  <p><span style={{ color: '#666' }}>Date:</span> {fmtDateTime(selectedPing.recorded_at)}</p>
+                  <p>
+                    <span style={{ color: '#666' }}>Speed:</span> {selectedPing.speed != null ? `${selectedPing.speed} mph` : 'N/A'}
+                    {status && (
+                      <span style={{
+                        display: 'inline-block', marginLeft: 8, padding: '1px 8px', borderRadius: 9999, fontSize: 11, fontWeight: 600,
+                        backgroundColor: status === 'moving' ? '#d1fae5' : '#f3f4f6',
+                        color: status === 'moving' ? '#065f46' : '#374151',
+                      }}>
+                        {status}
+                      </span>
+                    )}
+                  </p>
+                </>
+              )
+            })()}
+          </div>
+        </InfoWindow>
+      )}
+    </GoogleMap>
   )
 }
 
