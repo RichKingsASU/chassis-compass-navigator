@@ -24,7 +24,12 @@ const GpsOverview = lazy(() => import('@/pages/GpsOverview'))
 const Settings = lazy(() => import('@/pages/Settings'))
 const VendorValidation = lazy(() => import('@/pages/VendorValidation'))
 const YardReportOverview = lazy(() => import('@/pages/YardReportOverview'))
+const ActiveLoads = lazy(() => import('@/pages/ActiveLoads'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
+
+// Feature pages
+const UnbilledLoadsPage = lazy(() => import('@/features/unbilled-loads/UnbilledLoadsPage'))
+const PerDiemReconciliationPage = lazy(() => import('@/features/perdiem-reconciliation/PerDiemReconciliationPage'))
 
 // GPS Provider pages
 const Samsara = lazy(() => import('@/pages/gps/Samsara'))
@@ -125,6 +130,11 @@ export default function App() {
                   <Route path="/chassis/locator" element={<ProtectedPage><ChassisLocator /></ProtectedPage>} />
                   <Route path="/validation" element={<ProtectedPage><ChassisValidation /></ProtectedPage>} />
                   <Route path="/utilization" element={<ProtectedPage><ChassisUtilization /></ProtectedPage>} />
+
+                  {/* Active Loads / Unbilled / Finance */}
+                  <Route path="/active-loads" element={<ProtectedPage><ActiveLoads /></ProtectedPage>} />
+                  <Route path="/unbilled-loads" element={<ProtectedPage><UnbilledLoadsPage /></ProtectedPage>} />
+                  <Route path="/perdiem-reconciliation" element={<ProtectedPage><PerDiemReconciliationPage /></ProtectedPage>} />
 
                   {/* TMS */}
                   <Route path="/tms" element={<ProtectedPage><TMSData /></ProtectedPage>} />

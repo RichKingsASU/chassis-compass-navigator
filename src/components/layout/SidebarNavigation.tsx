@@ -27,6 +27,8 @@ import {
   ChevronRight,
   Warehouse,
   BarChart3,
+  DollarSign,
+  AlertTriangle,
 } from 'lucide-react'
 
 interface NavigationItem {
@@ -54,6 +56,16 @@ const navItems: NavigationItem[] = [
     subItems: [
       { title: 'Mercury Gate', path: '/tms/mercury-gate' },
       { title: 'Port Pro', path: '/tms/port-pro' },
+      { title: 'Active Loads', path: '/active-loads' },
+      { title: 'Unbilled Loads', path: '/unbilled-loads' },
+    ],
+  },
+  {
+    title: 'Finance',
+    path: '/perdiem-reconciliation',
+    icon: DollarSign,
+    subItems: [
+      { title: 'Per Diem Reconciliation', path: '/perdiem-reconciliation' },
     ],
   },
   {

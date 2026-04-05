@@ -90,7 +90,11 @@ export default function JEDYard() {
         <p className="text-muted-foreground">JED Intermodal Yard — chassis inventory and reports</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      {error && (
+        <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/30">
+          Query error — data could not be loaded. Check console for details.
+        </div>
+      )}
 
       <Tabs defaultValue="data">
         <TabsList>

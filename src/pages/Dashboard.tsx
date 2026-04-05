@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import { useUnbilledCount } from '@/hooks/useUnbilledCount'
 
 interface Activity {
   id: string
@@ -106,6 +108,7 @@ export default function Dashboard() {
   }, [])
 
   const gpsCoverage = chassisCount > 0 ? Math.round((gpsCount / chassisCount) * 100) : 0
+  const { count: unbilledCount, totalAtRisk } = useUnbilledCount()
 
   return (
     <div className="p-6 space-y-6">
@@ -113,6 +116,17 @@ export default function Dashboard() {
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">Chassis Compass Navigator — Fleet Overview</p>
       </div>
+
+      {unbilledCount > 0 && (
+        <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-md flex items-center justify-between">
+          <span className="text-yellow-800 font-medium">
+            {unbilledCount} loads are flagged unbilled — {formatCurrency(totalAtRisk)} at risk
+          </span>
+          <Link to="/unbilled-loads" className="text-yellow-800 underline text-sm font-medium hover:text-yellow-900">
+            View Unbilled Loads
+          </Link>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
@@ -189,20 +203,7 @@ export default function Dashboard() {
             {loading ? (
               <p className="text-muted-foreground">Loading...</p>
             ) : activities.length === 0 ? (
-              <div className="space-y-2">
-                {[
-                  'DCLI invoice #INV-2024-001 uploaded',
-                  'TRAC invoice reviewed and approved',
-                  'New GPS data from Samsara — 45 units',
-                  'POLA yard report updated',
-                  'CCM dispute #D-1042 resolved',
-                ].map((msg, i) => (
-                  <div key={i} className="flex justify-between text-sm border-b pb-2">
-                    <span>{msg}</span>
-                    <Badge variant="outline" className="text-xs">System</Badge>
-                  </div>
-                ))}
-              </div>
+              <p className="text-muted-foreground text-sm">No recent activity.</p>
             ) : (
               <ul className="space-y-2">
                 {activities.map(a => (

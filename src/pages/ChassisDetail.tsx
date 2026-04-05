@@ -119,6 +119,7 @@ export default function ChassisDetail() {
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStat[]>([])
   const [mrEvents, setMrEvents] = useState<MrEvent[]>([])
   const [gpsHistory, setGpsHistory] = useState<GpsRecord[]>([])
+  const [terminalEvents, setTerminalEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -136,16 +137,18 @@ export default function ChassisDetail() {
         setChassis(data)
 
         const cn = data.chassis_number
-        const [loadsRes, statsRes, mrRes, gpsRes] = await Promise.all([
-          supabase.from('loads').select('*').eq('chassis_number', cn).order('pickup_date', { ascending: false }),
-          supabase.from('monthly_stats').select('*').eq('chassis_number', cn).order('month', { ascending: true }),
-          supabase.from('mr_events').select('*').eq('chassis_number', cn).order('event_date', { ascending: false }),
-          supabase.from('gps_data').select('*').eq('device_id', cn).order('recorded_at', { ascending: false }).limit(100),
+        const [loadsRes, statsRes, mrRes, gpsRes, termRes] = await Promise.all([
+          supabase.from('mg_tms').select('*').eq('chassis_number', cn.trim()).order('pickup_actual_date', { ascending: false }),
+          supabase.from('monthly_stats').select('*').eq('chassis_number', cn.trim()).order('month', { ascending: true }),
+          supabase.from('mr_events').select('*').eq('chassis_number', cn.trim()).order('event_date', { ascending: false }),
+          supabase.from('gps_data').select('*').eq('device_id', cn.trim()).order('recorded_at', { ascending: false }).limit(100),
+          supabase.from('yard_events_data').select('*').eq('"ChassisNo"' as any, cn.trim()).order('event_date', { ascending: false }),
         ])
         setLoads(loadsRes.data || [])
         setMonthlyStats(statsRes.data || [])
         setMrEvents(mrRes.data || [])
         setGpsHistory(gpsRes.data || [])
+        setTerminalEvents(termRes.data || [])
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load chassis data')
       } finally {
@@ -201,6 +204,7 @@ export default function ChassisDetail() {
           <TabsTrigger value="utilization">Utilization</TabsTrigger>
           <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
           <TabsTrigger value="gps">GPS History</TabsTrigger>
+          <TabsTrigger value="terminal">Terminal Events ({terminalEvents.length})</TabsTrigger>
         </TabsList>
 
         {/* ── Details Tab ── */}
@@ -449,6 +453,39 @@ export default function ChassisDetail() {
                       </TableCell>
                       <TableCell>{g.speed != null ? `${g.speed} mph` : 'N/A'}</TableCell>
                       <TableCell>{g.heading != null ? `${g.heading}°` : 'N/A'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Terminal Events Tab ── */}
+        <TabsContent value="terminal" className="space-y-4">
+          <Card>
+            <CardHeader><CardTitle>Pier S Terminal Events</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Event Date</TableHead>
+                    <TableHead>Event Type</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Container #</TableHead>
+                    <TableHead>Notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {terminalEvents.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No Pier S terminal events recorded for this chassis.</TableCell></TableRow>
+                  ) : terminalEvents.map((e: any, i: number) => (
+                    <TableRow key={e.id ?? i}>
+                      <TableCell>{formatDate(e.event_date)}</TableCell>
+                      <TableCell><Badge variant="outline">{e.event_type || 'N/A'}</Badge></TableCell>
+                      <TableCell>{e.location || 'N/A'}</TableCell>
+                      <TableCell className="font-mono text-sm">{e.container_number || 'N/A'}</TableCell>
+                      <TableCell className="text-sm">{e.notes || 'N/A'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

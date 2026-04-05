@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import DataFreshnessBar from '@/components/DataFreshnessBar'
 
 interface YardRecord {
   id: string
@@ -92,7 +93,13 @@ export default function POLAYard() {
         <p className="text-muted-foreground">Port of Los Angeles — Pier S Terminal chassis inventory</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      <DataFreshnessBar tableName="yard_events_data" label="Terminal Events" />
+
+      {error && (
+        <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/30">
+          Query error — data could not be loaded. Check console for details.
+        </div>
+      )}
 
       <Tabs defaultValue="data">
         <TabsList>

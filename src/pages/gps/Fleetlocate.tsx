@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import DataFreshnessBar from '@/components/DataFreshnessBar'
 
 interface GpsRecord {
   id: string
@@ -88,7 +89,13 @@ export default function FleetlocatePage() {
         <p className="text-muted-foreground">{PROVIDER_NAME} GPS tracking data and management</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      <DataFreshnessBar tableName="fleetlocate_gps" label="FleetLocate GPS" />
+
+      {error && (
+        <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/30">
+          Query error — data could not be loaded. Check console for details.
+        </div>
+      )}
 
       <Tabs defaultValue="dashboard">
         <TabsList>
