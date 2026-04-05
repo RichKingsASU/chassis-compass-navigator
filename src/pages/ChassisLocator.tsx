@@ -34,9 +34,9 @@ export default function ChassisLocator() {
       setLoading(true)
       try {
         const { data, error: fetchErr } = await supabase
-          .from('gps_data')
+          .from('samsara_gps')
           .select('*')
-          .order('recorded_at', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(500)
         if (fetchErr) throw fetchErr
         const normalised = (data || []).map((d: Record<string, unknown>) => ({ ...d, timestamp: d.recorded_at })) as ChassisLocation[]
@@ -69,7 +69,11 @@ export default function ChassisLocator() {
         <p className="text-muted-foreground">Real-time chassis locations from GPS providers</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      {error && (
+        <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">
+          Unable to load GPS data — check console
+        </div>
+      )}
 
       <Card>
         <CardHeader>
@@ -133,7 +137,12 @@ export default function ChassisLocator() {
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No locations found.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <p className="text-muted-foreground">No GPS data available yet.</p>
+                      <a href="/gps" className="text-sm text-primary underline mt-1 inline-block">Import GPS data via the GPS Providers section.</a>
+                    </TableCell>
+                  </TableRow>
                 ) : filtered.slice(0, 100).map(loc => (
                   <TableRow key={loc.id}>
                     <TableCell className="font-mono font-medium">{loc.chassis_number}</TableCell>

@@ -1,182 +1,234 @@
-import { useSupabaseTable } from '@/hooks/useSupabaseTable'
-import { formatDate } from '@/utils/dateUtils'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import { safeDate, safeAmount } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import DataFreshnessBar from '@/components/DataFreshnessBar'
-import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
 
-function SortableHead({ label, tooltip, column, currentSort, ascending, onSort }: {
-  label: string
-  tooltip?: string
-  column: string
-  currentSort: string | null
-  ascending: boolean
-  onSort: (col: string) => void
-}) {
-  const active = currentSort === column
-  const inner = (
-    <button
-      onClick={() => onSort(column)}
-      className="flex items-center gap-1 hover:text-foreground transition-colors"
-    >
-      {label}
-      <ArrowUpDown className={`h-3 w-3 ${active ? 'text-foreground' : 'text-muted-foreground/50'}`} />
-      {active && <span className="text-xs">{ascending ? '↑' : '↓'}</span>}
-    </button>
-  )
-
-  if (tooltip) {
-    return (
-      <TableHead>
-        <Tooltip>
-          <TooltipTrigger asChild>{inner}</TooltipTrigger>
-          <TooltipContent><p className="text-xs">Column: {tooltip}</p></TooltipContent>
-        </Tooltip>
-      </TableHead>
-    )
-  }
-  return <TableHead>{inner}</TableHead>
+interface MGRecord {
+  id: string
+  ld_num: string
+  so_num: string
+  chassis_number: string
+  container_number: string
+  pickup_actual_date: string
+  drop_actual_date: string
+  carrier_name: string
+  acct_mgr_name: string
+  status: string
+  createdate: string
+  customer_rate_amount: string
+  customer_inv_amount: string
+  carrier_rate_amount: string
+  pickup_loc_name: string
+  drop_loc_name: string
+  steamshipline: string
+  mbl: string
+  zero_rev: string
+  chassis_type: string
+  container_description: string
+  [key: string]: unknown
 }
 
 export default function MercuryGate() {
-  const {
-    data, loading, error, totalCount, page, pageSize, totalPages,
-    search, sortColumn, sortAscending, setPage, setSearch, setSort,
-  } = useSupabaseTable({
-    table: 'mg_data',
-    pageSize: 50,
-    searchColumns: [
-      'ld_num', 'so_num', 'chassis_number', 'container_number',
-      'carrier_name', 'acct_mgr_name', 'pickup_loc_name', 'drop_loc_name', 'mbl',
-    ],
-    defaultSort: { column: 'created_at', ascending: false },
-  })
+  const [records, setRecords] = useState<MGRecord[]>([])
+  const [filtered, setFiltered] = useState<MGRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [selectedRecord, setSelectedRecord] = useState<MGRecord | null>(null)
 
-  const from = page * pageSize + 1
-  const to = Math.min((page + 1) * pageSize, totalCount)
+  useEffect(() => {
+    async function load() {
+      setLoading(true)
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('mg_data')
+          .select('*')
+          .order('createdate', { ascending: false })
+          .limit(500)
+        if (fetchErr) throw fetchErr
+        setRecords(data || [])
+        setFiltered(data || [])
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load TMS data')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  useEffect(() => {
+    let result = records
+    if (search) {
+      const q = search.toUpperCase().trim()
+      result = result.filter(r =>
+        r.ld_num?.toUpperCase().includes(q) ||
+        r.chassis_number?.trim().toUpperCase().includes(q) ||
+        r.container_number?.toUpperCase().includes(q) ||
+        r.acct_mgr_name?.toUpperCase().includes(q) ||
+        r.carrier_name?.toUpperCase().includes(q)
+      )
+    }
+    if (statusFilter !== 'all') {
+      result = result.filter(r => r.status?.toLowerCase() === statusFilter)
+    }
+    setFiltered(result)
+  }, [search, statusFilter, records])
+
+  const totalRevenue = records
+    .filter(r => r.zero_rev !== 'Y' && !['Cancelled', 'Void', 'Rejected'].includes(r.status))
+    .reduce((s, r) => s + (parseFloat(r.customer_rate_amount) || 0), 0)
 
   return (
-    <TooltipProvider>
-      <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Mercury Gate TMS</h1>
-          <p className="text-muted-foreground">MercuryGate Transportation Management System data</p>
-        </div>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Mercury Gate TMS</h1>
+        <p className="text-muted-foreground">MercuryGate Transportation Management System data</p>
+        <DataFreshnessBar tableName="mg_data" label="MG TMS" />
+      </div>
 
-        <DataFreshnessBar tableName="mg_data" />
+      {error && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
 
-        {error && (
-          <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/30">
-            Query error — data could not be loaded. Check console for details.
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Records</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold">{totalCount.toLocaleString()}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Current Page</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold">{data.length}</p></CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Unique Chassis</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold">{new Set(data.map(r => r.chassis_number as string).filter(Boolean)).size}</p></CardContent>
-          </Card>
-        </div>
-
-        <div className="flex gap-3 flex-wrap">
-          <input
-            type="text"
-            placeholder="Search LD#, SO#, chassis, container, carrier, account mgr, MBL..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="flex-1 min-w-64 px-3 py-2 border rounded-md text-sm"
-          />
-          <Button variant="outline" onClick={() => setSearch('')}>Clear</Button>
-        </div>
-
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="pt-4">
-            {loading ? <p className="text-muted-foreground">Loading TMS data...</p> : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <SortableHead label="LD #" tooltip="ld_num" column="ld_num" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="SO #" tooltip="so_num" column="so_num" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Account Mgr" tooltip="acct_mgr_name" column="acct_mgr_name" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Status" tooltip="status" column="status" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Container #" tooltip="container_number" column="container_number" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Chassis #" tooltip="chassis_number" column="chassis_number" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Carrier" tooltip="carrier_name" column="carrier_name" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="SCAC" tooltip="carrier_scac" column="carrier_scac" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Pickup Location" tooltip="pickup_loc_name" column="pickup_loc_name" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Drop Location" tooltip="drop_loc_name" column="drop_loc_name" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Created" tooltip="createdate" column="createdate" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Pickup Date" tooltip="pickup_actual_date" column="pickup_actual_date" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Drop Date" tooltip="drop_actual_date" column="drop_actual_date" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Cust Rate" tooltip="customer_rate_amount" column="customer_rate_amount" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Cust Invoice" tooltip="customer_inv_amount" column="customer_inv_amount" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Carrier Rate" tooltip="carrier_rate_amount" column="carrier_rate_amount" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="Margin" tooltip="margin_rate" column="margin_rate" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="SSL" tooltip="steamshipline" column="steamshipline" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                      <SortableHead label="MBL" tooltip="mbl" column="mbl" currentSort={sortColumn} ascending={sortAscending} onSort={setSort} />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.length === 0 ? (
-                      <TableRow><TableCell colSpan={19} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
-                    ) : data.map((r, i) => (
-                      <TableRow key={(r.id as string) || i}>
-                        <TableCell className="font-mono text-sm">{(r.ld_num as string) || 'N/A'}</TableCell>
-                        <TableCell className="font-mono text-sm">{(r.so_num as string) || 'N/A'}</TableCell>
-                        <TableCell className="text-sm">{(r.acct_mgr_name as string) || 'N/A'}</TableCell>
-                        <TableCell><Badge variant="outline">{(r.status as string) || 'N/A'}</Badge></TableCell>
-                        <TableCell className="font-mono text-sm">{(r.container_number as string) || 'N/A'}</TableCell>
-                        <TableCell className="font-mono text-sm">{(r.chassis_number as string) || 'N/A'}</TableCell>
-                        <TableCell className="text-sm">{(r.carrier_name as string) || 'N/A'}</TableCell>
-                        <TableCell className="font-mono text-sm">{(r.carrier_scac as string) || 'N/A'}</TableCell>
-                        <TableCell className="text-sm max-w-36 truncate" title={(r.pickup_loc_name as string) || ''}>{(r.pickup_loc_name as string) || 'N/A'}</TableCell>
-                        <TableCell className="text-sm max-w-36 truncate" title={(r.drop_loc_name as string) || ''}>{(r.drop_loc_name as string) || 'N/A'}</TableCell>
-                        <TableCell className="text-sm">{formatDate(r.createdate as string)}</TableCell>
-                        <TableCell className="text-sm">{formatDate(r.pickup_actual_date as string)}</TableCell>
-                        <TableCell className="text-sm">{formatDate(r.drop_actual_date as string)}</TableCell>
-                        <TableCell className="text-sm font-mono">{r.customer_rate_amount ? `$${r.customer_rate_amount}` : 'N/A'}</TableCell>
-                        <TableCell className="text-sm font-mono">{r.customer_inv_amount ? `$${r.customer_inv_amount}` : 'N/A'}</TableCell>
-                        <TableCell className="text-sm font-mono">{r.carrier_rate_amount ? `$${r.carrier_rate_amount}` : 'N/A'}</TableCell>
-                        <TableCell className="text-sm font-mono">{r.margin_rate ? `$${r.margin_rate}` : 'N/A'}</TableCell>
-                        <TableCell className="text-sm">{(r.steamshipline as string) || 'N/A'}</TableCell>
-                        <TableCell className="font-mono text-sm max-w-32 truncate" title={(r.mbl as string) || ''}>{(r.mbl as string) || 'N/A'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-            <div className="flex items-center justify-between pt-4">
-              <p className="text-sm text-muted-foreground">
-                Showing {totalCount > 0 ? from : 0}–{to} of {totalCount.toLocaleString()}
-              </p>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>
-                  <ChevronLeft className="h-4 w-4" /> Prev
-                </Button>
-                <span className="flex items-center text-sm text-muted-foreground">
-                  Page {page + 1} of {totalPages || 1}
-                </span>
-                <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
-                  Next <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Records</CardTitle></CardHeader>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{records.length.toLocaleString()}</p>}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Filtered Results</CardTitle></CardHeader>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{filtered.length.toLocaleString()}</p>}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Unique Chassis</CardTitle></CardHeader>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{new Set(records.map(r => r.chassis_number?.trim()).filter(Boolean)).size}</p>}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground flex items-center gap-1">
+              Total Revenue
+              <Tooltip>
+                <TooltipTrigger asChild><span className="text-xs cursor-help">(?)</span></TooltipTrigger>
+                <TooltipContent>Excludes cancelled and zero-revenue loads</TooltipContent>
+              </Tooltip>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{safeAmount(totalRevenue)}</p>}</CardContent>
         </Card>
       </div>
-    </TooltipProvider>
+
+      <div className="flex gap-3 flex-wrap">
+        <input type="text" placeholder="Search LD#, chassis, container, acct mgr, carrier..." value={search} onChange={e => setSearch(e.target.value)} className="flex-1 min-w-64 px-3 py-2 border rounded-md text-sm" />
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-2 border rounded-md text-sm">
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="in transit">In Transit</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <Button variant="outline" onClick={() => { setSearch(''); setStatusFilter('all') }}>Clear</Button>
+      </div>
+
+      <Card>
+        <CardContent className="pt-4">
+          {loading ? (
+            <div className="space-y-2">{[...Array(8)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Load #</TableHead>
+                    <TableHead>SO #</TableHead>
+                    <TableHead>Chassis #</TableHead>
+                    <TableHead>Container #</TableHead>
+                    <TableHead>Pickup Date</TableHead>
+                    <TableHead>Drop Date</TableHead>
+                    <TableHead>Carrier</TableHead>
+                    <TableHead>Acct Mgr</TableHead>
+                    <TableHead>Cust Rate</TableHead>
+                    <TableHead>Cust Invoice</TableHead>
+                    <TableHead>Carrier Rate</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
+                  ) : filtered.slice(0, 100).map(r => (
+                    <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedRecord(r)}>
+                      <TableCell className="font-mono text-sm">{r.ld_num || 'N/A'}</TableCell>
+                      <TableCell className="font-mono text-sm">{r.so_num || 'N/A'}</TableCell>
+                      <TableCell className="font-mono text-sm">{r.chassis_number?.trim() || 'N/A'}</TableCell>
+                      <TableCell className="font-mono text-sm">{r.container_number || 'N/A'}</TableCell>
+                      <TableCell className="text-sm">{safeDate(r.pickup_actual_date)}</TableCell>
+                      <TableCell className="text-sm">{safeDate(r.drop_actual_date)}</TableCell>
+                      <TableCell className="text-sm">{r.carrier_name || 'N/A'}</TableCell>
+                      <TableCell className="text-sm">{r.acct_mgr_name || 'N/A'}</TableCell>
+                      <TableCell className="text-sm">{safeAmount(r.customer_rate_amount)}</TableCell>
+                      <TableCell className="text-sm">{safeAmount(r.customer_inv_amount)}</TableCell>
+                      <TableCell className="text-sm">{safeAmount(r.carrier_rate_amount)}</TableCell>
+                      <TableCell><Badge variant="outline">{r.status || 'N/A'}</Badge></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          {filtered.length > 100 && <p className="text-sm text-muted-foreground text-center mt-2">Showing 100 of {filtered.length} records.</p>}
+        </CardContent>
+      </Card>
+
+      <Sheet open={!!selectedRecord} onOpenChange={open => { if (!open) setSelectedRecord(null) }}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle className="font-mono">{selectedRecord?.ld_num}</SheetTitle>
+            <SheetDescription>Mercury Gate Load Details</SheetDescription>
+          </SheetHeader>
+          {selectedRecord && (
+            <div className="mt-6 space-y-4">
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <DField label="Load #" value={selectedRecord.ld_num} />
+                <DField label="SO #" value={selectedRecord.so_num} />
+                <DField label="Status" value={selectedRecord.status} />
+                <DField label="Container #" value={selectedRecord.container_number} />
+                <DField label="Chassis #" value={selectedRecord.chassis_number?.trim()} />
+                <DField label="Acct Manager" value={selectedRecord.acct_mgr_name} />
+                <DField label="Carrier" value={selectedRecord.carrier_name} />
+                <DField label="Pickup Location" value={selectedRecord.pickup_loc_name} />
+                <DField label="Drop Location" value={selectedRecord.drop_loc_name} />
+                <DField label="Created" value={safeDate(selectedRecord.createdate)} />
+                <DField label="Pickup Date" value={safeDate(selectedRecord.pickup_actual_date)} />
+                <DField label="Drop Date" value={safeDate(selectedRecord.drop_actual_date)} />
+                <DField label="Container Return" value={safeDate(selectedRecord.actual_rc_date as string)} />
+                <DField label="Cust Rate" value={safeAmount(selectedRecord.customer_rate_amount)} />
+                <DField label="Cust Invoice" value={safeAmount(selectedRecord.customer_inv_amount)} />
+                <DField label="Carrier Rate" value={safeAmount(selectedRecord.carrier_rate_amount)} />
+                <DField label="Margin" value={safeAmount((parseFloat(selectedRecord.customer_rate_amount) || 0) - (parseFloat(selectedRecord.carrier_rate_amount) || 0))} />
+                <DField label="Steamship Line" value={selectedRecord.steamshipline} />
+                <DField label="MBL" value={selectedRecord.mbl} />
+                <DField label="Zero Revenue" value={selectedRecord.zero_rev} />
+              </dl>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  )
+}
+
+function DField({ label, value }: { label: string; value?: string | number | null }) {
+  return (
+    <div>
+      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dd className="font-medium">{value || 'N/A'}</dd>
+    </div>
   )
 }

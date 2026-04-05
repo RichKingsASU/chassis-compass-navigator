@@ -5,14 +5,13 @@ interface TMSRecord {
   id: number
   ld_num: string | null
   so_num: string | null
-  shipment_number: string | null
   chassis_number: string | null
   container_number: string | null
   pickup_actual_date: string | null
-  delivery_actual_date: string | null
+  drop_actual_date: string | null
   carrier_name: string | null
-  customer_name: string | null
-  raw_data: Record<string, unknown> | null
+  acct_mgr_name: string | null
+  createdate: string | null
   created_at: string
 }
 
@@ -29,7 +28,7 @@ export function useTMSData(searchTerm?: string) {
         setError(null)
 
         let query = supabase
-          .from('mg_tms')
+          .from('mg_data')
           .select('*', { count: 'exact' })
           .order('created_at', { ascending: false })
           .range(page * pageSize, (page + 1) * pageSize - 1)

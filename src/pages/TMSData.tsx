@@ -18,8 +18,8 @@ interface TMSSummary {
 }
 
 const TMS_SYSTEMS = [
-  { name: 'Mercury Gate', code: 'MG', table: 'mg_tms', route: '/tms/mercurygate', description: 'MercuryGate TMS — Load planning and tracking' },
-  { name: 'Port Pro', code: 'PP', table: 'portpro_tms', route: '/tms/portpro', description: 'Port Pro TMS — Port drayage management' },
+  { name: 'Mercury Gate', code: 'MG', table: 'mg_data', route: '/tms/mercury-gate', description: 'MercuryGate TMS — Load planning and tracking' },
+  { name: 'Port Pro', code: 'PP', table: 'portpro_tms', route: '/tms/port-pro', description: 'Port Pro TMS — Port drayage management' },
 ]
 
 export default function TMSData() {

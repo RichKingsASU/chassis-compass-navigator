@@ -4,31 +4,30 @@ import { supabase } from '@/lib/supabase'
 export function useUnbilledCount() {
   const [count, setCount] = useState(0)
   const [totalAtRisk, setTotalAtRisk] = useState(0)
-  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetch() {
+    async function load() {
       try {
-        const { data, count: rowCount, error } = await supabase
-          .from('mg_tms')
-          .select('cust_rate_charge', { count: 'exact' })
-          .eq('unbilledflag', 'Y')
+        const { data } = await supabase
+          .from('mg_data')
+          .select('customer_rate_amount, customer_inv_amount')
           .not('status', 'in', '("Cancelled","Void")')
-        if (error) {
-          console.error('Failed to load unbilled count:', error)
-          return
+          .neq('zero_rev', 'Y')
+        if (data) {
+          const unbilled = data.filter(r => {
+            const rate = parseFloat(r.customer_rate_amount) || 0
+            const inv = parseFloat(r.customer_inv_amount) || 0
+            return rate > 0 && inv === 0
+          })
+          setCount(unbilled.length)
+          setTotalAtRisk(unbilled.reduce((s, r) => s + (parseFloat(r.customer_rate_amount) || 0), 0))
         }
-        setCount(rowCount || 0)
-        const total = (data || []).reduce((s, r) => s + (Number(r.cust_rate_charge) || 0), 0)
-        setTotalAtRisk(total)
-      } catch (err) {
-        console.error('Failed to load unbilled count:', err)
-      } finally {
-        setLoading(false)
+      } catch {
+        // silently fail
       }
     }
-    fetch()
+    load()
   }, [])
 
-  return { count, totalAtRisk, loading }
+  return { count, totalAtRisk }
 }

@@ -28,10 +28,11 @@ const Settings = lazy(() => import('@/pages/Settings'))
 const VendorValidation = lazy(() => import('@/pages/VendorValidation'))
 const ActiveLoads = lazy(() => import('@/pages/ActiveLoads'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
-
-// Feature pages
 const UnbilledLoadsPage = lazy(() => import('@/features/unbilled-loads/UnbilledLoadsPage'))
-const PerDiemReconciliationPage = lazy(() => import('@/features/perdiem-reconciliation/PerDiemReconciliationPage'))
+const PerDiemPage = lazy(() => import('@/features/perdiem/PerDiemPage'))
+
+// PerDiem reconciliation (alias for route compatibility)
+const PerDiemReconciliationPage = PerDiemPage
 
 // GPS Provider pages
 const Samsara = lazy(() => import('@/pages/gps/Samsara'))
@@ -218,6 +219,10 @@ export default function App() {
                   <Route path="/invoices" element={<ProtectedPage><InvoicesList /></ProtectedPage>} />
                   <Route path="/invoices/:invoiceId/details/:lineId" element={<ProtectedPage><InvoiceLineDetails /></ProtectedPage>} />
                   <Route path="/invoices/:invoiceId/dispute/:lineId" element={<ProtectedPage><InvoiceLineDispute /></ProtectedPage>} />
+
+                  {/* Finance */}
+                  <Route path="/unbilled-loads" element={<ProtectedPage><UnbilledLoadsPage /></ProtectedPage>} />
+                  <Route path="/perdiem" element={<ProtectedPage><PerDiemPage /></ProtectedPage>} />
 
                   {/* Settings */}
                   <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
