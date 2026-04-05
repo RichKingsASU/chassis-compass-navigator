@@ -1,58 +1,66 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/utils/dateUtils'
+import { safeDate, safeAmount } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 
-interface Chassis {
-  id: string
+interface LongTermChassis {
+  id: number
   chassis_number: string
-  provider: string
   status: string
+  category: string
+  lessor: string
   type: string
-  year: number
-  location: string
-  last_seen: string
-  created_at: string
+  region: string
+  rate_per_day: number
+  gps_provider: string
+  on_hire_date: string
+  off_hire_date: string
+  contract_status: string
+  notes: string
+  [key: string]: unknown
 }
 
-function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (status?.toLowerCase()) {
-    case 'active': return 'default'
-    case 'available': return 'secondary'
-    case 'in_use': return 'default'
-    case 'maintenance': return 'destructive'
-    case 'retired': return 'outline'
-    default: return 'outline'
-  }
+interface ShortTermChassis {
+  id: number
+  chassis_number: string
+  status: string
+  lessor: string
+  on_hire_date: string
+  off_hire_date: string
+  rate_per_day: number
+  paid_amount: number
+  repair_costs: number
+  [key: string]: unknown
 }
 
 export default function ChassisManagement() {
-  const [chassis, setChassis] = useState<Chassis[]>([])
-  const [filtered, setFiltered] = useState<Chassis[]>([])
+  const [longTerm, setLongTerm] = useState<LongTermChassis[]>([])
+  const [shortTerm, setShortTerm] = useState<ShortTermChassis[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [providerFilter, setProviderFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [selectedChassis, setSelectedChassis] = useState<LongTermChassis | null>(null)
 
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
-        const { data, error: fetchErr } = await supabase
-          .from('chassis')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(500)
-        if (fetchErr) throw fetchErr
-        setChassis(data || [])
-        setFiltered(data || [])
-      } catch (err: unknown) {
+        const [ltRes, stRes] = await Promise.all([
+          supabase.from('long_term_lease_owned').select('*').order('chassis_number').limit(500),
+          supabase.from('short_term_lease').select('*').order('chassis_number').limit(500),
+        ])
+        if (ltRes.error) throw ltRes.error
+        if (stRes.error) throw stRes.error
+        setLongTerm(ltRes.data || [])
+        setShortTerm(stRes.data || [])
+      } catch (err) {
+        console.error('[ChassisManagement] load failed:', err)
         setError(err instanceof Error ? err.message : 'Failed to load chassis data')
       } finally {
         setLoading(false)
@@ -61,21 +69,17 @@ export default function ChassisManagement() {
     load()
   }, [])
 
-  useEffect(() => {
-    let result = chassis
-    if (search) {
-      const q = search.toUpperCase()
-      result = result.filter(c => c.chassis_number?.includes(q) || c.location?.toUpperCase().includes(q))
-    }
-    if (providerFilter !== 'all') result = result.filter(c => c.provider === providerFilter)
-    if (statusFilter !== 'all') result = result.filter(c => c.status?.toLowerCase() === statusFilter)
-    setFiltered(result)
-  }, [search, providerFilter, statusFilter, chassis])
+  const total = longTerm.length + shortTerm.length
+  const active = longTerm.filter(c => !c.status?.toLowerCase().includes('offhired')).length
+    + shortTerm.filter(c => !c.status?.toLowerCase().includes('offhired')).length
+  const available = total - active
 
-  const providers = [...new Set(chassis.map(c => c.provider).filter(Boolean))]
-  const total = chassis.length
-  const active = chassis.filter(c => ['active', 'in_use'].includes(c.status?.toLowerCase())).length
-  const available = chassis.filter(c => c.status?.toLowerCase() === 'available').length
+  const filteredLT = search
+    ? longTerm.filter(c => c.chassis_number?.toUpperCase().includes(search.toUpperCase().trim()))
+    : longTerm
+  const filteredST = search
+    ? shortTerm.filter(c => c.chassis_number?.toUpperCase().includes(search.toUpperCase().trim()))
+    : shortTerm
 
   return (
     <div className="p-6 space-y-6">
@@ -84,7 +88,7 @@ export default function ChassisManagement() {
         <p className="text-muted-foreground">Fleet chassis inventory and status tracking</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/20">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -104,71 +108,142 @@ export default function ChassisManagement() {
       <div className="flex gap-3 flex-wrap">
         <input
           type="text"
-          placeholder="Search chassis number or location..."
+          placeholder="Search chassis number..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="flex-1 min-w-48 px-3 py-2 border rounded-md text-sm"
         />
-        <Select value={providerFilter} onValueChange={setProviderFilter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Provider" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Providers</SelectItem>
-            {providers.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="available">Available</SelectItem>
-            <SelectItem value="in_use">In Use</SelectItem>
-            <SelectItem value="maintenance">Maintenance</SelectItem>
-            <SelectItem value="retired">Retired</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button variant="outline" onClick={() => { setSearch(''); setProviderFilter('all'); setStatusFilter('all') }}>Clear</Button>
+        <Button variant="outline" onClick={() => setSearch('')}>Clear</Button>
       </div>
 
-      <Card>
-        <CardContent className="pt-4">
-          {loading ? <p className="text-muted-foreground">Loading chassis data...</p> : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Chassis #</TableHead>
-                  <TableHead>Provider</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Year</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Last Seen</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">No chassis found.</TableCell></TableRow>
-                ) : filtered.slice(0, 100).map(c => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-mono font-medium">{c.chassis_number}</TableCell>
-                    <TableCell><Badge variant="outline">{c.provider || 'N/A'}</Badge></TableCell>
-                    <TableCell className="text-sm">{c.type || 'N/A'}</TableCell>
-                    <TableCell>{c.year || 'N/A'}</TableCell>
-                    <TableCell className="text-sm">{c.location || 'N/A'}</TableCell>
-                    <TableCell className="text-sm">{formatDate(c.last_seen)}</TableCell>
-                    <TableCell><Badge variant={getStatusVariant(c.status)}>{c.status || 'Unknown'}</Badge></TableCell>
-                    <TableCell>
-                      <Link to={`/chassis/${c.id}`}><Button variant="outline" size="sm">View</Button></Link>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+      <Tabs defaultValue="long-term">
+        <TabsList>
+          <TabsTrigger value="long-term">Long Term ({longTerm.length})</TabsTrigger>
+          <TabsTrigger value="short-term">Short Term ({shortTerm.length})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="long-term">
+          <Card>
+            <CardContent className="pt-4">
+              {loading ? (
+                <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-8 bg-muted animate-pulse rounded" />)}</div>
+              ) : filteredLT.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No chassis found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Chassis #</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Lessor</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Region</TableHead>
+                        <TableHead>GPS Provider</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredLT.slice(0, 100).map(c => (
+                        <TableRow
+                          key={c.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setSelectedChassis(c)}
+                        >
+                          <TableCell className="font-mono font-medium">{c.chassis_number?.trim()}</TableCell>
+                          <TableCell><Badge variant="outline">{c.status || 'N/A'}</Badge></TableCell>
+                          <TableCell className="text-sm">{c.lessor || 'N/A'}</TableCell>
+                          <TableCell className="text-sm">{c.category || 'N/A'}</TableCell>
+                          <TableCell className="text-sm">{c.region || 'N/A'}</TableCell>
+                          <TableCell className="text-sm">{c.gps_provider || 'N/A'}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              {filteredLT.length > 100 && <p className="text-sm text-muted-foreground text-center mt-2">Showing 100 of {filteredLT.length} chassis.</p>}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="short-term">
+          <Card>
+            <CardContent className="pt-4">
+              {loading ? (
+                <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-8 bg-muted animate-pulse rounded" />)}</div>
+              ) : filteredST.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No short term chassis found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Chassis #</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Lessor</TableHead>
+                        <TableHead>On Hire</TableHead>
+                        <TableHead>Off Hire</TableHead>
+                        <TableHead>Rate/Day</TableHead>
+                        <TableHead>Paid Amount</TableHead>
+                        <TableHead>Repair Costs</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredST.slice(0, 100).map(c => (
+                        <TableRow key={c.id}>
+                          <TableCell className="font-mono font-medium">{c.chassis_number?.trim()}</TableCell>
+                          <TableCell><Badge variant="outline">{c.status || 'N/A'}</Badge></TableCell>
+                          <TableCell className="text-sm">{c.lessor || 'N/A'}</TableCell>
+                          <TableCell className="text-sm">{safeDate(c.on_hire_date)}</TableCell>
+                          <TableCell className="text-sm">{safeDate(c.off_hire_date)}</TableCell>
+                          <TableCell className="text-sm">{safeAmount(c.rate_per_day)}</TableCell>
+                          <TableCell className="text-sm">{safeAmount(c.paid_amount)}</TableCell>
+                          <TableCell className="text-sm">{safeAmount(c.repair_costs)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Long Term Detail Drawer */}
+      <Sheet open={!!selectedChassis} onOpenChange={() => setSelectedChassis(null)}>
+        <SheetContent side="right">
+          <SheetHeader>
+            <SheetTitle className="font-mono">{selectedChassis?.chassis_number?.trim()}</SheetTitle>
+            <SheetDescription>Long Term Chassis Details</SheetDescription>
+          </SheetHeader>
+          {selectedChassis && (
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm mt-6">
+              <Field label="Chassis #" value={selectedChassis.chassis_number?.trim()} />
+              <Field label="Status" value={selectedChassis.status} />
+              <Field label="Category" value={selectedChassis.category} />
+              <Field label="Lessor" value={selectedChassis.lessor} />
+              <Field label="Type" value={selectedChassis.type} />
+              <Field label="Region" value={selectedChassis.region} />
+              <Field label="Rate/Day" value={safeAmount(selectedChassis.rate_per_day)} />
+              <Field label="GPS Provider" value={selectedChassis.gps_provider} />
+              <Field label="On Hire" value={safeDate(selectedChassis.on_hire_date)} />
+              <Field label="Off Hire" value={safeDate(selectedChassis.off_hire_date)} />
+              <Field label="Contract Status" value={selectedChassis.contract_status} />
+              <Field label="Notes" value={selectedChassis.notes} />
+            </dl>
           )}
-          {filtered.length > 100 && <p className="text-sm text-muted-foreground text-center mt-2">Showing 100 of {filtered.length} chassis.</p>}
-        </CardContent>
-      </Card>
+        </SheetContent>
+      </Sheet>
+    </div>
+  )
+}
+
+function Field({ label, value }: { label: string; value?: string | number | null }) {
+  return (
+    <div>
+      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dd className="font-medium">{value ?? 'N/A'}</dd>
     </div>
   )
 }

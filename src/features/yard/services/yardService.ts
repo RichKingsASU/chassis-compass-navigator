@@ -183,7 +183,7 @@ export async function createYard(config: Omit<YardConfig, 'id'>): Promise<YardCo
 // ── Inventory CRUD ──────────────────────────────────────────
 export async function getRecords(yardId: string): Promise<InventoryRecord[]> {
   const { data, error } = await supabase
-    .from('yard_inventory')
+    .from('yard_events_data')
     .select('*')
     .eq('yard_id', yardId)
     .order('date_in', { ascending: false });
@@ -193,7 +193,7 @@ export async function getRecords(yardId: string): Promise<InventoryRecord[]> {
 
 export async function getActiveRecords(yardId: string): Promise<InventoryRecord[]> {
   const { data, error } = await supabase
-    .from('yard_inventory')
+    .from('yard_events_data')
     .select('*')
     .eq('yard_id', yardId)
     .neq('status', 'EXITED')
@@ -209,7 +209,7 @@ export async function createRecord(
 ): Promise<InventoryRecord> {
   const row = recordToRow(data, yardId);
   const { data: inserted, error } = await supabase
-    .from('yard_inventory')
+    .from('yard_events_data')
     .insert(row)
     .select()
     .single();
@@ -227,7 +227,7 @@ export async function updateRecord(
   reason?: string
 ): Promise<InventoryRecord | null> {
   const current = await supabase
-    .from('yard_inventory')
+    .from('yard_events_data')
     .select('*')
     .eq('id', id)
     .single();
@@ -235,7 +235,7 @@ export async function updateRecord(
 
   const row = { ...recordToRow(updates, yardId), updated_at: new Date().toISOString() };
   const { data: updated, error } = await supabase
-    .from('yard_inventory')
+    .from('yard_events_data')
     .update(row)
     .eq('id', id)
     .select()

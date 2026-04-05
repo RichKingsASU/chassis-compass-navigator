@@ -1,32 +1,24 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { formatDate } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import GoogleMapsFleetMap from '@/components/GoogleMapsFleetMap'
 
-interface ChassisLocation {
-  id: string
+interface ChassisEntry {
   chassis_number: string
-  latitude: number
-  longitude: number
-  location_name: string
-  provider: string
   gps_provider: string
-  timestamp: string
   status: string
+  region: string
 }
 
 export default function ChassisLocator() {
-  const [locations, setLocations] = useState<ChassisLocation[]>([])
-  const [filtered, setFiltered] = useState<ChassisLocation[]>([])
+  const [chassis, setChassis] = useState<ChassisEntry[]>([])
+  const [filtered, setFiltered] = useState<ChassisEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
-  const [providerFilter, setProviderFilter] = useState('all')
   const [gpsFilter, setGpsFilter] = useState('all')
 
   useEffect(() => {
@@ -34,16 +26,15 @@ export default function ChassisLocator() {
       setLoading(true)
       try {
         const { data, error: fetchErr } = await supabase
-          .from('gps_data')
-          .select('*')
-          .order('recorded_at', { ascending: false })
+          .from('long_term_lease_owned')
+          .select('chassis_number, gps_provider, status, region')
           .limit(500)
         if (fetchErr) throw fetchErr
-        const normalised = (data || []).map((d: Record<string, unknown>) => ({ ...d, timestamp: d.recorded_at })) as ChassisLocation[]
-        setLocations(normalised)
-        setFiltered(normalised)
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load location data')
+        setChassis(data || [])
+        setFiltered(data || [])
+      } catch (err) {
+        console.error('[ChassisLocator] load failed:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load chassis data')
       } finally {
         setLoading(false)
       }
@@ -52,35 +43,31 @@ export default function ChassisLocator() {
   }, [])
 
   useEffect(() => {
-    let result = locations
-    if (search) result = result.filter(l => l.chassis_number?.includes(search.toUpperCase()) || l.location_name?.toUpperCase().includes(search.toUpperCase()))
-    if (providerFilter !== 'all') result = result.filter(l => l.provider === providerFilter)
-    if (gpsFilter !== 'all') result = result.filter(l => l.gps_provider === gpsFilter)
+    let result = chassis
+    if (search) result = result.filter(c => c.chassis_number?.toUpperCase().trim().includes(search.toUpperCase().trim()))
+    if (gpsFilter !== 'all') result = result.filter(c => c.gps_provider === gpsFilter)
     setFiltered(result)
-  }, [search, providerFilter, gpsFilter, locations])
+  }, [search, gpsFilter, chassis])
 
-  const providers = [...new Set(locations.map(l => l.provider).filter(Boolean))]
-  const gpsProviders = [...new Set(locations.map(l => l.gps_provider).filter(Boolean))]
+  const gpsProviders = [...new Set(chassis.map(c => c.gps_provider).filter(Boolean))]
 
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Chassis Locator</h1>
-        <p className="text-muted-foreground">Real-time chassis locations from GPS providers</p>
+        <p className="text-muted-foreground">Chassis fleet with GPS provider assignments</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/20">{error}</div>}
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Fleet Map</CardTitle>
-            <Badge variant="outline">{filtered.filter(l => l.latitude && l.longitude).length} locations on map</Badge>
-          </div>
+          <CardTitle>GPS Status</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[480px] rounded-lg overflow-hidden">
-            <GoogleMapsFleetMap locations={filtered} />
+          <div className="p-8 text-center border rounded-lg bg-muted/30">
+            <p className="text-lg font-medium text-muted-foreground">No GPS coordinates available yet.</p>
+            <p className="text-sm text-muted-foreground mt-1">Import GPS data via GPS Providers to see locations on the map.</p>
           </div>
         </CardContent>
       </Card>
@@ -88,63 +75,50 @@ export default function ChassisLocator() {
       <div className="flex gap-3 flex-wrap">
         <input
           type="text"
-          placeholder="Search chassis # or location..."
+          placeholder="Search chassis #..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="flex-1 min-w-48 px-3 py-2 border rounded-md text-sm"
         />
-        <Select value={providerFilter} onValueChange={setProviderFilter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="Provider" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Providers</SelectItem>
-            {providers.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-          </SelectContent>
-        </Select>
         <Select value={gpsFilter} onValueChange={setGpsFilter}>
-          <SelectTrigger className="w-40"><SelectValue placeholder="GPS Provider" /></SelectTrigger>
+          <SelectTrigger className="w-44"><SelectValue placeholder="GPS Provider" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All GPS</SelectItem>
+            <SelectItem value="all">All GPS Providers</SelectItem>
             {gpsProviders.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={() => { setSearch(''); setProviderFilter('all'); setGpsFilter('all') }}>Clear</Button>
+        <Button variant="outline" onClick={() => { setSearch(''); setGpsFilter('all') }}>Clear</Button>
       </div>
 
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Chassis Locations</CardTitle>
+            <CardTitle>Fleet Chassis</CardTitle>
             <Badge variant="outline">{filtered.length} results</Badge>
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? <p className="text-muted-foreground">Loading location data...</p> : (
+          {loading ? (
+            <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-8 bg-muted animate-pulse rounded" />)}</div>
+          ) : filtered.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No chassis found.</p>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Chassis #</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Coordinates</TableHead>
                   <TableHead>GPS Provider</TableHead>
-                  <TableHead>Provider</TableHead>
-                  <TableHead>Last Updated</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Region</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No locations found.</TableCell></TableRow>
-                ) : filtered.slice(0, 100).map(loc => (
-                  <TableRow key={loc.id}>
-                    <TableCell className="font-mono font-medium">{loc.chassis_number}</TableCell>
-                    <TableCell className="text-sm">{loc.location_name || 'Unknown'}</TableCell>
-                    <TableCell className="text-xs font-mono text-muted-foreground">
-                      {loc.latitude?.toFixed(4)}, {loc.longitude?.toFixed(4)}
-                    </TableCell>
-                    <TableCell><Badge variant="outline">{loc.gps_provider || 'N/A'}</Badge></TableCell>
-                    <TableCell className="text-sm">{loc.provider || 'N/A'}</TableCell>
-                    <TableCell className="text-sm">{formatDate(loc.timestamp)}</TableCell>
-                    <TableCell><Badge variant={loc.status === 'moving' ? 'default' : 'secondary'}>{loc.status || 'N/A'}</Badge></TableCell>
+                {filtered.slice(0, 100).map((c, i) => (
+                  <TableRow key={`${c.chassis_number}-${i}`}>
+                    <TableCell className="font-mono font-medium">{c.chassis_number?.trim()}</TableCell>
+                    <TableCell><Badge variant="outline">{c.gps_provider || 'None'}</Badge></TableCell>
+                    <TableCell className="text-sm">{c.status || 'N/A'}</TableCell>
+                    <TableCell className="text-sm">{c.region || 'N/A'}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

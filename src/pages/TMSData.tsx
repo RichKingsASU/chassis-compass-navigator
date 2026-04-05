@@ -18,8 +18,8 @@ interface TMSSummary {
 }
 
 const TMS_SYSTEMS = [
-  { name: 'Mercury Gate', code: 'MG', table: 'mg_tms', route: '/tms/mercurygate', description: 'MercuryGate TMS — Load planning and tracking' },
-  { name: 'Port Pro', code: 'PP', table: 'portpro_tms', route: '/tms/portpro', description: 'Port Pro TMS — Port drayage management' },
+  { name: 'Mercury Gate', code: 'MG', table: 'mg_tms', route: '/tms/mercury-gate', description: 'MercuryGate TMS — Load planning and tracking' },
+  { name: 'Port Pro', code: 'PP', table: 'ytd_loads', route: '/tms/port-pro', description: 'Port Pro TMS — YTD Loads' },
 ]
 
 export default function TMSData() {
@@ -33,14 +33,9 @@ export default function TMSData() {
       const results = await Promise.all(
         TMS_SYSTEMS.map(async (sys) => {
           try {
-            const { data } = await supabase.from(sys.table).select('created_at').order('created_at', { ascending: false })
-            const records = data || []
-            return {
-              ...sys,
-              totalRecords: records.length,
-              lastSync: records[0]?.created_at || '',
-              loading: false,
-            }
+            const { count, error } = await supabase.from(sys.table).select('id', { count: 'exact', head: true })
+            if (error) return { ...sys, totalRecords: 0, lastSync: '', loading: false }
+            return { ...sys, totalRecords: count || 0, lastSync: '', loading: false }
           } catch {
             return { ...sys, totalRecords: 0, lastSync: '', loading: false }
           }
@@ -56,13 +51,13 @@ export default function TMSData() {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">TMS Data</h1>
-        <p className="text-muted-foreground">Transportation Management System data sources and integration</p>
+        <p className="text-muted-foreground">Transportation Management System data sources</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total TMS Records</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{totalRecords}</p></CardContent>
+          <CardContent><p className="text-3xl font-bold">{totalRecords.toLocaleString()}</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">TMS Systems</CardTitle></CardHeader>
@@ -88,15 +83,9 @@ export default function TMSData() {
               {sys.loading ? (
                 <p className="text-muted-foreground text-sm">Loading...</p>
               ) : (
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="p-3 bg-muted rounded text-center">
-                    <p className="text-2xl font-bold">{sys.totalRecords.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground">Total Records</p>
-                  </div>
-                  <div className="p-3 bg-blue-50 rounded text-center">
-                    <p className="text-xs font-medium text-blue-700">Last Sync</p>
-                    <p className="text-xs text-blue-600">{sys.lastSync ? formatDate(sys.lastSync) : 'Never'}</p>
-                  </div>
+                <div className="p-3 bg-muted rounded text-center">
+                  <p className="text-2xl font-bold">{sys.totalRecords.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Total Records</p>
                 </div>
               )}
               <Link to={sys.route}>

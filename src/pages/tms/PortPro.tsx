@@ -7,17 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 interface PPRecord {
-  id: string
-  order_number: string
-  chassis_number: string
-  container_number: string
-  pickup_date: string
-  delivery_date: string
-  carrier: string
-  customer: string
-  terminal: string
-  status: string
-  created_at: string
+  [key: string]: unknown
 }
 
 export default function PortPro() {
@@ -32,14 +22,14 @@ export default function PortPro() {
       setLoading(true)
       try {
         const { data, error: fetchErr } = await supabase
-          .from('portpro_tms')
+          .from('ytd_loads')
           .select('*')
-          .order('created_at', { ascending: false })
           .limit(500)
         if (fetchErr) throw fetchErr
         setRecords(data || [])
         setFiltered(data || [])
-      } catch (err: unknown) {
+      } catch (err) {
+        console.error('[PortPro] load failed:', err)
         setError(err instanceof Error ? err.message : 'Failed to load Port Pro data')
       } finally {
         setLoading(false)
@@ -53,25 +43,26 @@ export default function PortPro() {
       setFiltered(records)
       return
     }
-    const q = search.toUpperCase()
+    const q = search.toUpperCase().trim()
     setFiltered(records.filter(r =>
-      r.order_number?.includes(q) ||
-      r.chassis_number?.includes(q) ||
-      r.container_number?.includes(q) ||
-      r.customer?.toUpperCase().includes(q) ||
-      r.carrier?.toUpperCase().includes(q) ||
-      r.terminal?.toUpperCase().includes(q)
+      String(r.order_number || r.ld_num || '').toUpperCase().includes(q) ||
+      String(r.chassis_number || '').toUpperCase().trim().includes(q) ||
+      String(r.container_number || '').toUpperCase().includes(q) ||
+      String(r.customer || r.customer_name || '').toUpperCase().includes(q)
     ))
   }, [search, records])
+
+  // Detect columns dynamically from the data
+  const columns = records.length > 0 ? Object.keys(records[0]).filter(k => k !== 'id' && !k.startsWith('_')) : []
 
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Port Pro TMS</h1>
-        <p className="text-muted-foreground">Port Pro Transportation Management System — Port drayage data</p>
+        <p className="text-muted-foreground">Port Pro Transportation Management System — YTD Loads</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/20">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -83,8 +74,8 @@ export default function PortPro() {
           <CardContent><p className="text-3xl font-bold">{filtered.length.toLocaleString()}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Unique Chassis</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{new Set(records.map(r => r.chassis_number).filter(Boolean)).size}</p></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Columns</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold">{columns.length}</p></CardContent>
         </Card>
       </div>
 
@@ -101,36 +92,28 @@ export default function PortPro() {
 
       <Card>
         <CardContent className="pt-4">
-          {loading ? <p className="text-muted-foreground">Loading Port Pro data...</p> : (
+          {loading ? (
+            <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-8 bg-muted animate-pulse rounded" />)}</div>
+          ) : filtered.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No records found.</p>
+          ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Order #</TableHead>
-                    <TableHead>Chassis #</TableHead>
-                    <TableHead>Container #</TableHead>
-                    <TableHead>Terminal</TableHead>
-                    <TableHead>Pickup Date</TableHead>
-                    <TableHead>Delivery Date</TableHead>
-                    <TableHead>Carrier</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Status</TableHead>
+                    {columns.slice(0, 10).map(col => (
+                      <TableHead key={col}>{col.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
-                  ) : filtered.slice(0, 100).map(r => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-mono text-sm">{r.order_number || 'N/A'}</TableCell>
-                      <TableCell className="font-mono text-sm">{r.chassis_number || 'N/A'}</TableCell>
-                      <TableCell className="font-mono text-sm">{r.container_number || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.terminal || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{formatDate(r.pickup_date)}</TableCell>
-                      <TableCell className="text-sm">{formatDate(r.delivery_date)}</TableCell>
-                      <TableCell className="text-sm">{r.carrier || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.customer || 'N/A'}</TableCell>
-                      <TableCell><Badge variant="outline">{r.status || 'N/A'}</Badge></TableCell>
+                  {filtered.slice(0, 100).map((r, i) => (
+                    <TableRow key={i}>
+                      {columns.slice(0, 10).map(col => (
+                        <TableCell key={col} className="text-sm">
+                          {r[col] != null ? String(r[col]) : 'N/A'}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   ))}
                 </TableBody>

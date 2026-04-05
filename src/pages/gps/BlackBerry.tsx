@@ -41,7 +41,7 @@ export default function BlackBerryPage() {
       setLoading(true)
       try {
         const [recRes, fileRes] = await Promise.all([
-          supabase.from('gps_data').select('*').eq('provider', PROVIDER_NAME).order('timestamp', { ascending: false }).limit(100),
+          supabase.from('blackberry_log_gps').select('*').order('recorded_at', { ascending: false }).limit(100),
           supabase.from('gps_uploads').select('*').eq('provider', PROVIDER_NAME).order('created_at', { ascending: false }),
         ])
         setRecords(recRes.data || [])

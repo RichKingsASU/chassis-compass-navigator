@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import { useUnbilledCount } from '@/hooks/useUnbilledCount'
+import DataFreshnessBar from '@/components/DataFreshnessBar'
 
-interface Activity {
-  id: string
-  description: string
-  type: string
-  created_at: string
+interface RecentLoad {
+  ld_num: string
+  status: string
+  updated_date: string
 }
 
 interface VendorRow { vendor: string; invoices: number; amount: number }
@@ -17,36 +19,38 @@ interface GpsRow { name: string; value: number }
 
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
-// Vendor invoice tables to query
-const VENDOR_TABLES = [
-  { table: 'dcli_invoice', label: 'DCLI' },
-  { table: 'ccm_invoice', label: 'CCM' },
-  { table: 'trac_invoice', label: 'TRAC' },
-  { table: 'flexivan-invoices', label: 'FLEXIVAN' },
-  { table: 'wccp_invoice', label: 'WCCP' },
-  { table: 'scspa_invoice', label: 'SCSPA' },
+const GPS_TABLES = [
+  { table: 'samsara_gps', name: 'Samsara' },
+  { table: 'anytrek_gps', name: 'Anytrek' },
+  { table: 'blackberry_log_gps', name: 'BlackBerry Log' },
+  { table: 'blackberry_tran_gps', name: 'BlackBerry Tran' },
+  { table: 'fleetlocate_gps', name: 'FleetLocate' },
 ] as const
-
-// GPS provider names used in gps_data.provider
-const GPS_PROVIDERS = ['Samsara', 'BlackBerry', 'Fleetview', 'Fleetlocate', 'Anytrek'] as const
 
 async function loadVendorData(): Promise<VendorRow[]> {
   const results: VendorRow[] = []
-  for (const { table, label } of VENDOR_TABLES) {
-    const { count } = await supabase.from(table).select('id', { count: 'exact', head: true })
-    if (count && count > 0) {
-      const { data } = await supabase.from(table).select('total_amount')
-      const amount = (data || []).reduce((s, r) => s + (Number(r.total_amount) || 0), 0)
-      results.push({ vendor: label, invoices: count, amount })
+  try {
+    const { data, error } = await supabase
+      .from('dcli_activity')
+      .select('portal_status, amount')
+    if (!error && data) {
+      const amount = data.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+      results.push({ vendor: 'DCLI', invoices: data.length, amount })
     }
-  }
-  // If no real data in any table, return sensible defaults so the chart isn't empty
+  } catch { /* skip */ }
+  try {
+    const { count } = await supabase.from('ccm_activity').select('id', { count: 'exact', head: true })
+    results.push({ vendor: 'CCM', invoices: count || 0, amount: 0 })
+  } catch { /* skip */ }
+  try {
+    const { count } = await supabase.from('scspa_activity').select('id', { count: 'exact', head: true })
+    results.push({ vendor: 'SCSPA', invoices: count || 0, amount: 0 })
+  } catch { /* skip */ }
   if (results.length === 0) {
     return [
       { vendor: 'DCLI', invoices: 0, amount: 0 },
       { vendor: 'CCM', invoices: 0, amount: 0 },
-      { vendor: 'TRAC', invoices: 0, amount: 0 },
-      { vendor: 'FLEXIVAN', invoices: 0, amount: 0 },
+      { vendor: 'SCSPA', invoices: 0, amount: 0 },
     ]
   }
   return results
@@ -54,50 +58,54 @@ async function loadVendorData(): Promise<VendorRow[]> {
 
 async function loadGpsData(): Promise<GpsRow[]> {
   const results: GpsRow[] = []
-  for (const provider of GPS_PROVIDERS) {
-    const { count } = await supabase
-      .from('gps_data')
-      .select('id', { count: 'exact', head: true })
-      .ilike('provider', provider)
-    results.push({ name: provider, value: count || 0 })
-  }
-  // If all zero, also count total gps_uploads per provider filename pattern
-  if (results.every(r => r.value === 0)) {
-    const { count: totalGps } = await supabase.from('gps_uploads').select('id', { count: 'exact', head: true })
-    if (totalGps && totalGps > 0) {
-      // Distribute uploads proportionally as placeholder
-      return GPS_PROVIDERS.map(name => ({ name, value: 0 }))
+  for (const { table, name } of GPS_TABLES) {
+    try {
+      const { count } = await supabase.from(table).select('id', { count: 'exact', head: true })
+      results.push({ name, value: count || 0 })
+    } catch {
+      results.push({ name, value: 0 })
     }
   }
   return results
 }
 
 export default function Dashboard() {
-  const [activities, setActivities] = useState<Activity[]>([])
+  const [recentLoads, setRecentLoads] = useState<RecentLoad[]>([])
   const [loading, setLoading] = useState(true)
   const [chassisCount, setChassisCount] = useState(0)
-  const [gpsCount, setGpsCount] = useState(0)
+  const [gpsProvidersActive, setGpsProvidersActive] = useState(0)
+  const [recentActivityCount, setRecentActivityCount] = useState(0)
   const [vendorData, setVendorData] = useState<VendorRow[]>([])
   const [gpsData, setGpsData] = useState<GpsRow[]>([])
+  const { count: unbilledCount, totalAtRisk } = useUnbilledCount()
 
   useEffect(() => {
     async function load() {
       setLoading(true)
       try {
-        const [actRes, chassisRes, gpsRes, vendors, gps] = await Promise.all([
-          supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(10),
-          supabase.from('chassis').select('id', { count: 'exact', head: true }),
-          supabase.from('gps_data').select('id', { count: 'exact', head: true }),
+        const [ltRes, stRes, recentRes, vendors, gps] = await Promise.all([
+          supabase.from('long_term_lease_owned').select('id', { count: 'exact', head: true }),
+          supabase.from('short_term_lease').select('id', { count: 'exact', head: true }),
+          supabase.from('mg_tms').select('ld_num, status, updated_date').order('updated_date', { ascending: false }).limit(10),
           loadVendorData(),
           loadGpsData(),
         ])
-        setActivities(actRes.data || [])
-        setChassisCount(chassisRes.count || 0)
-        setGpsCount(gpsRes.count || 0)
+        setChassisCount((ltRes.count || 0) + (stRes.count || 0))
+        setRecentLoads(recentRes.data || [])
         setVendorData(vendors)
         setGpsData(gps)
-      } catch {
-        // silently fail — dashboard shows empty state
+
+        const active = gps.filter(g => g.value > 0).length
+        setGpsProvidersActive(active)
+
+        // Recent activity count (last 7 days)
+        const { count: weekCount } = await supabase
+          .from('mg_tms')
+          .select('id', { count: 'exact', head: true })
+          .gte('updated_date', new Date(Date.now() - 7 * 86_400_000).toISOString())
+        setRecentActivityCount(weekCount || 0)
+      } catch (err) {
+        console.error('[Dashboard] load failed:', err)
       } finally {
         setLoading(false)
       }
@@ -105,35 +113,42 @@ export default function Dashboard() {
     load()
   }, [])
 
-  const gpsCoverage = chassisCount > 0 ? Math.round((gpsCount / chassisCount) * 100) : 0
-
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">Chassis Compass Navigator — Fleet Overview</p>
+        <DataFreshnessBar tableName="mg_tms" label="TMS Data" />
       </div>
+
+      {unbilledCount > 0 && (
+        <Link to="/unbilled-loads" className="block">
+          <div className="p-3 bg-yellow-50 border border-yellow-300 rounded-md text-yellow-800 text-sm font-medium">
+            {unbilledCount} loads flagged unbilled — {formatCurrency(totalAtRisk)} at risk
+          </div>
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Chassis</CardTitle></CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{chassisCount.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">Active fleet units</p>
+            <p className="text-xs text-muted-foreground mt-1">Long term + short term leases</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">GPS Coverage</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{gpsCoverage}%</p>
-            <p className="text-xs text-muted-foreground mt-1">{gpsCount.toLocaleString()} tracked units</p>
+            <p className="text-3xl font-bold">{gpsProvidersActive} of {GPS_TABLES.length}</p>
+            <p className="text-xs text-muted-foreground mt-1">providers have data</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Recent Activity</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{activities.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">Last 10 events</p>
+            <p className="text-3xl font-bold">{recentActivityCount.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground mt-1">TMS updates in last 7 days</p>
           </CardContent>
         </Card>
       </div>
@@ -147,7 +162,7 @@ export default function Dashboard() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="vendor" />
                 <YAxis />
-                <Tooltip formatter={(value, name) => name === 'amount' ? formatCurrency(value as number) : value} />
+                <Tooltip formatter={(value: number, name: string) => name === 'amount' ? formatCurrency(value) : value} />
                 <Bar dataKey="invoices" fill="#3b82f6" name="Invoices" />
               </BarChart>
             </ResponsiveContainer>
@@ -159,7 +174,7 @@ export default function Dashboard() {
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie data={gpsData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`}>
+                <Pie data={gpsData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(props: { name?: string; percent?: number }) => `${props.name ?? ''} ${((props.percent ?? 0) * 100).toFixed(0)}%`}>
                   {gpsData.map((_, index) => <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
                 </Pie>
                 <Legend />
@@ -187,28 +202,16 @@ export default function Dashboard() {
           <CardHeader><CardTitle>Recent Activity</CardTitle></CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-muted-foreground">Loading...</p>
-            ) : activities.length === 0 ? (
-              <div className="space-y-2">
-                {[
-                  'DCLI invoice #INV-2024-001 uploaded',
-                  'TRAC invoice reviewed and approved',
-                  'New GPS data from Samsara — 45 units',
-                  'POLA yard report updated',
-                  'CCM dispute #D-1042 resolved',
-                ].map((msg, i) => (
-                  <div key={i} className="flex justify-between text-sm border-b pb-2">
-                    <span>{msg}</span>
-                    <Badge variant="outline" className="text-xs">System</Badge>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-6 bg-muted animate-pulse rounded" />)}</div>
+            ) : recentLoads.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No recent TMS activity.</p>
             ) : (
               <ul className="space-y-2">
-                {activities.map(a => (
-                  <li key={a.id} className="flex justify-between text-sm border-b pb-2">
-                    <span>{a.description}</span>
-                    <span className="text-muted-foreground text-xs">{formatDate(a.created_at)}</span>
+                {recentLoads.map(r => (
+                  <li key={r.ld_num} className="flex justify-between text-sm border-b pb-2">
+                    <span className="font-mono">{r.ld_num}</span>
+                    <Badge variant="outline">{r.status}</Badge>
+                    <span className="text-muted-foreground text-xs">{formatDate(r.updated_date)}</span>
                   </li>
                 ))}
               </ul>

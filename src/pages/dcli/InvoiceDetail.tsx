@@ -56,8 +56,8 @@ export default function DCLIInvoiceDetail() {
       setLoading(true)
       try {
         const [invRes, lineRes] = await Promise.all([
-          supabase.from('dcli_invoice').select('*').eq('id', id).single(),
-          supabase.from('dcli_invoice_data').select('*').eq('invoice_id', id),
+          supabase.from('dcli_activity').select('*').eq('id', id).single(),
+          supabase.from('dcli_activity').select('*').eq('id', id),
         ])
         if (invRes.error) throw invRes.error
         setInvoice(invRes.data)
