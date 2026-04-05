@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { SidebarProvider, Sidebar, SidebarContent } from '@/components/ui/sidebar'
 import SidebarNavigation from './SidebarNavigation'
@@ -63,8 +62,6 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation()
-  const [unreadNotifications] = useState(3)
-
   const pageTitle = getPageTitle(
     location.pathname,
     navItems,
@@ -88,7 +85,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         <div className="flex-1 flex flex-col overflow-hidden">
           <DashboardHeader
-            unreadNotifications={unreadNotifications}
             pageTitle={pageTitle}
           />
           <main className="flex-1 overflow-auto bg-muted/30">{children}</main>

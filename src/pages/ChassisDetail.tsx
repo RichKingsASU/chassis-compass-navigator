@@ -137,10 +137,10 @@ export default function ChassisDetail() {
 
         const cn = data.chassis_number
         const [loadsRes, statsRes, mrRes, gpsRes] = await Promise.all([
-          supabase.from('loads').select('*').eq('chassis_number', cn).order('pickup_date', { ascending: false }),
+          supabase.from('mg_data').select('*').eq('chassis_number', cn.trim()).order('pickup_actual_date', { ascending: false }),
           supabase.from('monthly_stats').select('*').eq('chassis_number', cn).order('month', { ascending: true }),
           supabase.from('mr_events').select('*').eq('chassis_number', cn).order('event_date', { ascending: false }),
-          supabase.from('gps_data').select('*').eq('device_id', cn).order('recorded_at', { ascending: false }).limit(100),
+          supabase.from('samsara_gps').select('*').eq('device_id', cn).order('recorded_at', { ascending: false }).limit(100),
         ])
         setLoads(loadsRes.data || [])
         setMonthlyStats(statsRes.data || [])

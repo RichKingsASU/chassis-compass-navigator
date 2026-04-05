@@ -25,6 +25,8 @@ const Settings = lazy(() => import('@/pages/Settings'))
 const VendorValidation = lazy(() => import('@/pages/VendorValidation'))
 const YardReportOverview = lazy(() => import('@/pages/YardReportOverview'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
+const UnbilledLoadsPage = lazy(() => import('@/features/unbilled-loads/UnbilledLoadsPage'))
+const PerDiemPage = lazy(() => import('@/features/perdiem/PerDiemPage'))
 
 // GPS Provider pages
 const Samsara = lazy(() => import('@/pages/gps/Samsara'))
@@ -181,6 +183,10 @@ export default function App() {
                   <Route path="/invoices" element={<ProtectedPage><InvoicesList /></ProtectedPage>} />
                   <Route path="/invoices/:invoiceId/details/:lineId" element={<ProtectedPage><InvoiceLineDetails /></ProtectedPage>} />
                   <Route path="/invoices/:invoiceId/dispute/:lineId" element={<ProtectedPage><InvoiceLineDispute /></ProtectedPage>} />
+
+                  {/* Finance */}
+                  <Route path="/unbilled-loads" element={<ProtectedPage><UnbilledLoadsPage /></ProtectedPage>} />
+                  <Route path="/perdiem" element={<ProtectedPage><PerDiemPage /></ProtectedPage>} />
 
                   {/* Settings */}
                   <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />

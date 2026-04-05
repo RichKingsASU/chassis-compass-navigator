@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Warehouse,
   BarChart3,
+  DollarSign,
 } from 'lucide-react'
 
 interface NavigationItem {
@@ -93,6 +94,15 @@ const navItems: NavigationItem[] = [
       { title: 'TRAC', path: '/vendors/trac' },
       { title: 'FLEXIVAN', path: '/vendors/flexivan' },
       { title: 'WCCP', path: '/vendors/wccp' },
+    ],
+  },
+  {
+    title: 'Finance',
+    path: '/unbilled-loads',
+    icon: DollarSign,
+    subItems: [
+      { title: 'Unbilled Loads', path: '/unbilled-loads' },
+      { title: 'Per Diem Recon', path: '/perdiem' },
     ],
   },
   { title: 'Settings', path: '/settings', icon: Settings },
