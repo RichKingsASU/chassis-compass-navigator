@@ -16,7 +16,6 @@ SELECT
   id,
   ld_num,
   so_num,
-  shipment_number,
   chassis_number,
   container_number,
   container_description                          AS container_type,
@@ -56,8 +55,8 @@ SELECT
   service_description                            AS service,
   miles,
 
-  -- Flags
-  unbilledflag,
+  -- Flags (mg_data has zero_rev instead of unbilledflag)
+  zero_rev                                       AS unbilledflag,
 
   -- Chassis info
   chassis_description,
