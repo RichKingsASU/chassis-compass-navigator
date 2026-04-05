@@ -532,7 +532,8 @@ export default function ChassisTable({
                 {paged.map((row, rowIdx) => (
                   <tr
                     key={rowIdx}
-                    className="border-b last:border-0 hover:bg-muted/50 transition-colors"
+                    className="border-b last:border-0 hover:bg-muted/50 transition-colors cursor-pointer"
+                    onClick={() => onViewRow?.(row)}
                   >
                     {visibleCols.map((col) => {
                       const isPinned = pinnedCols.has(col.key)
@@ -574,7 +575,7 @@ export default function ChassisTable({
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        onClick={() => onViewRow?.(row)}
+                        onClick={(e) => { e.stopPropagation(); onViewRow?.(row) }}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
