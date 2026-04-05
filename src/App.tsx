@@ -89,6 +89,10 @@ const WCCPInvoiceLineDispute = lazy(() => import('@/pages/wccp/InvoiceLineDisput
 const FLEXIVANNewInvoice = lazy(() => import('@/pages/flexivan/NewInvoice'))
 const SCSPANewInvoice = lazy(() => import('@/pages/scspa/NewInvoice'))
 
+// New feature pages
+const UnbilledLoadsPage = lazy(() => import('@/features/unbilled-loads/UnbilledLoadsPage'))
+const PerDiemPage = lazy(() => import('@/features/perdiem/PerDiemPage'))
+
 // Generic invoice pages
 const InvoicesList = lazy(() => import('@/pages/invoices/InvoicesList'))
 const InvoiceLineDetails = lazy(() => import('@/pages/invoices/InvoiceLineDetails'))
@@ -214,6 +218,10 @@ export default function App() {
                   <Route path="/vendors/wccp/invoices/:invoiceId/review" element={<ProtectedPage><WCCPInvoiceReview /></ProtectedPage>} />
                   <Route path="/vendors/wccp/invoice-line/:lineId" element={<ProtectedPage><WCCPInvoiceLineDetails /></ProtectedPage>} />
                   <Route path="/vendors/wccp/invoice-line/:lineId/dispute" element={<ProtectedPage><WCCPInvoiceLineDispute /></ProtectedPage>} />
+
+                  {/* Finance */}
+                  <Route path="/unbilled-loads" element={<ProtectedPage><UnbilledLoadsPage /></ProtectedPage>} />
+                  <Route path="/per-diem" element={<ProtectedPage><PerDiemPage /></ProtectedPage>} />
 
                   {/* Generic invoices */}
                   <Route path="/invoices" element={<ProtectedPage><InvoicesList /></ProtectedPage>} />
