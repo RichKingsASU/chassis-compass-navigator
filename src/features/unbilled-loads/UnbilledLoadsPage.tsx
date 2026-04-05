@@ -35,7 +35,7 @@ export default function UnbilledLoadsPage() {
       setLoading(true)
       try {
         const { data, error: fetchErr } = await supabase
-          .from('mg_tms')
+          .from('mg_data')
           .select('ld_num, chassis_number, customer_name, acct_mg_name, status, created_date, delivery_actual_date, cust_rate_charge, cust_invoice_charge, unbilledflag')
           .eq('unbilledflag', 'Y')
           .not('status', 'in', '("Cancelled","Void")')

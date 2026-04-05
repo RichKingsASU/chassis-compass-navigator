@@ -86,7 +86,7 @@ export default function Dashboard() {
         const [ltRes, stRes, recentRes, vendors, gps] = await Promise.all([
           supabase.from('long_term_lease_owned').select('id', { count: 'exact', head: true }),
           supabase.from('short_term_lease').select('id', { count: 'exact', head: true }),
-          supabase.from('mg_tms').select('ld_num, status, updated_date').order('updated_date', { ascending: false }).limit(10),
+          supabase.from('mg_data').select('ld_num, status, updated_date').order('updated_date', { ascending: false }).limit(10),
           loadVendorData(),
           loadGpsData(),
         ])
@@ -100,7 +100,7 @@ export default function Dashboard() {
 
         // Recent activity count (last 7 days)
         const { count: weekCount } = await supabase
-          .from('mg_tms')
+          .from('mg_data')
           .select('id', { count: 'exact', head: true })
           .gte('updated_date', new Date(Date.now() - 7 * 86_400_000).toISOString())
         setRecentActivityCount(weekCount || 0)
@@ -118,7 +118,7 @@ export default function Dashboard() {
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">Chassis Compass Navigator — Fleet Overview</p>
-        <DataFreshnessBar tableName="mg_tms" label="TMS Data" />
+        <DataFreshnessBar tableName="mg_data" label="TMS Data" />
       </div>
 
       {unbilledCount > 0 && (

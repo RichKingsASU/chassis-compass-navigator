@@ -68,7 +68,7 @@ export default function ChassisDetail() {
         const cn = (data.chassis_number || '').trim()
         if (cn) {
           const [loadsRes, yardRes] = await Promise.all([
-            supabase.from('mg_tms').select('*').ilike('chassis_number', `%${cn}%`).order('pickup_actual_date', { ascending: false }).limit(100),
+            supabase.from('mg_data').select('*').ilike('chassis_number', `%${cn}%`).order('pickup_actual_date', { ascending: false }).limit(100),
             supabase.from('yard_events_data').select('*').ilike('"ChassisNo"', `%${cn}%`).limit(50),
           ])
           setLoads(loadsRes.data || [])

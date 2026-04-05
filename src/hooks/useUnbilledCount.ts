@@ -9,7 +9,7 @@ export function useUnbilledCount() {
     async function fetch() {
       try {
         const { data, error } = await supabase
-          .from('mg_tms')
+          .from('mg_data')
           .select('cust_rate_charge')
           .eq('unbilledflag', 'Y')
           .not('status', 'in', '("Cancelled","Void")')

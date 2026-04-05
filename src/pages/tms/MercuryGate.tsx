@@ -55,7 +55,7 @@ export default function MercuryGate() {
       setLoading(true)
       try {
         const { data, error: fetchErr } = await supabase
-          .from('mg_tms')
+          .from('mg_data')
           .select('*')
           .order('created_date', { ascending: false })
           .limit(500)
@@ -100,7 +100,7 @@ export default function MercuryGate() {
       <div>
         <h1 className="text-3xl font-bold">Mercury Gate TMS</h1>
         <p className="text-muted-foreground">MercuryGate Transportation Management System data</p>
-        <DataFreshnessBar tableName="mg_tms" label="TMS Data" />
+        <DataFreshnessBar tableName="mg_data" label="TMS Data" />
       </div>
 
       {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/20">{error}</div>}

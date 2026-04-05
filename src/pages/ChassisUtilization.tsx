@@ -24,9 +24,9 @@ export default function ChassisUtilization() {
     async function load() {
       setLoading(true)
       try {
-        // Aggregate from mg_tms
+        // Aggregate from mg_data
         const { data, error: fetchErr } = await supabase
-          .from('mg_tms')
+          .from('mg_data')
           .select('chassis_number, cust_rate_charge, carrier_rate_charge, status, zero_rev')
         if (fetchErr) throw fetchErr
 

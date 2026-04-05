@@ -29,7 +29,7 @@ export function useTMSData(searchTerm?: string) {
         setError(null)
 
         let query = supabase
-          .from('mg_tms')
+          .from('mg_data')
           .select('*', { count: 'exact' })
           .order('created_at', { ascending: false })
           .range(page * pageSize, (page + 1) * pageSize - 1)

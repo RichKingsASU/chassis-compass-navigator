@@ -46,7 +46,7 @@ export default function DashboardHeader({ pageTitle }: DashboardHeaderProps) {
       const all: SearchResult[] = []
       try {
         const [mgRes, ltRes, dcliRes] = await Promise.all([
-          supabase.from('mg_tms')
+          supabase.from('mg_data')
             .select('ld_num, customer_name, status')
             .or(`chassis_number.ilike.%${q}%,ld_num.ilike.%${q}%,customer_name.ilike.%${q}%`)
             .limit(5),
