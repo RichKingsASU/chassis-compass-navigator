@@ -9,7 +9,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import {
   LayoutDashboard, Truck, FileCheck, Settings, MapPin, Database,
   ChevronRight, Warehouse, BarChart3, LayoutGrid, PlusCircle,
-  FileText, Activity, TrendingUp, FolderOpen,
+  FileText, Activity, TrendingUp, FolderOpen, DollarSign,
 } from 'lucide-react'
 
 interface SubItem { title: string; path: string }
@@ -109,6 +109,14 @@ const topNavItems: NavigationItem[] = [
     subItems: [
       { title: 'Mercury Gate', path: '/tms/mercury-gate' },
       { title: 'Port Pro',     path: '/tms/port-pro' },
+      { title: 'Active Loads', path: '/active-loads' },
+      { title: 'Unbilled Loads', path: '/unbilled-loads' },
+    ],
+  },
+  {
+    title: 'Finance', path: '/perdiem-reconciliation', icon: DollarSign,
+    subItems: [
+      { title: 'Per Diem Reconciliation', path: '/perdiem-reconciliation' },
     ],
   },
   { title: 'Utilization',     path: '/utilization', icon: BarChart3 },

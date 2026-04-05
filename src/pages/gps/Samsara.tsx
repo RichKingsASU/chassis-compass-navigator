@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import DataFreshnessBar from '@/components/DataFreshnessBar'
 
 interface GpsRecord {
   id: string
@@ -94,7 +95,13 @@ export default function SamsaraPage() {
         <p className="text-muted-foreground">Samsara Fleet Telematics — Real-time tracking and data management</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      <DataFreshnessBar tableName="samsara_gps" label="Samsara GPS" />
+
+      {error && (
+        <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/30">
+          Query error — data could not be loaded. Check console for details.
+        </div>
+      )}
 
       <Tabs defaultValue="dashboard">
         <TabsList>

@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import DataFreshnessBar from '@/components/DataFreshnessBar'
 import { ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react'
 
 function SortableHead({ label, tooltip, column, currentSort, ascending, onSort }: {
@@ -65,7 +66,13 @@ export default function MercuryGate() {
           <p className="text-muted-foreground">MercuryGate Transportation Management System data</p>
         </div>
 
-        {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+        <DataFreshnessBar tableName="mg_data" />
+
+        {error && (
+          <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/30">
+            Query error — data could not be loaded. Check console for details.
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
