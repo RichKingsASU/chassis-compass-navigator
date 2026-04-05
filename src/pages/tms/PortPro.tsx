@@ -119,7 +119,11 @@ export default function PortPro() {
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">No Port Pro records imported.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                      {records.length === 0 && !search
+                        ? 'No Port Pro data imported yet.'
+                        : 'No records match your search.'}
+                    </TableCell></TableRow>
                   ) : filtered.slice(0, 100).map(r => (
                     <TableRow key={r.id}>
                       <TableCell className="font-mono text-sm">{r.order_number || 'N/A'}</TableCell>
