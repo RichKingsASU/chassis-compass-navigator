@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import GoogleMapsFleetMap from '@/components/GoogleMapsFleetMap'
+import { useNormalizedSearch } from '@/hooks/useEquipmentNormalizer'
+import { normalizeEquipmentId } from '@/lib/equipmentNormalizer'
 
 interface ChassisLocation {
   id: string
@@ -51,13 +53,30 @@ export default function ChassisLocator() {
     load()
   }, [])
 
+  const normalizedSearch = useNormalizedSearch(search)
+
   useEffect(() => {
     let result = locations
-    if (search) result = result.filter(l => l.chassis_number?.includes(search.toUpperCase()) || l.location_name?.toUpperCase().includes(search.toUpperCase()))
+    if (search) {
+      const upper = search.toUpperCase()
+      const matchKey = normalizedSearch.matchKey
+      const looseKey = normalizedSearch.looseKey
+      result = result.filter(l => {
+        if (!l.chassis_number && !l.location_name) return false
+        if (l.location_name?.toUpperCase().includes(upper)) return true
+        if (l.chassis_number?.toUpperCase().includes(upper)) return true
+        if (matchKey || looseKey) {
+          const norm = normalizeEquipmentId(l.chassis_number || '')
+          if (matchKey && norm.matchKey === matchKey) return true
+          if (looseKey && norm.looseKey === looseKey) return true
+        }
+        return false
+      })
+    }
     if (providerFilter !== 'all') result = result.filter(l => l.provider === providerFilter)
     if (gpsFilter !== 'all') result = result.filter(l => l.gps_provider === gpsFilter)
     setFiltered(result)
-  }, [search, providerFilter, gpsFilter, locations])
+  }, [search, providerFilter, gpsFilter, locations, normalizedSearch.matchKey, normalizedSearch.looseKey])
 
   const providers = [...new Set(locations.map(l => l.provider).filter(Boolean))]
   const gpsProviders = [...new Set(locations.map(l => l.gps_provider).filter(Boolean))]
@@ -90,13 +109,23 @@ export default function ChassisLocator() {
       </Card>
 
       <div className="flex gap-3 flex-wrap">
-        <input
-          type="text"
-          placeholder="Search chassis # or location..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-48 px-3 py-2 border rounded-md text-sm"
-        />
+        <div className="flex-1 min-w-48">
+          <input
+            type="text"
+            placeholder="Search chassis # or location..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full px-3 py-2 border rounded-md text-sm"
+          />
+          {normalizedSearch.hasLowConfidence && normalizedSearch.normalized && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Did you mean: <span className="font-mono">{normalizedSearch.normalized}</span>?
+            </p>
+          )}
+          {normalizedSearch.warnings.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">{normalizedSearch.warnings.join(', ')}</p>
+          )}
+        </div>
         <Select value={providerFilter} onValueChange={setProviderFilter}>
           <SelectTrigger className="w-40"><SelectValue placeholder="Provider" /></SelectTrigger>
           <SelectContent>
