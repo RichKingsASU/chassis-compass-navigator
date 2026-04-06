@@ -89,10 +89,6 @@ const WCCPInvoiceLineDispute = lazy(() => import('@/pages/wccp/InvoiceLineDisput
 const FLEXIVANNewInvoice = lazy(() => import('@/pages/flexivan/NewInvoice'))
 const SCSPANewInvoice = lazy(() => import('@/pages/scspa/NewInvoice'))
 
-// New feature pages
-const UnbilledLoadsPage = lazy(() => import('@/features/unbilled-loads/UnbilledLoadsPage'))
-const PerDiemPage = lazy(() => import('@/features/perdiem/PerDiemPage'))
-
 // Generic invoice pages
 const InvoicesList = lazy(() => import('@/pages/invoices/InvoicesList'))
 const InvoiceLineDetails = lazy(() => import('@/pages/invoices/InvoiceLineDetails'))
