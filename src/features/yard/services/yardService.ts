@@ -87,7 +87,7 @@ function recordToRow(data: Partial<InventoryRecord>, yardId: string) {
 // ── Yard Config ─────────────────────────────────────────────
 export async function getAllYards(): Promise<YardConfig[]> {
   const { data, error } = await supabase
-    .from('yards')
+    .from('yard_events_data')
     .select('*')
     .eq('active', true)
     .order('name');
@@ -112,7 +112,7 @@ export async function getAllYards(): Promise<YardConfig[]> {
 
 export async function getYardById(yardId: string): Promise<YardConfig | null> {
   const { data, error } = await supabase
-    .from('yards')
+    .from('yard_events_data')
     .select('*')
     .eq('id', yardId)
     .single();
@@ -150,7 +150,7 @@ export async function updateYardConfig(
   if (updates.active !== undefined) row.active = updates.active;
 
   const { error } = await supabase
-    .from('yards')
+    .from('yard_events_data')
     .update(row)
     .eq('id', yardId);
   if (error) throw error;
@@ -158,7 +158,7 @@ export async function updateYardConfig(
 
 export async function createYard(config: Omit<YardConfig, 'id'>): Promise<YardConfig> {
   const { data, error } = await supabase
-    .from('yards')
+    .from('yard_events_data')
     .insert({
       name: config.name,
       short_code: config.shortCode,

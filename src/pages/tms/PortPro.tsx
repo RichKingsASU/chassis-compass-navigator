@@ -71,7 +71,7 @@ export default function PortPro() {
         <p className="text-muted-foreground">Port Pro Transportation Management System — Port drayage data</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      {error && records.length > 0 && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>

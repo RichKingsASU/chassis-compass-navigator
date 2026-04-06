@@ -88,7 +88,7 @@ export default function SCSPAPage() {
         <p className="text-muted-foreground">South Carolina State Ports Authority — Vendor Dashboard</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
+      {error && records.length > 0 && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
 
       <Tabs defaultValue="dashboard">
         <TabsList>

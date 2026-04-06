@@ -52,8 +52,8 @@ function getUserRole(_user: any): UserRole {
 // ── Occupancy counts per yard ────────────────────────────────
 async function getOccupancyCounts(): Promise<Record<string, number>> {
   const { data, error } = await supabase
-    .from('yard_inventory')
-    .select('yard_id')
+    .from('yard_events_data')
+    .select('yard_id, "ChassisNo"')
     .is('actual_exit_at', null);
   if (error) throw error;
   const counts: Record<string, number> = {};
@@ -66,7 +66,7 @@ async function getOccupancyCounts(): Promise<Record<string, number>> {
 // ── Last activity per yard ───────────────────────────────────
 async function getLastActivity(): Promise<Record<string, string>> {
   const { data, error } = await supabase
-    .from('yard_inventory')
+    .from('yard_events_data')
     .select('yard_id, created_at')
     .order('created_at', { ascending: false });
   if (error) throw error;
