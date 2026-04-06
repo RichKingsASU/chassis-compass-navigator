@@ -7,6 +7,11 @@ function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount)
 }
 
+const tooltipFormatter = (value: unknown): string => {
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? formatCurrency(n) : ''
+}
+
 function monthKey(dateStr: string): string {
   if (!dateStr) return 'Unknown'
   const d = new Date(dateStr)
@@ -87,7 +92,7 @@ export function VendorFinancialsTab({ invoices }: VendorFinancialsTabProps) {
             <BarChart data={monthly}>
               <XAxis dataKey="month" />
               <YAxis tickFormatter={formatCurrency} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} />
+              <Tooltip formatter={tooltipFormatter} />
               <Bar dataKey="amount" fill="#6366f1" />
             </BarChart>
           </ResponsiveContainer>
@@ -103,7 +108,7 @@ export function VendorFinancialsTab({ invoices }: VendorFinancialsTabProps) {
                 <Cell fill={PAID_COLOR} />
                 <Cell fill={OUTSTANDING_COLOR} />
               </Pie>
-              <Tooltip formatter={(v: number) => formatCurrency(v)} />
+              <Tooltip formatter={tooltipFormatter} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -117,7 +122,7 @@ export function VendorFinancialsTab({ invoices }: VendorFinancialsTabProps) {
             <BarChart data={aging}>
               <XAxis dataKey="bucket" />
               <YAxis tickFormatter={formatCurrency} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} />
+              <Tooltip formatter={tooltipFormatter} />
               <Bar dataKey="amount" fill="#f59e0b" />
             </BarChart>
           </ResponsiveContainer>
