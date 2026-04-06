@@ -103,6 +103,8 @@ const navItems: NavigationItem[] = [
     subItems: [
       { title: 'Unbilled Loads', path: '/unbilled-loads' },
       { title: 'Per Diem Recon', path: '/perdiem' },
+      { title: 'Billing Exposure', path: '/billing-exposure' },
+      { title: 'Terminal Events', path: '/terminal-events' },
     ],
   },
   { title: 'Settings', path: '/settings', icon: Settings },
