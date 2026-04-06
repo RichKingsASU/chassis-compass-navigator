@@ -1,66 +1,22 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { formatDate, formatCurrency } from '@/utils/dateUtils'
+import { formatCurrency } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
-import { useUnbilledCount } from '@/hooks/useUnbilledCount'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import DataFreshnessBar from '@/components/DataFreshnessBar'
 
-interface Activity {
-  id: string
-  description: string
-  type: string
-  created_at: string
-}
-
-interface VendorRow { vendor: string; invoices: number; amount: number }
+interface VendorRow { vendor: string; count: number }
 interface GpsRow { name: string; value: number }
 
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
-// Vendor invoice tables to query
-const VENDOR_TABLES = [
-  { table: 'dcli_invoice', label: 'DCLI' },
-  { table: 'ccm_invoice', label: 'CCM' },
-  { table: 'trac_invoice', label: 'TRAC' },
-  { table: 'flexivan-invoices', label: 'FLEXIVAN' },
-  { table: 'wccp_invoice', label: 'WCCP' },
-  { table: 'scspa_invoice', label: 'SCSPA' },
-] as const
-
-// GPS provider names used in gps_data.provider
-const GPS_PROVIDERS = ['Samsara', 'BlackBerry', 'Fleetview', 'Fleetlocate', 'Anytrek'] as const
-
-async function loadVendorData(): Promise<VendorRow[]> {
-  const results: VendorRow[] = []
-  for (const { table, label } of VENDOR_TABLES) {
-    const { count } = await supabase.from(table).select('id', { count: 'exact', head: true })
-    if (count && count > 0) {
-      const { data } = await supabase.from(table).select('total_amount')
-      const amount = (data || []).reduce((s, r) => s + (Number(r.total_amount) || 0), 0)
-      results.push({ vendor: label, invoices: count, amount })
-    }
-  }
-  return results
-}
-
-async function loadGpsData(): Promise<GpsRow[]> {
-  const results: GpsRow[] = []
-  for (const provider of GPS_PROVIDERS) {
-    const { count } = await supabase
-      .from('gps_data')
-      .select('id', { count: 'exact', head: true })
-      .ilike('provider', provider)
-    results.push({ name: provider, value: count || 0 })
-  }
-  return results
-}
-
 export default function Dashboard() {
-  const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [chassisCount, setChassisCount] = useState(0)
-  const [gpsCount, setGpsCount] = useState(0)
+  const [gpsCoverage, setGpsCoverage] = useState(0)
+  const [recentActivityCount, setRecentActivityCount] = useState(0)
   const [vendorData, setVendorData] = useState<VendorRow[]>([])
   const [gpsData, setGpsData] = useState<GpsRow[]>([])
 
@@ -68,20 +24,49 @@ export default function Dashboard() {
     async function load() {
       setLoading(true)
       try {
-        const [actRes, chassisRes, gpsRes, vendors, gps] = await Promise.all([
-          supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(10),
-          supabase.from('chassis').select('id', { count: 'exact', head: true }),
-          supabase.from('gps_data').select('id', { count: 'exact', head: true }),
-          loadVendorData(),
-          loadGpsData(),
+        const [ltRes, stRes] = await Promise.all([
+          supabase.from('long_term_lease_owned').select('id, gps_provider', { count: 'exact', head: false }),
+          supabase.from('short_term_lease').select('id', { count: 'exact', head: true }),
         ])
-        setActivities(actRes.data || [])
-        setChassisCount(chassisRes.count || 0)
-        setGpsCount(gpsRes.count || 0)
+        const ltCount = ltRes.data?.length || 0
+        const stCount = stRes.count || 0
+        const total = ltCount + stCount
+        setChassisCount(total)
+
+        const withGps = (ltRes.data || []).filter(r => r.gps_provider != null && r.gps_provider !== '').length
+        setGpsCoverage(total > 0 ? Math.round((withGps / total) * 100) : 0)
+
+        // Recent activity from mg_data
+        const { count: actCount } = await supabase
+          .from('mg_data')
+          .select('id', { count: 'exact', head: true })
+        setRecentActivityCount(actCount || 0)
+
+        // Vendor record counts
+        const vendors: VendorRow[] = []
+        for (const { table, label } of [
+          { table: 'dcli_activity', label: 'DCLI' },
+          { table: 'ccm_invoice_data', label: 'CCM' },
+          { table: 'scspa_activity', label: 'SCSPA' },
+        ] as const) {
+          try {
+            const { count } = await supabase.from(table).select('id', { count: 'exact', head: true })
+            vendors.push({ vendor: label, count: count || 0 })
+          } catch {
+            vendors.push({ vendor: label, count: 0 })
+          }
+        }
         setVendorData(vendors)
-        setGpsData(gps)
+
+        // GPS provider distribution
+        const gpsProviders = ['Samsara', 'BlackBerry', 'Fleetview', 'Fleetlocate', 'Anytrek']
+        const gpsResults: GpsRow[] = gpsProviders.map(provider => ({
+          name: provider,
+          value: (ltRes.data || []).filter(r => r.gps_provider?.toLowerCase().includes(provider.toLowerCase())).length,
+        }))
+        setGpsData(gpsResults)
       } catch {
-        // silently fail — dashboard shows empty state
+        // dashboard shows empty state
       } finally {
         setLoading(false)
       }
@@ -89,113 +74,72 @@ export default function Dashboard() {
     load()
   }, [])
 
-  const gpsCoverage = chassisCount > 0 ? Math.round((gpsCount / chassisCount) * 100) : 0
-  const { count: unbilledCount, totalAtRisk } = useUnbilledCount()
-
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">Chassis Compass Navigator — Fleet Overview</p>
+        <DataFreshnessBar tableName="mg_data" label="TMS Data" />
       </div>
-
-      {unbilledCount > 0 && (
-        <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-md flex items-center justify-between">
-          <span className="text-yellow-800 font-medium">
-            {unbilledCount} loads are flagged unbilled — {formatCurrency(totalAtRisk)} at risk
-          </span>
-          <Link to="/unbilled-loads" className="text-yellow-800 underline text-sm font-medium hover:text-yellow-900">
-            View Unbilled Loads
-          </Link>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Chassis</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{chassisCount.toLocaleString()}</p>
+            <p className="text-3xl font-bold">{loading ? '...' : chassisCount.toLocaleString()}</p>
             <p className="text-xs text-muted-foreground mt-1">Active fleet units</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">GPS Coverage</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+              GPS Coverage
+              <Tooltip>
+                <TooltipTrigger asChild><span className="text-xs cursor-help">(?)</span></TooltipTrigger>
+                <TooltipContent>Long-term chassis with a GPS provider assigned</TooltipContent>
+              </Tooltip>
+            </CardTitle>
+          </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{gpsCoverage}%</p>
-            <p className="text-xs text-muted-foreground mt-1">{gpsCount.toLocaleString()} tracked units</p>
+            <p className="text-3xl font-bold">{loading ? '...' : `${gpsCoverage}%`}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Recent Activity</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">TMS Records</CardTitle></CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{activities.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">Last 10 events</p>
+            <p className="text-3xl font-bold">{loading ? '...' : recentActivityCount.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground mt-1">Total MG loads</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader><CardTitle>Vendor Invoice Volume</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Vendor Record Counts</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={vendorData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="vendor" />
                 <YAxis />
-                <Tooltip formatter={(value, name) => name === 'amount' ? formatCurrency(value as number) : value} />
-                <Bar dataKey="invoices" fill="#3b82f6" name="Invoices" />
+                <RechartsTooltip />
+                <Bar dataKey="count" fill="#3b82f6" name="Records" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader><CardTitle>GPS Provider Distribution</CardTitle></CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie data={gpsData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(props: any) => `${props.name} ${(props.percent * 100).toFixed(0)}%`}>
+                <Pie data={gpsData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(props: { name?: string; percent?: number }) => `${props.name ?? ''} ${((props.percent ?? 0) * 100).toFixed(0)}%`}>
                   {gpsData.map((_, index) => <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
                 </Pie>
                 <Legend />
-                <Tooltip />
+                <RechartsTooltip />
               </PieChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle>Fleet Map</CardTitle></CardHeader>
-          <CardContent>
-            <div className="h-48 bg-gradient-to-br from-blue-100 via-green-50 to-blue-200 rounded-lg flex items-center justify-center border">
-              <div className="text-center">
-                <p className="text-lg font-medium text-muted-foreground">Fleet Map</p>
-                <p className="text-sm text-muted-foreground">Connect Google Maps API</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>Recent Activity</CardTitle></CardHeader>
-          <CardContent>
-            {loading ? (
-              <p className="text-muted-foreground">Loading...</p>
-            ) : activities.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No recent activity</p>
-            ) : (
-              <ul className="space-y-2">
-                {activities.map(a => (
-                  <li key={a.id} className="flex justify-between text-sm border-b pb-2">
-                    <span>{a.description}</span>
-                    <span className="text-muted-foreground text-xs">{formatDate(a.created_at)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
           </CardContent>
         </Card>
       </div>

@@ -71,7 +71,7 @@ export default function PortPro() {
         <p className="text-muted-foreground">Port Pro Transportation Management System — Port drayage data</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      {error && records.length > 0 && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
@@ -119,7 +119,11 @@ export default function PortPro() {
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                      {records.length === 0 && !search
+                        ? 'No Port Pro data imported yet.'
+                        : 'No records match your search.'}
+                    </TableCell></TableRow>
                   ) : filtered.slice(0, 100).map(r => (
                     <TableRow key={r.id}>
                       <TableCell className="font-mono text-sm">{r.order_number || 'N/A'}</TableCell>

@@ -85,54 +85,38 @@ function recordToRow(data: Partial<InventoryRecord>, yardId: string) {
 }
 
 // ── Yard Config ─────────────────────────────────────────────
+// No dedicated "yards" table exists. Derive yard list from distinct
+// location_name values in lb_yard_current, synthesizing default config.
+function synthYardConfig(name: string): YardConfig {
+  return {
+    id: name,
+    name,
+    shortCode: name.substring(0, 6).toUpperCase(),
+    capacity: 0,
+    dailyRate: 0,
+    overageRate: 0,
+    billingSnapshotAm: '06:00',
+    billingSnapshotPm: '18:00',
+    timezone: 'America/Los_Angeles',
+    active: true,
+  };
+}
+
 export async function getAllYards(): Promise<YardConfig[]> {
   const { data, error } = await supabase
-    .from('yards')
-    .select('*')
-    .eq('active', true)
-    .order('name');
+    .from('lb_yard_current')
+    .select('location_name')
+    .not('location_name', 'is', null);
   if (error) throw error;
-  return (data || []).map((row: any) => ({
-    id: row.id,
-    name: row.name,
-    shortCode: row.short_code,
-    addressLine1: row.address_line1,
-    city: row.city,
-    state: row.state,
-    capacity: row.capacity,
-    dailyRate: parseFloat(row.daily_rate),
-    overageRate: parseFloat(row.overage_rate),
-    billingSnapshotAm: row.billing_snapshot_am,
-    billingSnapshotPm: row.billing_snapshot_pm,
-    timezone: row.timezone,
-    active: row.active,
-    notes: row.notes,
-  }));
+  const names = Array.from(
+    new Set((data || []).map((r: any) => r.location_name).filter(Boolean))
+  ).sort();
+  return names.map(synthYardConfig);
 }
 
 export async function getYardById(yardId: string): Promise<YardConfig | null> {
-  const { data, error } = await supabase
-    .from('yards')
-    .select('*')
-    .eq('id', yardId)
-    .single();
-  if (error) return null;
-  return {
-    id: data.id,
-    name: data.name,
-    shortCode: data.short_code,
-    addressLine1: data.address_line1,
-    city: data.city,
-    state: data.state,
-    capacity: data.capacity,
-    dailyRate: parseFloat(data.daily_rate),
-    overageRate: parseFloat(data.overage_rate),
-    billingSnapshotAm: data.billing_snapshot_am,
-    billingSnapshotPm: data.billing_snapshot_pm,
-    timezone: data.timezone,
-    active: data.active,
-    notes: data.notes,
-  };
+  if (!yardId) return null;
+  return synthYardConfig(yardId);
 }
 
 export async function updateYardConfig(
@@ -149,41 +133,20 @@ export async function updateYardConfig(
   if (updates.notes !== undefined) row.notes = updates.notes;
   if (updates.active !== undefined) row.active = updates.active;
 
-  const { error } = await supabase
-    .from('yards')
-    .update(row)
-    .eq('id', yardId);
-  if (error) throw error;
+  // No "yards" table — config updates are a no-op.
+  void row;
+  void yardId;
 }
 
 export async function createYard(config: Omit<YardConfig, 'id'>): Promise<YardConfig> {
-  const { data, error } = await supabase
-    .from('yards')
-    .insert({
-      name: config.name,
-      short_code: config.shortCode,
-      address_line1: config.addressLine1,
-      city: config.city,
-      state: config.state,
-      capacity: config.capacity,
-      daily_rate: config.dailyRate,
-      overage_rate: config.overageRate,
-      billing_snapshot_am: config.billingSnapshotAm,
-      billing_snapshot_pm: config.billingSnapshotPm,
-      timezone: config.timezone,
-      active: config.active,
-      notes: config.notes,
-    })
-    .select()
-    .single();
-  if (error) throw error;
-  return (await getYardById(data.id)) as YardConfig;
+  // No "yards" table — synthesize a config for the given name.
+  return synthYardConfig(config.name);
 }
 
 // ── Inventory CRUD ──────────────────────────────────────────
 export async function getRecords(yardId: string): Promise<InventoryRecord[]> {
   const { data, error } = await supabase
-    .from('yard_inventory')
+    .from('yard_combined')
     .select('*')
     .eq('yard_id', yardId)
     .order('date_in', { ascending: false });
@@ -193,7 +156,7 @@ export async function getRecords(yardId: string): Promise<InventoryRecord[]> {
 
 export async function getActiveRecords(yardId: string): Promise<InventoryRecord[]> {
   const { data, error } = await supabase
-    .from('yard_inventory')
+    .from('yard_combined')
     .select('*')
     .eq('yard_id', yardId)
     .neq('status', 'EXITED')
@@ -209,7 +172,7 @@ export async function createRecord(
 ): Promise<InventoryRecord> {
   const row = recordToRow(data, yardId);
   const { data: inserted, error } = await supabase
-    .from('yard_inventory')
+    .from('yard_combined')
     .insert(row)
     .select()
     .single();
@@ -227,7 +190,7 @@ export async function updateRecord(
   reason?: string
 ): Promise<InventoryRecord | null> {
   const current = await supabase
-    .from('yard_inventory')
+    .from('yard_combined')
     .select('*')
     .eq('id', id)
     .single();
@@ -235,7 +198,7 @@ export async function updateRecord(
 
   const row = { ...recordToRow(updates, yardId), updated_at: new Date().toISOString() };
   const { data: updated, error } = await supabase
-    .from('yard_inventory')
+    .from('yard_combined')
     .update(row)
     .eq('id', id)
     .select()

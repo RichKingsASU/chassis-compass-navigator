@@ -50,31 +50,39 @@ function getUserRole(_user: any): UserRole {
 }
 
 // ── Occupancy counts per yard ────────────────────────────────
-async function getOccupancyCounts(): Promise<Record<string, number>> {
-  const { data, error } = await supabase
-    .from('yard_inventory')
-    .select('yard_id')
-    .is('actual_exit_at', null);
-  if (error) throw error;
-  const counts: Record<string, number> = {};
-  (data || []).forEach((row: any) => {
-    counts[row.yard_id] = (counts[row.yard_id] || 0) + 1;
-  });
-  return counts;
+async function getOccupancyCounts(): Promise<Record<string, number> | null> {
+  try {
+    const { data, error } = await supabase
+      .from('yard_events_data')
+      .select('yard_id, "ChassisNo"')
+      .is('actual_exit_at', null);
+    if (error) return null;
+    const counts: Record<string, number> = {};
+    (data || []).forEach((row: any) => {
+      counts[row.yard_id] = (counts[row.yard_id] || 0) + 1;
+    });
+    return counts;
+  } catch {
+    return null;
+  }
 }
 
 // ── Last activity per yard ───────────────────────────────────
-async function getLastActivity(): Promise<Record<string, string>> {
-  const { data, error } = await supabase
-    .from('yard_inventory')
-    .select('yard_id, created_at')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  const last: Record<string, string> = {};
-  (data || []).forEach((row: any) => {
-    if (!last[row.yard_id]) last[row.yard_id] = row.created_at;
-  });
-  return last;
+async function getLastActivity(): Promise<Record<string, string> | null> {
+  try {
+    const { data, error } = await supabase
+      .from('yard_events_data')
+      .select('yard_id, created_at')
+      .order('created_at', { ascending: false });
+    if (error) return null;
+    const last: Record<string, string> = {};
+    (data || []).forEach((row: any) => {
+      if (!last[row.yard_id]) last[row.yard_id] = row.created_at;
+    });
+    return last;
+  } catch {
+    return null;
+  }
 }
 
 // ── Create Yard Modal ────────────────────────────────────────
@@ -498,24 +506,23 @@ export default function YardManagementHub() {
   const [lastActivity, setLastActivity] = useState<Record<string, string>>({});
   const [selectedYardId, setSelectedYardId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [eventsUnavailable, setEventsUnavailable] = useState(false);
 
   const selectedYard = yards.find((y) => y.id === selectedYardId) || null;
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    setError(null);
+    setEventsUnavailable(false);
     try {
-      const [yardList, occ, last] = await Promise.all([
-        getAllYards(),
+      const [yardListResult, occ, last] = await Promise.all([
+        getAllYards().catch(() => [] as YardConfig[]),
         getOccupancyCounts(),
         getLastActivity(),
       ]);
-      setYards(yardList);
-      setOccupancy(occ);
-      setLastActivity(last);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load yards');
+      setYards(yardListResult);
+      setOccupancy(occ || {});
+      setLastActivity(last || {});
+      if (occ === null || last === null) setEventsUnavailable(true);
     } finally {
       setLoading(false);
     }
@@ -536,18 +543,6 @@ export default function YardManagementHub() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="p-6 flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
-          <AlertCircle className="h-10 w-10 text-destructive mx-auto" />
-          <p className="text-destructive font-semibold">Error loading yards</p>
-          <p className="text-sm text-muted-foreground">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 space-y-6">
       {/* Header — only show on Fleet Overview */}
@@ -558,6 +553,40 @@ export default function YardManagementHub() {
             <h1 className="text-3xl font-bold">Yard Management</h1>
             <p className="text-muted-foreground">Fleet overview across all yards</p>
           </div>
+        </div>
+      )}
+
+      {!selectedYard && eventsUnavailable && (
+        <div className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-900">
+          <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <span>Live event data unavailable — schema reload may be needed in Supabase</span>
+        </div>
+      )}
+
+      {!selectedYard && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { id: 'PIER S', path: '/yards/pola' },
+            { id: 'JED YARD', path: '/yards/jedyard' },
+          ].map((y) => (
+            <a
+              key={y.id}
+              href={y.path}
+              className="rounded-lg border bg-card p-6 hover:bg-muted/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Warehouse className="h-6 w-6" />
+                <div>
+                  <h3 className="text-lg font-bold">{y.id}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {eventsUnavailable
+                      ? 'Recent events unavailable'
+                      : `${occupancy[y.id] || 0} recent events`}
+                  </p>
+                </div>
+              </div>
+            </a>
+          ))}
         </div>
       )}
 

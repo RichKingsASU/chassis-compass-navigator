@@ -28,10 +28,13 @@ const Settings = lazy(() => import('@/pages/Settings'))
 const VendorValidation = lazy(() => import('@/pages/VendorValidation'))
 const ActiveLoads = lazy(() => import('@/pages/ActiveLoads'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
-
-// Feature pages
 const UnbilledLoadsPage = lazy(() => import('@/features/unbilled-loads/UnbilledLoadsPage'))
-const PerDiemReconciliationPage = lazy(() => import('@/features/perdiem-reconciliation/PerDiemReconciliationPage'))
+const PerDiemPage = lazy(() => import('@/features/perdiem/PerDiemPage'))
+const BillingExposurePage = lazy(() => import('@/features/billing-exposure/BillingExposurePage'))
+const TerminalEventsPage = lazy(() => import('@/features/terminal-events/TerminalEventsPage'))
+
+// PerDiem reconciliation (alias for route compatibility)
+const PerDiemReconciliationPage = PerDiemPage
 
 // GPS Provider pages
 const Samsara = lazy(() => import('@/pages/gps/Samsara'))
@@ -46,6 +49,7 @@ const PortPro = lazy(() => import('@/pages/tms/PortPro'))
 
 // Yard pages
 const YardManagementHub = lazy(() => import('@/pages/YardManagementHub'))
+const YardDetail = lazy(() => import('@/pages/YardDetail'))
 
 // Vendor pages
 const DCLI = lazy(() => import('@/pages/vendors/DCLI'))
@@ -143,6 +147,8 @@ export default function App() {
                   <Route path="/active-loads" element={<ProtectedPage><ActiveLoads /></ProtectedPage>} />
                   <Route path="/unbilled-loads" element={<ProtectedPage><UnbilledLoadsPage /></ProtectedPage>} />
                   <Route path="/perdiem-reconciliation" element={<ProtectedPage><PerDiemReconciliationPage /></ProtectedPage>} />
+                  <Route path="/billing-exposure" element={<ProtectedPage><BillingExposurePage /></ProtectedPage>} />
+                  <Route path="/terminal-events" element={<ProtectedPage><TerminalEventsPage /></ProtectedPage>} />
 
                   {/* TMS */}
                   <Route path="/tms" element={<ProtectedPage><TMSData /></ProtectedPage>} />
@@ -151,6 +157,8 @@ export default function App() {
 
                   {/* Yards */}
                   <Route path="/yard" element={<ProtectedPage><YardManagementHub /></ProtectedPage>} />
+                  <Route path="/yards/pola" element={<ProtectedPage><YardDetail yardId="PIER S" /></ProtectedPage>} />
+                  <Route path="/yards/jedyard" element={<ProtectedPage><YardDetail yardId="JED YARD" /></ProtectedPage>} />
 
                   {/* GPS */}
                   <Route path="/gps" element={<ProtectedPage><GpsOverview /></ProtectedPage>} />
@@ -214,10 +222,18 @@ export default function App() {
                   <Route path="/vendors/wccp/invoice-line/:lineId" element={<ProtectedPage><WCCPInvoiceLineDetails /></ProtectedPage>} />
                   <Route path="/vendors/wccp/invoice-line/:lineId/dispute" element={<ProtectedPage><WCCPInvoiceLineDispute /></ProtectedPage>} />
 
+                  {/* Finance */}
+                  <Route path="/unbilled-loads" element={<ProtectedPage><UnbilledLoadsPage /></ProtectedPage>} />
+                  <Route path="/per-diem" element={<ProtectedPage><PerDiemPage /></ProtectedPage>} />
+
                   {/* Generic invoices */}
                   <Route path="/invoices" element={<ProtectedPage><InvoicesList /></ProtectedPage>} />
                   <Route path="/invoices/:invoiceId/details/:lineId" element={<ProtectedPage><InvoiceLineDetails /></ProtectedPage>} />
                   <Route path="/invoices/:invoiceId/dispute/:lineId" element={<ProtectedPage><InvoiceLineDispute /></ProtectedPage>} />
+
+                  {/* Finance */}
+                  <Route path="/unbilled-loads" element={<ProtectedPage><UnbilledLoadsPage /></ProtectedPage>} />
+                  <Route path="/perdiem" element={<ProtectedPage><PerDiemPage /></ProtectedPage>} />
 
                   {/* Settings */}
                   <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />

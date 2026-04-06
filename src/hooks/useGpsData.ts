@@ -74,7 +74,7 @@ export function useGpsData(uploadId?: string) {
     try {
       setLoading(true)
       let query = supabase
-        .from('gps_data')
+        .from('samsara_gps')
         .select('*')
         .order('recorded_at', { ascending: false })
         .limit(500)
