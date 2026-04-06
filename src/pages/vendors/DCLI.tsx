@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { safeDate } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -6,8 +6,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { NewInvoiceDialog } from '@/components/vendor/NewInvoiceDialog'
+import { VendorInvoicesTab, type VendorInvoice } from '@/components/vendor/VendorInvoicesTab'
+import { VendorFinancialsTab } from '@/components/vendor/VendorFinancialsTab'
+import { VendorDocumentsTab } from '@/components/vendor/VendorDocumentsTab'
 
-// dcli_activity actual columns
+const VENDOR_SLUG = 'dcli'
+
 interface DcliRecord {
   id: string
   chassis: string
@@ -35,12 +41,19 @@ function getStatusVariant(status: string): 'default' | 'secondary' | 'destructiv
   }
 }
 
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+}
+
 export default function DCLIPage() {
   const [records, setRecords] = useState<DcliRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('dashboard')
   const [search, setSearch] = useState('')
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
+  const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0)
+  const [invoices, setInvoices] = useState<VendorInvoice[]>([])
 
   useEffect(() => {
     async function loadData() {
@@ -63,6 +76,32 @@ export default function DCLIPage() {
     loadData()
   }, [])
 
+  // Sync activeTab with URL hash
+  useEffect(() => {
+    const applyHash = () => {
+      const hash = window.location.hash.replace('#', '')
+      if (['dashboard', 'invoices', 'activity', 'financials', 'documents'].includes(hash)) {
+        setActiveTab(hash)
+      }
+    }
+    applyHash()
+    window.addEventListener('hashchange', applyHash)
+    return () => window.removeEventListener('hashchange', applyHash)
+  }, [])
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    if (value === 'dashboard') {
+      history.replaceState(null, '', window.location.pathname)
+    } else {
+      history.replaceState(null, '', `${window.location.pathname}#${value}`)
+    }
+  }
+
+  const handleInvoicesLoaded = useCallback((rows: VendorInvoice[]) => {
+    setInvoices(rows)
+  }, [])
+
   const totalRecords = records.length
 
   const filtered = search
@@ -72,30 +111,39 @@ export default function DCLIPage() {
       })
     : records
 
-  // Status breakdown
   const statusGroups = new Map<string, number>()
   for (const r of records) {
     const s = r.request_status || 'Not Set'
     statusGroups.set(s, (statusGroups.get(s) || 0) + 1)
   }
 
+  const totalAmountDue = invoices
+    .filter(i => (i.invoice_status || '').toLowerCase() !== 'paid')
+    .reduce((sum, i) => sum + Number(i.invoice_amount || 0), 0)
+
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">DCLI</h1>
-        <p className="text-muted-foreground">Direct ChassisLink Inc. — Vendor Dashboard</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">DCLI</h1>
+          <p className="text-muted-foreground">Direct ChassisLink Inc. — Vendor Dashboard</p>
+        </div>
+        <Button onClick={() => setInvoiceDialogOpen(true)}>+ New Invoice</Button>
       </div>
 
       {error && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="invoices">Invoices ({invoices.length})</TabsTrigger>
           <TabsTrigger value="activity">Activity ({totalRecords})</TabsTrigger>
+          <TabsTrigger value="financials">Financials</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle></CardHeader>
               <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{totalRecords}</p>}</CardContent>
@@ -113,6 +161,10 @@ export default function DCLIPage() {
                   ))}
                 </div>
               </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Amount Due</CardTitle></CardHeader>
+              <CardContent><p className="text-3xl font-bold">{formatCurrency(totalAmountDue)}</p></CardContent>
             </Card>
           </div>
 
@@ -135,6 +187,15 @@ export default function DCLIPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="invoices" className="space-y-4">
+          <VendorInvoicesTab
+            vendorSlug={VENDOR_SLUG}
+            refreshKey={invoiceRefreshKey}
+            onNewInvoice={() => setInvoiceDialogOpen(true)}
+            onDataLoaded={handleInvoicesLoaded}
+          />
         </TabsContent>
 
         <TabsContent value="activity" className="space-y-4">
@@ -184,7 +245,22 @@ export default function DCLIPage() {
             </Card>
           )}
         </TabsContent>
+
+        <TabsContent value="financials" className="space-y-4">
+          <VendorFinancialsTab invoices={invoices} />
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-4">
+          <VendorDocumentsTab />
+        </TabsContent>
       </Tabs>
+
+      <NewInvoiceDialog
+        open={invoiceDialogOpen}
+        onOpenChange={setInvoiceDialogOpen}
+        vendorSlug={VENDOR_SLUG}
+        onCreated={() => setInvoiceRefreshKey(k => k + 1)}
+      />
     </div>
   )
 }
