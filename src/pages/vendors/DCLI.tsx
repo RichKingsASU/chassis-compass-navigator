@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { safeDate } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,6 +46,7 @@ function formatCurrency(amount: number): string {
 }
 
 export default function DCLIPage() {
+  const navigate = useNavigate()
   const [records, setRecords] = useState<DcliRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -133,7 +135,7 @@ export default function DCLIPage() {
         vendorSlug={VENDOR_SLUG}
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        onNewInvoice={() => setInvoiceDialogOpen(true)}
+        onNewInvoice={() => navigate('/vendors/dcli/invoices/new')}
         counts={{ invoices: invoices.length, activity: totalRecords }}
       />
 
@@ -191,7 +193,7 @@ export default function DCLIPage() {
           <VendorInvoicesTab
             vendorSlug={VENDOR_SLUG}
             refreshKey={invoiceRefreshKey}
-            onNewInvoice={() => setInvoiceDialogOpen(true)}
+            onNewInvoice={() => navigate('/vendors/dcli/invoices/new')}
             onDataLoaded={handleInvoicesLoaded}
           />
         </div>
