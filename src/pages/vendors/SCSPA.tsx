@@ -1,11 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { safeDate, safeAmount } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { NewInvoiceDialog } from '@/components/vendor/NewInvoiceDialog'
+import { VendorTabNav, type VendorTabKey } from '@/components/vendor/VendorTabNav'
+import { VendorInvoicesTab, type VendorInvoice } from '@/components/vendor/VendorInvoicesTab'
+import { VendorFinancialsTab } from '@/components/vendor/VendorFinancialsTab'
+import { VendorDocumentsTab } from '@/components/vendor/VendorDocumentsTab'
+import { VendorEmptyState } from '@/components/vendor/VendorEmptyState'
+
+const VENDOR_SLUG = 'scspa'
 
 interface ScspaRecord {
   id: string
@@ -24,19 +30,15 @@ interface ScspaRecord {
   [key: string]: unknown
 }
 
-function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (status?.toLowerCase()) {
-    case 'closed': return 'default'
-    case 'open': return 'secondary'
-    default: return 'outline'
-  }
-}
-
 export default function SCSPAPage() {
   const [records, setRecords] = useState<ScspaRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<VendorTabKey>('dashboard')
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
+  const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0)
+  const [invoices, setInvoices] = useState<VendorInvoice[]>([])
 
   useEffect(() => {
     async function loadData() {
@@ -59,6 +61,10 @@ export default function SCSPAPage() {
     loadData()
   }, [])
 
+  const handleInvoicesLoaded = useCallback((rows: VendorInvoice[]) => {
+    setInvoices(rows)
+  }, [])
+
   const totalRecords = records.length
   const totalAmount = records.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
   const closedAmount = records.filter(r => r.portal_status?.toLowerCase() === 'closed').reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
@@ -72,15 +78,6 @@ export default function SCSPAPage() {
       })
     : records
 
-  const statusGroups = new Map<string, { count: number; total: number }>()
-  for (const r of records) {
-    const s = r.portal_status || 'Not Set'
-    const g = statusGroups.get(s) || { count: 0, total: 0 }
-    g.count++
-    g.total += Number(r.amount) || 0
-    statusGroups.set(s, g)
-  }
-
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -90,14 +87,16 @@ export default function SCSPAPage() {
 
       {error && records.length > 0 && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
 
-      <Tabs defaultValue="dashboard">
-        <TabsList>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="activity">Activity ({totalRecords})</TabsTrigger>
-          <TabsTrigger value="financial">Financial Pulse</TabsTrigger>
-        </TabsList>
+      <VendorTabNav
+        vendorSlug={VENDOR_SLUG}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onNewInvoice={() => setInvoiceDialogOpen(true)}
+        counts={{ invoices: invoices.length, activity: totalRecords }}
+      />
 
-        <TabsContent value="dashboard" className="space-y-6">
+      {activeTab === 'dashboard' && (
+        <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle></CardHeader>
@@ -125,9 +124,20 @@ export default function SCSPAPage() {
               <p><span className="font-medium">Phone:</span> 1-843-577-8121</p>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="activity" className="space-y-4">
+      {activeTab === 'invoices' && (
+        <VendorInvoicesTab
+          vendorSlug={VENDOR_SLUG}
+          refreshKey={invoiceRefreshKey}
+          onNewInvoice={() => setInvoiceDialogOpen(true)}
+          onDataLoaded={handleInvoicesLoaded}
+        />
+      )}
+
+      {activeTab === 'activity' && (
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">SCSPA Activity</h2>
             <p className="text-sm text-muted-foreground">{filtered.length} records</p>
@@ -135,6 +145,8 @@ export default function SCSPAPage() {
           <input type="text" placeholder="Search chassis number..." value={search} onChange={e => setSearch(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" />
           {loading ? (
             <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+          ) : records.length === 0 ? (
+            <VendorEmptyState title="Activity" />
           ) : (
             <Card>
               <Table>
@@ -171,44 +183,18 @@ export default function SCSPAPage() {
               </Table>
             </Card>
           )}
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="financial" className="space-y-4">
-          <h2 className="text-xl font-semibold">Financial Pulse</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Billed</CardTitle></CardHeader>
-              <CardContent><p className="text-3xl font-bold">{safeAmount(totalAmount)}</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Amount Paid</CardTitle></CardHeader>
-              <CardContent><p className="text-3xl font-bold text-green-600">{safeAmount(closedAmount)}</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Outstanding</CardTitle></CardHeader>
-              <CardContent><p className="text-3xl font-bold text-red-600">{safeAmount(openAmount)}</p></CardContent>
-            </Card>
-          </div>
-          <Card>
-            <CardHeader><CardTitle>Breakdown by Status</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader><TableRow><TableHead>Status</TableHead><TableHead>Count</TableHead><TableHead>Total Amount</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {Array.from(statusGroups.entries()).map(([status, g]) => (
-                    <TableRow key={status}>
-                      <TableCell><Badge variant={getStatusVariant(status)}>{status}</Badge></TableCell>
-                      <TableCell>{g.count}</TableCell>
-                      <TableCell>{safeAmount(g.total)}</TableCell>
-                    </TableRow>
-                  ))}
-                  {statusGroups.size === 0 && <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground">No data.</TableCell></TableRow>}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {activeTab === 'financials' && <VendorFinancialsTab invoices={invoices} />}
+      {activeTab === 'documents' && <VendorDocumentsTab />}
+
+      <NewInvoiceDialog
+        open={invoiceDialogOpen}
+        onOpenChange={setInvoiceDialogOpen}
+        vendorSlug={VENDOR_SLUG}
+        onCreated={() => setInvoiceRefreshKey(k => k + 1)}
+      />
     </div>
   )
 }
