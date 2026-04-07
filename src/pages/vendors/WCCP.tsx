@@ -1,6 +1,21 @@
+import { useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { NewInvoiceDialog } from '@/components/vendor/NewInvoiceDialog'
+import { VendorTabNav, type VendorTabKey } from '@/components/vendor/VendorTabNav'
+import { VendorEmptyState } from '@/components/vendor/VendorEmptyState'
+import { VendorInvoicesTab, type VendorInvoice } from '@/components/vendor/VendorInvoicesTab'
+import { VendorFinancialsTab } from '@/components/vendor/VendorFinancialsTab'
+import { VendorDocumentsTab } from '@/components/vendor/VendorDocumentsTab'
+
+const VENDOR_SLUG = 'wccp'
 
 export default function WCCPPage() {
+  const [activeTab, setActiveTab] = useState<VendorTabKey>('dashboard')
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
+  const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0)
+  const [invoices, setInvoices] = useState<VendorInvoice[]>([])
+  const handleInvoicesLoaded = useCallback((rows: VendorInvoice[]) => setInvoices(rows), [])
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -8,23 +23,41 @@ export default function WCCPPage() {
         <p className="text-muted-foreground">West Coast Chassis Pool — Vendor Dashboard</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <VendorTabNav
+        vendorSlug={VENDOR_SLUG}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onNewInvoice={() => setInvoiceDialogOpen(true)}
+        counts={{ invoices: invoices.length }}
+      />
+
+      {activeTab === 'dashboard' && (
         <Card>
           <CardHeader><CardTitle>Contact Information</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             <p><span className="font-medium">Company:</span> West Coast Chassis Pool (WCCP)</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>Data Status</CardTitle></CardHeader>
-          <CardContent>
-            <div className="p-8 text-center border rounded-lg bg-muted/30">
-              <p className="text-lg font-medium text-muted-foreground">No invoice table configured yet.</p>
-              <p className="text-sm text-muted-foreground mt-1">WCCP activity data will appear here once the data source is connected.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      )}
+
+      {activeTab === 'invoices' && (
+        <VendorInvoicesTab
+          vendorSlug={VENDOR_SLUG}
+          refreshKey={invoiceRefreshKey}
+          onNewInvoice={() => setInvoiceDialogOpen(true)}
+          onDataLoaded={handleInvoicesLoaded}
+        />
+      )}
+      {activeTab === 'activity' && <VendorEmptyState title="Activity" />}
+      {activeTab === 'financials' && <VendorFinancialsTab invoices={invoices} />}
+      {activeTab === 'documents' && <VendorDocumentsTab />}
+
+      <NewInvoiceDialog
+        open={invoiceDialogOpen}
+        onOpenChange={setInvoiceDialogOpen}
+        vendorSlug={VENDOR_SLUG}
+        onCreated={() => setInvoiceRefreshKey(k => k + 1)}
+      />
     </div>
   )
 }
