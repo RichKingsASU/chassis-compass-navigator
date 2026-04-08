@@ -58,6 +58,7 @@ export default function InvoiceTracker() {
     return acc
   }, {})
   const unsetCount = invoices.filter(i => !i.portal_status).length
+  const hasReviewers = invoices.some(inv => inv.reviewed_by)
 
   return (
     <div className="p-6 space-y-6">
@@ -155,14 +156,14 @@ export default function InvoiceTracker() {
                   <TableHead>Account</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Portal Status</TableHead>
-                  <TableHead>Reviewed By</TableHead>
+                  {hasReviewers && <TableHead>Reviewed By</TableHead>}
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell colSpan={hasReviewers ? 8 : 7} className="text-center text-muted-foreground">
                       No invoices found.
                     </TableCell>
                   </TableRow>
@@ -181,9 +182,11 @@ export default function InvoiceTracker() {
                           {inv.portal_status || 'Not Set'}
                         </span>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {inv.reviewed_by ?? '—'}
-                      </TableCell>
+                      {hasReviewers && (
+                        <TableCell className="text-sm text-muted-foreground">
+                          {inv.reviewed_by ?? '—'}
+                        </TableCell>
+                      )}
                       <TableCell>
                         <Link to={`/vendors/dcli/invoices/${inv.id}/detail`}>
                           <Button variant="outline" size="sm">View</Button>
