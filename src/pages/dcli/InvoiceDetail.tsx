@@ -337,10 +337,17 @@ export default function DCLIInvoiceDetail() {
               <TableBody>
                 {lineItems.length === 0 ? (
                   <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">No line items found.</TableCell></TableRow>
-                ) : lineItems.map(line => (
+                ) : lineItems.map(line => {
+                  const rowData = line.row_data as Record<string, unknown> | null
+                  const containerVal =
+                    line.container
+                    ?? (rowData?.['Container On-Hire'] as string | undefined)
+                    ?? (rowData?.['Container'] as string | undefined)
+                    ?? '—'
+                  return (
                   <TableRow key={line.id}>
                     <TableCell className="font-mono text-xs font-medium">{line.chassis ?? '—'}</TableCell>
-                    <TableCell className="font-mono text-xs">{line.container ?? '—'}</TableCell>
+                    <TableCell className="font-mono text-xs">{containerVal}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(line.date_out)}</TableCell>
                     <TableCell className="text-xs whitespace-nowrap">{formatDate(line.date_in)}</TableCell>
                     <TableCell className="text-right text-xs">{line.days_used ?? '—'}</TableCell>
@@ -377,7 +384,8 @@ export default function DCLIInvoiceDetail() {
                       </Link>
                     </TableCell>
                   </TableRow>
-                ))}
+                  )
+                })}
               </TableBody>
             </Table>
           </div>
@@ -386,8 +394,16 @@ export default function DCLIInvoiceDetail() {
 
       {/* Event timeline */}
       {events.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-base">Activity Timeline</CardTitle></CardHeader>
+        <>
+          <div className="flex items-center gap-3 pt-2">
+            <div className="flex-1 border-t border-border" />
+            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider px-2">
+              Activity Timeline
+            </span>
+            <div className="flex-1 border-t border-border" />
+          </div>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Activity Timeline</CardTitle></CardHeader>
           <CardContent>
             <ul className="space-y-3">
               {events.map(evt => (
@@ -404,7 +420,8 @@ export default function DCLIInvoiceDetail() {
               ))}
             </ul>
           </CardContent>
-        </Card>
+          </Card>
+        </>
       )}
     </div>
   )

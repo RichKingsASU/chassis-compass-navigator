@@ -141,6 +141,13 @@ export default function DCLIInvoiceLineDetails() {
   const tms     = line.tms_match as Record<string, unknown> | null
   const rowData = line.row_data  as Record<string, unknown> | null
 
+  // Container value with row_data fallback (original XLSX column names)
+  const containerVal: string | null =
+    line.container
+    ?? (rowData?.['Container On-Hire'] as string | undefined)
+    ?? (rowData?.['Container'] as string | undefined)
+    ?? null
+
   // Extract customer/move details from row_data (original XLSX fields)
   const customerName    = String(rowData?.['Customer Name']         ?? rowData?.['Corporate Name']         ?? '—')
   const onHireLoc       = String(rowData?.['On-Hire Location']      ?? '—')
@@ -178,7 +185,7 @@ export default function DCLIInvoiceLineDetails() {
           <span className="text-muted-foreground">/</span>
           <h1 className="text-xl font-semibold font-mono">{line.chassis ?? 'Line Item'}</h1>
           {activeStatus && (
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusBadgeClass(activeStatus)}`}>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ring-1 ring-inset ring-current/20 ${statusBadgeClass(activeStatus)}`}>
               {activeStatus}
             </span>
           )}
@@ -242,7 +249,7 @@ export default function DCLIInvoiceLineDetails() {
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5">
               <Field label="Customer"         value={customerName} />
               <Field label="Chassis"          value={<code className="bg-muted px-1.5 py-0.5 rounded text-xs">{line.chassis}</code>} />
-              <Field label="Container"        value={<code className="bg-muted px-1.5 py-0.5 rounded text-xs">{line.container}</code>} />
+              <Field label="Container"        value={containerVal ? <code className="bg-muted px-1.5 py-0.5 rounded text-xs">{containerVal}</code> : null} />
               <Field label="Date Out"         value={formatDate(line.date_out)} />
               <Field label="Date In"          value={formatDate(line.date_in)} />
               <Field label="Days Billed"      value={line.days_used} />
@@ -278,105 +285,118 @@ export default function DCLIInvoiceLineDetails() {
           <CardContent className="space-y-4">
             <MatchBanner score={line.match_confidence} />
 
-            {tms ? (
-              <>
-                {/* Field comparison table */}
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Field Comparison</p>
-                  <div className="overflow-hidden rounded-lg border text-xs">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="bg-muted/50">
-                          <th className="text-left p-2 font-medium text-muted-foreground">Field</th>
-                          <th className="text-left p-2 font-medium text-muted-foreground">Invoice</th>
-                          <th className="text-left p-2 font-medium text-muted-foreground">Activity</th>
-                          <th className="text-center p-2 font-medium text-muted-foreground">Match</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {[
-                          {
-                            field: 'Chassis',
-                            inv: line.chassis ?? '—',
-                            act: String(tms['chassis'] ?? '—'),
-                            match: line.chassis?.replace(/\s/g,'').toUpperCase() === String(tms['chassis'] ?? '').replace(/\s/g,'').toUpperCase(),
-                          },
-                          {
-                            field: 'Container',
-                            inv: line.container ?? '—',
-                            act: String(tms['container'] ?? '—'),
-                            match: !!line.container && line.container === String(tms['container']),
-                          },
-                          {
-                            field: 'Date Out',
-                            inv: formatDate(line.date_out),
-                            act: tms['date_out'] ? formatDate(String(tms['date_out'])) : '—',
-                            match: !!line.date_out && !!tms['date_out'] &&
-                              Math.abs(new Date(line.date_out).getTime() - new Date(String(tms['date_out'])).getTime()) < 86400000 * 2,
-                          },
-                          {
-                            field: 'Date In',
-                            inv: formatDate(line.date_in),
-                            act: tms['date_in'] ? formatDate(String(tms['date_in'])) : '—',
-                            match: !!line.date_in && !!tms['date_in'] &&
-                              Math.abs(new Date(line.date_in).getTime() - new Date(String(tms['date_in'])).getTime()) < 86400000 * 2,
-                          },
-                          {
-                            field: 'Days',
-                            inv: String(line.days_used ?? '—'),
-                            act: String(tms['days_out'] ?? '—'),
-                            match: daysDelta !== null && Math.abs(daysDelta) <= 1,
-                          },
-                        ].map(row => (
-                          <tr key={row.field}>
-                            <td className="p-2 font-medium text-muted-foreground">{row.field}</td>
-                            <td className="p-2 font-mono">{row.inv}</td>
-                            <td className="p-2 font-mono">{row.act}</td>
-                            <td className="p-2 text-center">
-                              {row.match
-                                ? <span className="text-emerald-600 font-bold">✓</span>
-                                : <span className="text-red-500 font-bold">✗</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+            {/* Field comparison table — always shown */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Field Comparison</p>
+              <div className="overflow-hidden rounded-lg border text-xs">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="text-left p-2 font-medium text-muted-foreground">Field</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Invoice</th>
+                      <th className="text-left p-2 font-medium text-muted-foreground">Activity</th>
+                      <th className="text-center p-2 font-medium text-muted-foreground">Match</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {[
+                      {
+                        field: 'Chassis',
+                        inv: line.chassis ?? '—',
+                        act: tms ? String(tms['chassis'] ?? '—') : null,
+                        match: tms
+                          ? line.chassis?.replace(/\s/g,'').toUpperCase() ===
+                            String(tms['chassis'] ?? '').replace(/\s/g,'').toUpperCase()
+                          : null,
+                      },
+                      {
+                        field: 'Container',
+                        inv: containerVal ?? '—',
+                        act: tms ? String(tms['container'] ?? '—') : null,
+                        match: tms
+                          ? !!(containerVal && containerVal === String(tms['container']))
+                          : null,
+                      },
+                      {
+                        field: 'Date Out',
+                        inv: formatDate(line.date_out),
+                        act: tms?.['date_out'] ? formatDate(String(tms['date_out'])) : (tms ? '—' : null),
+                        match: tms && line.date_out && tms['date_out']
+                          ? Math.abs(new Date(line.date_out).getTime() -
+                              new Date(String(tms['date_out'])).getTime()) < 86400000 * 2
+                          : null,
+                      },
+                      {
+                        field: 'Date In',
+                        inv: formatDate(line.date_in),
+                        act: tms?.['date_in'] ? formatDate(String(tms['date_in'])) : (tms ? '—' : null),
+                        match: tms && line.date_in && tms['date_in']
+                          ? Math.abs(new Date(line.date_in).getTime() -
+                              new Date(String(tms['date_in'])).getTime()) < 86400000 * 2
+                          : null,
+                      },
+                      {
+                        field: 'Days',
+                        inv: String(line.days_used ?? '—'),
+                        act: tms ? String(tms['days_out'] ?? '—') : null,
+                        match: tms && daysDelta !== null ? Math.abs(daysDelta) <= 1 : null,
+                      },
+                    ].map(row => (
+                      <tr key={row.field}>
+                        <td className="p-2 font-medium text-muted-foreground">{row.field}</td>
+                        <td className="p-2 font-mono">{row.inv}</td>
+                        <td className="p-2 font-mono text-muted-foreground">
+                          {row.act ?? <span className="italic">run matching</span>}
+                        </td>
+                        <td className="p-2 text-center">
+                          {row.match === null
+                            ? <span className="text-muted-foreground">·</span>
+                            : row.match
+                              ? <span className="text-emerald-600 font-bold">✓</span>
+                              : <span className="text-red-500 font-bold">✗</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
 
-                {/* Days variance callout */}
-                {daysDelta !== null && (
-                  <div className={`p-2.5 rounded-lg text-xs font-medium ${
-                    daysDelta === 0
-                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
-                      : 'bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400'
-                  }`}>
-                    {daysDelta === 0
-                      ? '✓ Billed days match activity exactly'
-                      : `⚠ Billed ${line.days_used} days · Activity shows ${actDays} days · Variance: ${daysDelta > 0 ? '+' : ''}${daysDelta} day(s)`}
-                  </div>
-                )}
+            {/* Days variance callout */}
+            {tms && daysDelta !== null && (
+              <div className={`p-2.5 rounded-lg text-xs font-medium ${
+                daysDelta === 0
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                  : 'bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400'
+              }`}>
+                {daysDelta === 0
+                  ? '✓ Billed days match activity exactly'
+                  : `⚠ Billed ${line.days_used} days · Activity shows ${actDays} days · Variance: ${daysDelta > 0 ? '+' : ''}${daysDelta} day(s)`}
+              </div>
+            )}
 
-                {/* Activity record details */}
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Matched Activity Record</p>
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-                    <Field label="Reservation #"    value={String(tms['reservation_number'] ?? '—')} mono />
-                    <Field label="Market"           value={String(tms['market'] ?? '—')} />
-                    <Field label="Pick Up"          value={String(tms['pick_up_location'] ?? '—')} />
-                    <Field label="Return Location"  value={String(tms['location_in'] ?? '—')} />
-                    <Field label="Carrier SCAC"     value={String(tms['motor_carrier_scac'] ?? '—')} />
-                    <Field label="Asset Type"       value={String(tms['asset_type'] ?? '—')} />
-                    <Field label="Pool Contract"    value={String(tms['pool_contract'] ?? '—')} />
-                  </dl>
-                </div>
-              </>
-            ) : line.match_confidence != null && line.match_confidence < 40 ? (
+            {/* Activity record details */}
+            {tms && (
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Matched Activity Record</p>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  <Field label="Reservation #"    value={String(tms['reservation_number'] ?? '—')} mono />
+                  <Field label="Market"           value={String(tms['market'] ?? '—')} />
+                  <Field label="Pick Up"          value={String(tms['pick_up_location'] ?? '—')} />
+                  <Field label="Return Location"  value={String(tms['location_in'] ?? '—')} />
+                  <Field label="Carrier SCAC"     value={String(tms['motor_carrier_scac'] ?? '—')} />
+                  <Field label="Asset Type"       value={String(tms['asset_type'] ?? '—')} />
+                  <Field label="Pool Contract"    value={String(tms['pool_contract'] ?? '—')} />
+                </dl>
+              </div>
+            )}
+
+            {!tms && line.match_confidence != null && line.match_confidence < 40 && (
               <div className="text-sm text-muted-foreground space-y-1 p-3 bg-muted/30 rounded-lg">
                 <p>No activity record found for chassis <code className="bg-muted px-1 rounded">{line.chassis}</code>.</p>
                 <p className="text-xs">Possible causes: chassis not in activity data for this billing period, or chassis ID format mismatch.</p>
               </div>
-            ) : null}
+            )}
           </CardContent>
         </Card>
       </div>

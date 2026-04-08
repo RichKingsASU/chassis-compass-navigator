@@ -281,6 +281,14 @@ export default function DCLINewInvoice() {
         </button>
         <span className="text-muted-foreground">/</span>
         <h1 className="text-xl font-semibold">New Invoice</h1>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/vendors/dcli/invoices')}
+          className="ml-auto text-muted-foreground"
+        >
+          Cancel
+        </Button>
       </div>
 
       <div className="flex items-center">

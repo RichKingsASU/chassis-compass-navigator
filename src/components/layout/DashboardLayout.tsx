@@ -75,11 +75,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </SidebarContent>
         </Sidebar>
 
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0">
           <DashboardHeader
             pageTitle={pageTitle}
           />
-          <main className="flex-1 overflow-auto bg-muted/30">{children}</main>
+          <main className="flex-1 bg-muted/30">{children}</main>
         </div>
       </div>
     </SidebarProvider>

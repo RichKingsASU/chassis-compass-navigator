@@ -1,16 +1,18 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { safeDate } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { NewInvoiceDialog } from '@/components/vendor/NewInvoiceDialog'
-import { VendorInvoicesTab, type VendorInvoice } from '@/components/vendor/VendorInvoicesTab'
+import type { VendorInvoice } from '@/components/vendor/VendorInvoicesTab'
 import { VendorFinancialsTab } from '@/components/vendor/VendorFinancialsTab'
 import { VendorDocumentsTab } from '@/components/vendor/VendorDocumentsTab'
 import { VendorTabNav, type VendorTabKey } from '@/components/vendor/VendorTabNav'
+import { statusBadgeClass } from '@/types/invoice'
 
 const VENDOR_SLUG = 'dcli'
 
@@ -31,6 +33,17 @@ interface DcliRecord {
   market: string
   region: string
   [key: string]: unknown
+}
+
+interface DashboardInvoice {
+  id: string
+  invoice_number: string | null
+  invoice_date: string | null
+  due_date: string | null
+  account_code: string | null
+  total_amount: number | null
+  portal_status: string | null
+  created_at: string
 }
 
 function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
@@ -56,6 +69,15 @@ export default function DCLIPage() {
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0)
   const [invoices, setInvoices] = useState<VendorInvoice[]>([])
 
+  // DCLI-specific dashboard aggregates (from dcli_invoice / dcli_invoice_line_item / dcli_activity)
+  const [invoiceCount, setInvoiceCount] = useState(0)
+  const [uniqueChassis, setUniqueChassis] = useState(0)
+  const [statusCount, setStatusCount] = useState(0)
+  const [totalAmount, setTotalAmount] = useState(0)
+  const [activityCount, setActivityCount] = useState(0)
+  const [dashboardInvoices, setDashboardInvoices] = useState<DashboardInvoice[]>([])
+  const [dashboardLoading, setDashboardLoading] = useState(true)
+
   useEffect(() => {
     async function loadData() {
       setLoading(true)
@@ -76,6 +98,79 @@ export default function DCLIPage() {
     }
     loadData()
   }, [])
+
+  // Load vendor_invoices for the Financials tab (shared schema across vendors)
+  useEffect(() => {
+    async function loadVendorInvoices() {
+      const { data } = await supabase
+        .from('vendor_invoices')
+        .select('*')
+        .eq('vendor_slug', VENDOR_SLUG)
+        .order('invoice_date', { ascending: false })
+      setInvoices((data || []) as VendorInvoice[])
+    }
+    loadVendorInvoices()
+  }, [invoiceRefreshKey])
+
+  // Load dcli_invoice / line_item / activity aggregates for dashboard KPIs and tab badges
+  useEffect(() => {
+    async function loadDcliDashboard() {
+      setDashboardLoading(true)
+      try {
+        const [
+          invoiceCountRes,
+          chassisRes,
+          statusRes,
+          amountRes,
+          activityCountRes,
+          recentInvoicesRes,
+        ] = await Promise.all([
+          supabase.from('dcli_invoice').select('*', { count: 'exact', head: true }),
+          supabase.from('dcli_invoice_line_item').select('chassis'),
+          supabase.from('dcli_invoice').select('portal_status'),
+          supabase.from('dcli_invoice').select('total_amount'),
+          supabase.from('dcli_activity').select('*', { count: 'exact', head: true }),
+          supabase
+            .from('dcli_invoice')
+            .select('id, invoice_number, invoice_date, due_date, account_code, total_amount, portal_status, created_at')
+            .order('created_at', { ascending: false })
+            .limit(50),
+        ])
+
+        setInvoiceCount(invoiceCountRes.count ?? 0)
+
+        const chassisRows = (chassisRes.data || []) as Array<{ chassis: string | null }>
+        setUniqueChassis(
+          new Set(chassisRows.map(r => r.chassis?.trim()).filter((c): c is string => !!c)).size
+        )
+
+        const statusRows = (statusRes.data || []) as Array<{ portal_status: string | null }>
+        setStatusCount(
+          new Set(statusRows.map(r => r.portal_status).filter((s): s is string => !!s)).size
+        )
+
+        const amountRows = (amountRes.data || []) as Array<{ total_amount: number | null }>
+        setTotalAmount(amountRows.reduce((sum, r) => sum + (r.total_amount ?? 0), 0))
+
+        setActivityCount(activityCountRes.count ?? 0)
+
+        const rawInvoices = (recentInvoicesRes.data || []) as DashboardInvoice[]
+        const seen = new Set<string>()
+        const deduped = rawInvoices.filter(inv => {
+          const key = inv.invoice_number ?? inv.id
+          if (seen.has(key)) return false
+          seen.add(key)
+          return true
+        }).slice(0, 10)
+        setDashboardInvoices(deduped)
+      } catch (err: unknown) {
+        console.error('Failed to load DCLI dashboard data', err)
+      } finally {
+        setDashboardLoading(false)
+      }
+    }
+    loadDcliDashboard()
+  }, [invoiceRefreshKey])
 
   // Sync activeTab with URL hash
   useEffect(() => {
@@ -99,28 +194,12 @@ export default function DCLIPage() {
     }
   }
 
-  const handleInvoicesLoaded = useCallback((rows: VendorInvoice[]) => {
-    setInvoices(rows)
-  }, [])
-
-  const totalRecords = records.length
-
   const filtered = search
     ? records.filter(r => {
         const q = search.toUpperCase().trim()
         return r.chassis?.trim().toUpperCase().includes(q) || r.reservation_number?.toUpperCase().includes(q)
       })
     : records
-
-  const statusGroups = new Map<string, number>()
-  for (const r of records) {
-    const s = r.request_status || 'Not Set'
-    statusGroups.set(s, (statusGroups.get(s) || 0) + 1)
-  }
-
-  const totalAmountDue = invoices
-    .filter(i => (i.invoice_status || '').toLowerCase() !== 'paid')
-    .reduce((sum, i) => sum + Number(i.invoice_amount || 0), 0)
 
   return (
     <div className="p-6 space-y-6">
@@ -136,7 +215,7 @@ export default function DCLIPage() {
         activeTab={activeTab}
         onTabChange={handleTabChange}
         onNewInvoice={() => navigate('/vendors/dcli/invoices/new')}
-        counts={{ invoices: invoices.length, activity: totalRecords }}
+        counts={{ invoices: invoiceCount, activity: activityCount }}
       />
 
       {activeTab === 'dashboard' && (
@@ -144,25 +223,19 @@ export default function DCLIPage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle></CardHeader>
-              <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{totalRecords}</p>}</CardContent>
+              <CardContent>{dashboardLoading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{invoiceCount}</p>}</CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Unique Chassis</CardTitle></CardHeader>
-              <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{new Set(records.map(r => r.chassis?.trim()).filter(Boolean)).size}</p>}</CardContent>
+              <CardContent>{dashboardLoading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{uniqueChassis}</p>}</CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Statuses</CardTitle></CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {Array.from(statusGroups.entries()).map(([status, count]) => (
-                    <Badge key={status} variant={getStatusVariant(status)}>{status}: {count}</Badge>
-                  ))}
-                </div>
-              </CardContent>
+              <CardContent>{dashboardLoading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{statusCount}</p>}</CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Amount Due</CardTitle></CardHeader>
-              <CardContent><p className="text-3xl font-bold">{formatCurrency(totalAmountDue)}</p></CardContent>
+              <CardContent>{dashboardLoading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{formatCurrency(totalAmount)}</p>}</CardContent>
             </Card>
           </div>
 
@@ -190,12 +263,65 @@ export default function DCLIPage() {
 
       {activeTab === 'invoices' && (
         <div className="space-y-4">
-          <VendorInvoicesTab
-            vendorSlug={VENDOR_SLUG}
-            refreshKey={invoiceRefreshKey}
-            onNewInvoice={() => navigate('/vendors/dcli/invoices/new')}
-            onDataLoaded={handleInvoicesLoaded}
-          />
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Recent Invoices</CardTitle>
+              <p className="text-sm text-muted-foreground">Showing {dashboardInvoices.length} most recent</p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {dashboardLoading ? (
+                <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+              ) : dashboardInvoices.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground text-sm">
+                  No invoices found. Click + New Invoice to add one.
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Invoice #</TableHead>
+                      <TableHead>Invoice Date</TableHead>
+                      <TableHead>Due Date</TableHead>
+                      <TableHead>Account</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Portal Status</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dashboardInvoices.map(inv => (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-mono text-sm font-medium">
+                          {inv.invoice_number || inv.id.slice(0, 8)}
+                        </TableCell>
+                        <TableCell className="text-sm">{safeDate(inv.invoice_date)}</TableCell>
+                        <TableCell className="text-sm">{safeDate(inv.due_date)}</TableCell>
+                        <TableCell className="text-sm">{inv.account_code || '—'}</TableCell>
+                        <TableCell className="text-sm text-right">
+                          {inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(inv.portal_status)}`}>
+                            {inv.portal_status || 'Not Set'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Link to={`/vendors/dcli/invoices/${inv.id}/detail`}>
+                            <Button variant="outline" size="sm">View</Button>
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+          <div className="flex justify-end">
+            <Link to="/vendors/dcli/invoices" className="text-sm text-primary hover:underline">
+              View All Invoices →
+            </Link>
+          </div>
         </div>
       )}
 
