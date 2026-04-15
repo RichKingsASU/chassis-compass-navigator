@@ -27,6 +27,7 @@ import {
   Warehouse,
   BarChart3,
   DollarSign,
+  Plug,
 } from 'lucide-react'
 
 interface NavigationItem {
@@ -104,6 +105,7 @@ const navItems: NavigationItem[] = [
       { title: 'Terminal Events', path: '/terminal-events' },
     ],
   },
+  { title: 'Provar', path: '/provar', icon: Plug },
   { title: 'Settings', path: '/settings', icon: Settings },
 ]
 
