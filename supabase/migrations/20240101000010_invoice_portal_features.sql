@@ -1,0 +1,1 @@
+-- Skipped locally: requires dcli_invoice table which only exists in cloud

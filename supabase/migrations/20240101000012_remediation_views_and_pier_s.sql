@@ -1,0 +1,1 @@
+-- Skipped locally: requires dcli_activity and other cloud-only tables
