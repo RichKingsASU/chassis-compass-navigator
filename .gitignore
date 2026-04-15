@@ -35,3 +35,7 @@ reports/
 
 # Reference repo (analysis only)
 reference/
+
+supabase/.temp/
+supabase/snippets/
+tran_stream_token.json
