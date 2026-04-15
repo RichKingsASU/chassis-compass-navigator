@@ -32,6 +32,7 @@ const UnbilledLoadsPage = lazy(() => import('@/features/unbilled-loads/UnbilledL
 const PerDiemPage = lazy(() => import('@/features/perdiem/PerDiemPage'))
 const BillingExposurePage = lazy(() => import('@/features/billing-exposure/BillingExposurePage'))
 const TerminalEventsPage = lazy(() => import('@/features/terminal-events/TerminalEventsPage'))
+const ProvarPage = lazy(() => import('@/pages/ProvarPage'))
 
 // PerDiem reconciliation (alias for route compatibility)
 const PerDiemReconciliationPage = PerDiemPage
@@ -149,6 +150,9 @@ export default function App() {
                   <Route path="/perdiem-reconciliation" element={<ProtectedPage><PerDiemReconciliationPage /></ProtectedPage>} />
                   <Route path="/billing-exposure" element={<ProtectedPage><BillingExposurePage /></ProtectedPage>} />
                   <Route path="/terminal-events" element={<ProtectedPage><TerminalEventsPage /></ProtectedPage>} />
+
+                  {/* Provar Terminal Integration */}
+                  <Route path="/provar" element={<ProtectedPage><ProvarPage /></ProtectedPage>} />
 
                   {/* TMS */}
                   <Route path="/tms" element={<ProtectedPage><TMSData /></ProtectedPage>} />
