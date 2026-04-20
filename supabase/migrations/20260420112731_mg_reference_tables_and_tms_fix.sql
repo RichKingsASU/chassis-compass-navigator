@@ -1,0 +1,34 @@
+-- ============================================================
+-- Migration: MercuryGate reference tables + mg_tms customer join fix
+-- Date: 2026-04-20
+--
+-- Purpose:
+--   - Seed mg_carriers, mg_enterprise, mg_users reference tables
+--   - Add performance indexes on mg_data and mg_locations
+--   - Fix mg_tms view to join mg_enterprise on name (not account_number)
+--
+-- Background:
+--   mg_data.owner contains enterprise NAMES, not account codes, so
+--   the original join `e.account_number = d.owner` returned 0 matches.
+--   After this migration, mg_tms reports 100% customer enrichment.
+-- ============================================================
+
+-- NOTE: The full CREATE TABLE + INSERT statements for mg_carriers,
+-- mg_enterprise, and mg_users are in Supabase query history from
+-- 2026-04-20. Copy those into this file to make the migration
+-- fully reproducible.
+--
+-- Key statements to preserve (in order):
+--
+--   1. CREATE TABLE mg_enterprise (from the safe version)
+--   2. CREATE UNIQUE INDEX uq_mg_enterprise_acct (partial)
+--   3. INSERT INTO mg_enterprise seed rows (266 rows, ON CONFLICT DO NOTHING)
+--   4. INSERT INTO mg_enterprise alias rows (added during 100% push)
+--   5. INSERT INTO mg_carriers for the 4 missing carriers (Shod, Ksd, Briway, Big)
+--   6. All mg_data indexes (chassis_trim, create_date, status, owner,
+--      carrier_scac, pickup/drop actual dates, etc.)
+--   7. mg_locations partial index (name WHERE active)
+--   8. DROP VIEW mg_tms + CREATE VIEW mg_tms (with e.name = d.owner join)
+--   9. NOTIFY pgrst, 'reload schema'
+
+-- Placeholder — replace with actual statements from Studio query history
