@@ -87,6 +87,7 @@ const navItems: NavigationItem[] = [
     subItems: [
       { title: 'Overview', path: '/vendor-validation' },
       { title: 'DCLI', path: '/vendors/dcli' },
+      { title: 'DCLI Invoices', path: '/dcli-invoices' },
       { title: 'CCM', path: '/vendors/ccm' },
       { title: 'SCSPA', path: '/vendors/scspa' },
       { title: 'TRAC', path: '/vendors/trac' },
