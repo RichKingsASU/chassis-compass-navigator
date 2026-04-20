@@ -43,3 +43,8 @@ tran_stream_token.json
 
 supabase/functions/.env
 Stashed changes
+
+# Legacy sub-apps — do not build
+_legacy/**/node_modules/
+_legacy/**/.next/
+_legacy/**/dist/
