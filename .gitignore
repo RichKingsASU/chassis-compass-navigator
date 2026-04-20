@@ -48,3 +48,9 @@ Stashed changes
 _legacy/**/node_modules/
 _legacy/**/.next/
 _legacy/**/dist/
+
+# Ingest runtime state (cursors, tokens, progress markers)
+*_cursor.json
+cursor_*.json
+*.bak
+*.bak.*
