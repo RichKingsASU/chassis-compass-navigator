@@ -46,7 +46,7 @@ export default function Dashboard() {
         const vendors: VendorRow[] = []
         for (const { table, label } of [
           { table: 'dcli_activity', label: 'DCLI' },
-          { table: 'ccm_invoice_data', label: 'CCM' },
+          { table: 'ccm_activity', label: 'CCM' },
           { table: 'scspa_activity', label: 'SCSPA' },
         ] as const) {
           try {

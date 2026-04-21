@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -93,9 +93,12 @@ export function NewInvoiceDialog({ open, onOpenChange, vendorSlug, onCreated }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg" aria-describedby="new-invoice-description">
         <DialogHeader>
           <DialogTitle>New Invoice</DialogTitle>
+          <DialogDescription id="new-invoice-description">
+            Record a new vendor invoice. Invoice Number, Invoice Date, Due Date, and Invoice Amount are required.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
