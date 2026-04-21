@@ -36,7 +36,8 @@ function MatchBanner({ score }: { score: number | null }) {
       Not yet matched — go to the Invoice Detail page and click "Run Activity Matching"
     </div>
   )
-  const matched = score >= 75; const fuzzy = score >= 40
+  const pct = score <= 1 ? score * 100 : score
+  const matched = pct >= 75; const fuzzy = pct >= 40
   const [bg, border, text, Icon] =
     matched ? ['bg-emerald-50 dark:bg-emerald-950/30', 'border-emerald-200 dark:border-emerald-800', 'text-emerald-700 dark:text-emerald-400', CheckCircle2]
     : fuzzy  ? ['bg-yellow-50 dark:bg-yellow-950/30',  'border-yellow-200 dark:border-yellow-800',  'text-yellow-700 dark:text-yellow-400',  AlertCircle]
@@ -391,7 +392,7 @@ export default function DCLIInvoiceLineDetails() {
               </div>
             )}
 
-            {!tms && line.match_confidence != null && line.match_confidence < 40 && (
+            {!tms && line.match_confidence != null && (line.match_confidence <= 1 ? line.match_confidence * 100 : line.match_confidence) < 40 && (
               <div className="text-sm text-muted-foreground space-y-1 p-3 bg-muted/30 rounded-lg">
                 <p>No activity record found for chassis <code className="bg-muted px-1 rounded">{line.chassis}</code>.</p>
                 <p className="text-xs">Possible causes: chassis not in activity data for this billing period, or chassis ID format mismatch.</p>
