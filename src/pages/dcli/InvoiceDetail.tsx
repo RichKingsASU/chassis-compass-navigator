@@ -187,21 +187,6 @@ function statusDotColor(status: string): string {
 }
 
 // ── AG Grid cell renderers ─────────────────────────────────────────────────
-function MatchCell({ data }: ICellRendererParams<DcliLineItem, number | null>) {
-  const mt = data?.match_type
-  if (!mt) return <span className="text-xs text-muted-foreground">—</span>
-  const color =
-    mt === 'activity' ? 'bg-emerald-500' :
-    mt === 'tms'      ? 'bg-amber-400'   :
-    mt === 'none'     ? 'bg-red-500'     :
-                        'bg-muted-foreground/40'
-  return (
-    <div className="flex items-center h-full">
-      <div className={`h-2 w-full rounded-full ${color}`} />
-    </div>
-  )
-}
-
 const VALIDATION_BADGE_CLS: Record<ValidationStatus, string> = {
   pass:    'bg-green-100 text-green-700',
   fail:    'bg-red-100 text-red-700',
@@ -332,7 +317,14 @@ export default function DCLIInvoiceDetail() {
       width: 170,
       filter: false,
       sortable: true,
-      cellRenderer: MatchCell,
+      cellRenderer: function(params: ICellRendererParams<DcliLineItem>) {
+        const val = params.value;
+        if (!val || val === 'none') {
+          if (!val) return '<span style="color:#9ca3af">—</span>';
+          return '<div style="width:100%;height:10px;border-radius:3px;background:#ef4444"></div>';
+        }
+        return '<div style="width:100%;height:10px;border-radius:3px;background:#f59e0b"></div>';
+      },
     },
     {
       headerName: 'Variance',
