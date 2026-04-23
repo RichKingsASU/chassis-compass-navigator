@@ -3,7 +3,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { ThemeProvider } from 'next-themes'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
@@ -175,7 +175,7 @@ export default function App() {
                   {/* Vendors */}
                   <Route path="/vendor-validation" element={<ProtectedPage><VendorValidation /></ProtectedPage>} />
                   <Route path="/vendors/dcli" element={<ProtectedPage><DCLI /></ProtectedPage>} />
-                  <Route path="/vendors/dcli/invoices" element={<ProtectedPage><DCLIInvoiceTracker /></ProtectedPage>} />
+                  <Route path="/vendors/dcli/invoices" element={<Navigate to="/vendors/dcli#invoices" replace />} />
                   <Route path="/vendors/dcli/invoices/new" element={<ProtectedPage><DCLINewInvoice /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoices/tracker" element={<ProtectedPage><DCLIInvoiceTracker /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoices/:invoiceId/review" element={<ProtectedPage><DCLIInvoiceReview /></ProtectedPage>} />
