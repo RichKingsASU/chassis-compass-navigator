@@ -40,6 +40,7 @@ interface DashboardInvoice {
   due_date: string | null
   account_code: string | null
   total_amount: number | null
+  invoice_amount: number | null
   amount_paid: number | null
   amount_due: number | null
   portal_status: string | null
@@ -60,12 +61,11 @@ function currencyFormatter(params: { value: unknown }): string {
 
 function invoiceStatusColorClass(status: string | null | undefined): string {
   if (!status) return 'text-gray-600'
-  const s = status.toUpperCase()
-  if (s === 'PAID') return 'text-green-700 font-medium'
-  if (s.includes('DISPUTE')) return 'text-red-700 font-medium'
-  if (s === 'PENDING' || s === 'SCHEDULED' || s.startsWith('NEED TO') || s.startsWith('EMAILED')) {
-    return 'text-yellow-700 font-medium'
-  }
+  const s = status.trim()
+  if (s === 'Paid') return 'text-green-700 font-medium'
+  if (s === 'Open') return 'text-amber-600 font-medium'
+  if (s === 'Closed') return 'text-gray-600 font-medium'
+  if (s === 'Dispute' || s.startsWith('Dispute')) return 'text-red-700 font-medium'
   return 'text-gray-600'
 }
 
@@ -218,9 +218,10 @@ export default function DCLIPage() {
     { headerName: 'Due Date', field: 'due_date', width: 140 },
     {
       headerName: 'Invoice Amount',
-      field: 'total_amount',
+      colId: 'invoice_amount',
       type: 'numericColumn',
       width: 150,
+      valueGetter: (p) => p.data?.total_amount ?? p.data?.invoice_amount ?? null,
       valueFormatter: currencyFormatter,
     },
     {
