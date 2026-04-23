@@ -4,14 +4,15 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import {
-  type DcliInvoice, type DcliLineItem, type InvoiceEvent,
+  type DcliInvoice, type DcliLineItem, type InvoiceEvent, type ValidationFinding, type ValidationStatus,
   INVOICE_STATUSES, statusBadgeClass, eventLabel, eventIcon,
 } from '@/types/invoice'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { DataGrid } from '@/components/ui/DataGrid'
-import type { ColDef, CellValueChangedEvent } from 'ag-grid-community'
-import { AlertCircle, CheckCircle2, RefreshCw, TrendingUp } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import type { ColDef, CellValueChangedEvent, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community'
+import { AlertCircle, CheckCircle2, RefreshCw, ShieldCheck, TrendingUp } from 'lucide-react'
 
 // ── Analytics panel ────────────────────────────────────────────────────────
 function LineItemAnalytics({ lineItems }: { lineItems: DcliLineItem[] }) {
@@ -33,11 +34,18 @@ function LineItemAnalytics({ lineItems }: { lineItems: DcliLineItem[] }) {
 
   const totalAmount = lineItems.reduce((s, l) => s + (l.line_total ?? 0), 0)
 
-  // Match summary
-  const matched  = lineItems.filter(l => (l.match_confidence ?? 0) >= 75).length
-  const fuzzy    = lineItems.filter(l => (l.match_confidence ?? 0) >= 40 && (l.match_confidence ?? 0) < 75).length
-  const unmatched = lineItems.filter(l => l.match_confidence != null && (l.match_confidence ?? 0) < 40).length
-  const notRun   = lineItems.filter(l => l.match_confidence == null).length
+  // Match summary (match_type set by match_dcli_line_items RPC)
+  const matched   = lineItems.filter(l => l.match_type === 'activity').length
+  const fuzzy     = lineItems.filter(l => l.match_type === 'tms').length
+  const unmatched = lineItems.filter(l => l.match_type === 'none').length
+  const notRun    = lineItems.filter(l => l.match_type == null && l.matched_at == null).length
+
+  // Validation summary
+  const vPass    = lineItems.filter(l => l.validation_status === 'pass').length
+  const vFail    = lineItems.filter(l => l.validation_status === 'fail').length
+  const vWarn    = lineItems.filter(l => l.validation_status === 'warn').length
+  const vSkipped = lineItems.filter(l => l.validation_status === 'skipped').length
+  const vRun     = vPass + vFail + vWarn + vSkipped
 
   const pct = (n: number) => total > 0 ? Math.round((n / total) * 100) : 0
 
@@ -89,36 +97,57 @@ function LineItemAnalytics({ lineItems }: { lineItems: DcliLineItem[] }) {
         </CardContent>
       </Card>
 
-      {/* Match summary */}
+      {/* Match + validation summary */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <CheckCircle2 size={16} /> Activity Match Summary
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           {notRun === total ? (
-            <p className="text-sm text-muted-foreground">Matching has not been run yet. Click "Run Matching" above.</p>
+            <p className="text-sm text-muted-foreground">Matching has not been run yet. Click "Run Activity Matching" above.</p>
           ) : (
-            <>
+            <div className="space-y-2">
               <div className="flex h-3 rounded-full overflow-hidden gap-px">
-                {matched   > 0 && <div className="h-full bg-emerald-500" style={{ width: `${pct(matched)}%` }} title={`Matched: ${matched}`} />}
-                {fuzzy     > 0 && <div className="h-full bg-yellow-400" style={{ width: `${pct(fuzzy)}%` }}   title={`Fuzzy: ${fuzzy}`} />}
-                {unmatched > 0 && <div className="h-full bg-red-400"    style={{ width: `${pct(unmatched)}%` }} title={`No match: ${unmatched}`} />}
+                {matched   > 0 && <div className="h-full bg-emerald-500" style={{ width: `${pct(matched)}%` }}   title={`Matched: ${matched}`} />}
+                {fuzzy     > 0 && <div className="h-full bg-yellow-400"  style={{ width: `${pct(fuzzy)}%` }}     title={`Fuzzy: ${fuzzy}`} />}
+                {unmatched > 0 && <div className="h-full bg-red-400"     style={{ width: `${pct(unmatched)}%` }} title={`No match: ${unmatched}`} />}
               </div>
-              <div className="space-y-1.5">
-                {[
-                  { label: 'Matched (≥75%)',  count: matched,   cls: 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800' },
-                  { label: 'Fuzzy (40–74%)',  count: fuzzy,     cls: 'bg-yellow-50 text-yellow-800 border-yellow-200 dark:bg-yellow-950/30 dark:text-yellow-400 dark:border-yellow-800' },
-                  { label: 'No Match (<40%)', count: unmatched, cls: 'bg-red-50 text-red-800 border-red-200 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800' },
-                ].map(r => (
-                  <div key={r.label} className="flex items-center justify-between text-sm">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${r.cls}`}>{r.label}</span>
-                    <span className="text-xs text-muted-foreground">{r.count} ({pct(r.count)}%)</span>
-                  </div>
-                ))}
+              <p className="text-sm text-muted-foreground tabular-nums">
+                <span className="text-emerald-700 dark:text-emerald-400 font-medium">{matched} matched</span>
+                {' · '}
+                <span className="text-yellow-700 dark:text-yellow-400 font-medium">{fuzzy} fuzzy</span>
+                {' · '}
+                <span className="text-red-700 dark:text-red-400 font-medium">{unmatched} unmatched</span>
+                {' · '}
+                <span className="text-foreground font-medium">{total} total</span>
+              </p>
+            </div>
+          )}
+
+          {vRun > 0 && (
+            <div className="space-y-2 pt-3 border-t">
+              <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                <ShieldCheck size={12} /> Validation
+              </p>
+              <div className="flex h-3 rounded-full overflow-hidden gap-px">
+                {vPass    > 0 && <div className="h-full bg-emerald-500" style={{ width: `${pct(vPass)}%` }}    title={`Pass: ${vPass}`} />}
+                {vWarn    > 0 && <div className="h-full bg-yellow-400"  style={{ width: `${pct(vWarn)}%` }}    title={`Warn: ${vWarn}`} />}
+                {vFail    > 0 && <div className="h-full bg-red-500"     style={{ width: `${pct(vFail)}%` }}    title={`Fail: ${vFail}`} />}
+                {vSkipped > 0 && <div className="h-full bg-muted-foreground/40" style={{ width: `${pct(vSkipped)}%` }} title={`Skipped: ${vSkipped}`} />}
               </div>
-            </>
+              <p className="text-sm text-muted-foreground tabular-nums">
+                <span className="text-emerald-700 dark:text-emerald-400 font-medium">{vPass} pass</span>
+                {' · '}
+                <span className="text-red-700 dark:text-red-400 font-medium">{vFail} fail</span>
+                {vWarn > 0 && <><span> · </span><span className="text-yellow-700 dark:text-yellow-400 font-medium">{vWarn} warn</span></>}
+                {' · '}
+                <span>{vSkipped} skipped</span>
+                {' · '}
+                <span className="text-foreground font-medium">{total} total</span>
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -157,18 +186,98 @@ function statusDotColor(status: string): string {
   return 'bg-muted-foreground/40'
 }
 
+// ── AG Grid cell renderers ─────────────────────────────────────────────────
+function MatchCell({ value, data }: ICellRendererParams<DcliLineItem, number | null>) {
+  if (value == null) return <span className="text-xs text-muted-foreground">—</span>
+  const pct = Math.round(value <= 1 ? value * 100 : value)
+  const color = pct >= 75 ? 'bg-emerald-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+  const text  = pct >= 75 ? 'text-emerald-700' : pct >= 40 ? 'text-yellow-700' : 'text-red-600'
+  const label = data?.match_type === 'activity' ? 'activity' : data?.match_type === 'tms' ? 'tms' : 'none'
+  return (
+    <div className="flex items-center gap-1.5 h-full">
+      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden min-w-[50px]">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className={`text-xs font-semibold tabular-nums ${text}`}>{pct}%</span>
+      <span className="text-[10px] text-muted-foreground uppercase">{label}</span>
+    </div>
+  )
+}
+
+const VALIDATION_BADGE_CLS: Record<ValidationStatus, string> = {
+  pass:    'bg-emerald-100 text-emerald-800 border-emerald-300',
+  fail:    'bg-red-100 text-red-800 border-red-300',
+  warn:    'bg-yellow-100 text-yellow-800 border-yellow-300',
+  skipped: 'bg-muted text-muted-foreground border-border',
+}
+
+function ValidationCell({ value, data }: ICellRendererParams<DcliLineItem, ValidationStatus | null>) {
+  if (!value) return <span className="text-xs text-muted-foreground">—</span>
+  const label = value.charAt(0).toUpperCase() + value.slice(1)
+  const findings = (data?.validation_findings ?? []) as ValidationFinding[]
+  const badge = (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border cursor-pointer ${VALIDATION_BADGE_CLS[value]}`}>
+      {label}
+    </span>
+  )
+  if (findings.length === 0) return badge
+  return (
+    <Popover>
+      <PopoverTrigger asChild onClick={e => e.stopPropagation()}>
+        <button type="button" className="leading-none">{badge}</button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 text-xs space-y-2" align="start" onClick={e => e.stopPropagation()}>
+        <p className="font-semibold">Validation findings</p>
+        <ul className="space-y-2">
+          {findings.map((f, i) => (
+            <li key={i} className="border-b last:border-0 pb-2 last:pb-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-[10px] font-semibold">{f.code}</span>
+                <span className={`text-[10px] uppercase font-semibold ${
+                  f.severity === 'fail' ? 'text-red-600'
+                  : f.severity === 'warn' ? 'text-yellow-700'
+                  : 'text-muted-foreground'}`}>{f.severity}</span>
+              </div>
+              <p className="text-muted-foreground mt-1">{f.message}</p>
+              {(f.billed_days != null || f.tms_days != null || f.variance != null) && (
+                <p className="mt-1 tabular-nums">
+                  {f.billed_days != null && <>billed: <span className="font-medium">{f.billed_days}</span></>}
+                  {f.tms_days != null && <> · tms: <span className="font-medium">{f.tms_days}</span></>}
+                  {f.variance != null && <> · variance: <span className="font-medium">{f.variance > 0 ? '+' : ''}{f.variance}</span></>}
+                </p>
+              )}
+              {(f.lds?.length || f.sos?.length) ? (
+                <p className="mt-1 font-mono text-[10px] break-all">
+                  {f.lds?.length ? <>LDs: {f.lds.join(', ')}</> : null}
+                  {f.lds?.length && f.sos?.length ? <><br/></> : null}
+                  {f.sos?.length ? <>SOs: {f.sos.join(', ')}</> : null}
+                </p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 // ── Main component ─────────────────────────────────────────────────────────
 export default function DCLIInvoiceDetail() {
   const { invoiceId } = useParams<{ invoiceId: string }>()
   const navigate = useNavigate()
 
-  const [invoice,    setInvoice]    = useState<DcliInvoice | null>(null)
-  const [lineItems,  setLineItems]  = useState<DcliLineItem[]>([])
-  const [events,     setEvents]     = useState<InvoiceEvent[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [error,      setError]      = useState<string | null>(null)
-  const [matching,   setMatching]   = useState(false)
-  const [matchMsg,   setMatchMsg]   = useState<string | null>(null)
+  const [invoice,        setInvoice]        = useState<DcliInvoice | null>(null)
+  const [lineItems,      setLineItems]      = useState<DcliLineItem[]>([])
+  const [events,         setEvents]         = useState<InvoiceEvent[]>([])
+  const [loading,        setLoading]        = useState(true)
+  const [error,          setError]          = useState<string | null>(null)
+  const [matching,       setMatching]       = useState(false)
+  const [matchError,     setMatchError]     = useState<string | null>(null)
+  const [matchMsg,       setMatchMsg]       = useState<string | null>(null)
+  const [hasMatchedOnce, setHasMatchedOnce] = useState(false)
+  const [validating,     setValidating]     = useState(false)
+  const [validateError,  setValidateError]  = useState<string | null>(null)
+  const [validateMsg,    setValidateMsg]    = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!invoiceId) return
@@ -184,6 +293,7 @@ export default function DCLIInvoiceDetail() {
       const lines = lineRes.data || []
       setLineItems(lines)
       setEvents(evtRes.data || [])
+      setHasMatchedOnce(lines.some(l => l.matched_at != null || l.match_type != null))
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load invoice')
     } finally {
@@ -217,6 +327,37 @@ export default function DCLIInvoiceDetail() {
       editable: true,
       valueParser: (p) => (p.newValue === '' || p.newValue == null ? null : Number(p.newValue)),
       valueFormatter: (p) => (p.value == null ? '' : formatCurrency(Number(p.value))),
+    },
+    {
+      headerName: 'Match',
+      field: 'match_confidence',
+      width: 170,
+      filter: false,
+      sortable: true,
+      cellRenderer: MatchCell,
+    },
+    {
+      headerName: 'Variance',
+      field: 'day_variance',
+      type: 'numericColumn',
+      width: 110,
+      valueFormatter: (p: ValueFormatterParams<DcliLineItem, number | null>) =>
+        p.value == null ? '—' : (p.value > 0 ? `+${p.value}` : String(p.value)),
+      cellClass: (p) => {
+        const v = p.value as number | null | undefined
+        if (v == null) return 'text-muted-foreground'
+        if (v === 0)   return 'text-emerald-700 font-semibold'
+        if (v > 0)     return 'text-red-700 font-semibold'
+        return 'text-yellow-700 font-semibold'
+      },
+    },
+    {
+      headerName: 'Validation',
+      field: 'validation_status',
+      width: 140,
+      filter: true,
+      sortable: true,
+      cellRenderer: ValidationCell,
     },
     {
       headerName: 'Status',
@@ -257,17 +398,34 @@ export default function DCLIInvoiceDetail() {
   // ── Run activity matching ──────────────────────────────────────────────
   async function runMatching() {
     if (!invoiceId) return
-    setMatching(true); setMatchMsg(null); setError(null)
+    setMatching(true); setMatchMsg(null); setMatchError(null)
     try {
       const { data, error: rpcErr } = await supabase.rpc('match_dcli_line_items', { p_invoice_id: invoiceId })
       if (rpcErr) throw rpcErr
       const r = data as { total: number; matched: number; fuzzy: number; none: number }
       setMatchMsg(`Matching complete: ${r.matched} matched · ${r.fuzzy} fuzzy · ${r.none} unmatched (${r.total} total)`)
+      setHasMatchedOnce(true)
       const { data: lines } = await supabase.from('dcli_invoice_line_item').select('*').eq('invoice_id', invoiceId).order('created_at')
       setLineItems(lines || [])
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Matching failed')
+      setMatchError(err instanceof Error ? err.message : String(err))
     } finally { setMatching(false) }
+  }
+
+  // ── Run validation ─────────────────────────────────────────────────────
+  async function runValidation() {
+    if (!invoiceId) return
+    setValidating(true); setValidateMsg(null); setValidateError(null)
+    try {
+      const { data, error: rpcErr } = await supabase.rpc('validate_dcli_line_items', { p_invoice_id: invoiceId })
+      if (rpcErr) throw rpcErr
+      const r = data as { total: number; pass: number; fail: number; warn: number; skipped: number }
+      setValidateMsg(`Validation complete: ${r.pass} pass · ${r.fail} fail · ${r.warn ?? 0} warn · ${r.skipped} skipped (${r.total} total)`)
+      const { data: lines } = await supabase.from('dcli_invoice_line_item').select('*').eq('invoice_id', invoiceId).order('created_at')
+      setLineItems(lines || [])
+    } catch (err: unknown) {
+      setValidateError(err instanceof Error ? err.message : String(err))
+    } finally { setValidating(false) }
   }
 
   if (loading) return <div className="p-6 flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
@@ -289,14 +447,30 @@ export default function DCLIInvoiceDetail() {
             {invoice.portal_status || 'No Status'}
           </span>
         </div>
-        <Button onClick={runMatching} disabled={matching} variant="outline" size="sm" className="gap-2">
-          <RefreshCw size={14} className={matching ? 'animate-spin' : ''} />
-          {matching ? 'Matching…' : 'Run Activity Matching'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={runMatching} disabled={matching || validating} variant="outline" size="sm" className="gap-2">
+            <RefreshCw size={14} className={matching ? 'animate-spin' : ''} />
+            {matching ? 'Matching…' : 'Run Activity Matching'}
+          </Button>
+          <Button
+            onClick={runValidation}
+            disabled={!hasMatchedOnce || matching || validating}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            title={hasMatchedOnce ? 'Run day-variance + LD/SO validation' : 'Run Activity Matching first'}
+          >
+            <ShieldCheck size={14} className={validating ? 'animate-spin' : ''} />
+            {validating ? 'Validating…' : 'Run Validation'}
+          </Button>
+        </div>
       </div>
 
-      {error    && <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg text-sm"><AlertCircle size={14} />{error}</div>}
-      {matchMsg && <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 rounded-lg text-sm"><CheckCircle2 size={14} />{matchMsg}</div>}
+      {error         && <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg text-sm"><AlertCircle size={14} />{error}</div>}
+      {matchError    && <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg text-sm"><AlertCircle size={14} />Matching failed: {matchError}</div>}
+      {validateError && <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg text-sm"><AlertCircle size={14} />Validation failed: {validateError}</div>}
+      {matchMsg      && <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 rounded-lg text-sm"><CheckCircle2 size={14} />{matchMsg}</div>}
+      {validateMsg   && <div className="flex items-center gap-2 p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 rounded-lg text-sm"><ShieldCheck size={14} />{validateMsg}</div>}
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

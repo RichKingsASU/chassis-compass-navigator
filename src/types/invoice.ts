@@ -19,6 +19,21 @@ export interface DcliInvoice {
   created_at: string; updated_at: string
 }
 
+export type ValidationStatus = 'pass' | 'fail' | 'warn' | 'skipped'
+
+export interface ValidationFinding {
+  code: string
+  severity: 'info' | 'warn' | 'fail'
+  message: string
+  billed_days?: number
+  tms_days?: number
+  variance?: number
+  lds?: string[]
+  sos?: string[]
+  ld_count?: number
+  so_count?: number
+}
+
 export interface DcliLineItem {
   id: string; invoice_id: string; line_invoice_number: string | null
   chassis: string | null; container: string | null
@@ -30,6 +45,11 @@ export interface DcliLineItem {
   row_data: Record<string, unknown> | null
   portal_status: InvoiceStatus | null; internal_notes: string | null
   dispute_reason: string | null; dispute_notes: string | null
+  day_variance: number | null
+  validation_status: ValidationStatus | null
+  validation_findings: ValidationFinding[] | null
+  validated_at: string | null
+  matched_at: string | null
   created_at: string; updated_at: string
 }
 
