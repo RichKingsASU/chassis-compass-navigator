@@ -1,18 +1,16 @@
-import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
-import { safeDate } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { NewInvoiceDialog } from '@/components/vendor/NewInvoiceDialog'
 import type { VendorInvoice } from '@/components/vendor/VendorInvoicesTab'
 import { VendorFinancialsTab } from '@/components/vendor/VendorFinancialsTab'
 import { VendorDocumentsTab } from '@/components/vendor/VendorDocumentsTab'
 import { VendorTabNav, type VendorTabKey } from '@/components/vendor/VendorTabNav'
-import { statusBadgeClass } from '@/types/invoice'
+import { DataGrid } from '@/components/ui/DataGrid'
+import type { ColDef, CellValueChangedEvent, ICellRendererParams } from 'ag-grid-community'
 
 const VENDOR_SLUG = 'dcli'
 
@@ -42,20 +40,33 @@ interface DashboardInvoice {
   due_date: string | null
   account_code: string | null
   total_amount: number | null
+  amount_paid: number | null
+  amount_due: number | null
   portal_status: string | null
   created_at: string
 }
 
-function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-  switch (status?.toLowerCase()) {
-    case 'closed': case 'completed': return 'default'
-    case 'open': case 'active': return 'secondary'
-    default: return 'outline'
-  }
-}
-
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+}
+
+function currencyFormatter(params: { value: unknown }): string {
+  const v = params.value
+  if (v == null || v === '') return ''
+  const n = typeof v === 'number' ? v : Number(v)
+  if (!Number.isFinite(n)) return ''
+  return formatCurrency(n)
+}
+
+function invoiceStatusColorClass(status: string | null | undefined): string {
+  if (!status) return 'text-gray-600'
+  const s = status.toUpperCase()
+  if (s === 'PAID') return 'text-green-700 font-medium'
+  if (s.includes('DISPUTE')) return 'text-red-700 font-medium'
+  if (s === 'PENDING' || s === 'SCHEDULED' || s.startsWith('NEED TO') || s.startsWith('EMAILED')) {
+    return 'text-yellow-700 font-medium'
+  }
+  return 'text-gray-600'
 }
 
 export default function DCLIPage() {
@@ -132,9 +143,9 @@ export default function DCLIPage() {
           supabase.from('dcli_activity').select('*', { count: 'exact', head: true }),
           supabase
             .from('dcli_invoice')
-            .select('id, invoice_number, invoice_date, due_date, account_code, total_amount, portal_status, created_at')
+            .select('*')
             .order('created_at', { ascending: false })
-            .limit(50),
+            .limit(500),
         ])
 
         setInvoiceCount(invoiceCountRes.count ?? 0)
@@ -161,7 +172,7 @@ export default function DCLIPage() {
           if (seen.has(key)) return false
           seen.add(key)
           return true
-        }).slice(0, 10)
+        })
         setDashboardInvoices(deduped)
       } catch (err: unknown) {
         console.error('Failed to load DCLI dashboard data', err)
@@ -200,6 +211,87 @@ export default function DCLIPage() {
         return r.chassis?.trim().toUpperCase().includes(q) || r.reservation_number?.toUpperCase().includes(q)
       })
     : records
+
+  const invoiceColumnDefs = useMemo<ColDef<DashboardInvoice>[]>(() => [
+    { headerName: 'Invoice #', field: 'invoice_number', width: 160, cellClass: 'font-mono' },
+    { headerName: 'Invoice Date', field: 'invoice_date', width: 140 },
+    { headerName: 'Due Date', field: 'due_date', width: 140 },
+    {
+      headerName: 'Invoice Amount',
+      field: 'total_amount',
+      type: 'numericColumn',
+      width: 150,
+      valueFormatter: currencyFormatter,
+    },
+    {
+      headerName: 'Amount Paid',
+      field: 'amount_paid',
+      type: 'numericColumn',
+      width: 140,
+      valueFormatter: currencyFormatter,
+    },
+    {
+      headerName: 'Amount Due',
+      field: 'amount_due',
+      type: 'numericColumn',
+      width: 140,
+      valueFormatter: currencyFormatter,
+    },
+    {
+      headerName: 'Status',
+      field: 'portal_status',
+      width: 160,
+      cellRenderer: (params: ICellRendererParams<DashboardInvoice, string | null>) => (
+        <span className={invoiceStatusColorClass(params.value)}>{params.value || 'Not Set'}</span>
+      ),
+    },
+  ], [])
+
+  const activityColumnDefs = useMemo<ColDef<DcliRecord>[]>(() => [
+    { headerName: 'Chassis', field: 'chassis', pinned: 'left', width: 140, cellClass: 'font-mono' },
+    { headerName: 'Pick Up Location', field: 'pick_up_location', width: 200 },
+    { headerName: 'Location In', field: 'location_in', width: 200 },
+    { headerName: 'Date Out', field: 'date_out', width: 150 },
+    { headerName: 'Date In', field: 'date_in', width: 150 },
+    { headerName: 'Days Out', field: 'days_out', type: 'numericColumn', width: 90 },
+    { headerName: 'Asset Type', field: 'asset_type', width: 130 },
+    { headerName: 'Reservation', field: 'reservation_number', width: 140 },
+    { headerName: 'Container', field: 'container', width: 140 },
+    { headerName: 'SS SCAC', field: 'ss_scac', width: 90 },
+    {
+      headerName: 'Request Status',
+      field: 'request_status',
+      width: 150,
+      editable: true,
+      cellEditor: 'agSelectCellEditor',
+      cellEditorParams: { values: ['', 'APPROVED', 'PENDING', 'REJECTED'] },
+    },
+    {
+      headerName: 'Remarks',
+      field: 'remarks',
+      width: 260,
+      editable: true,
+      cellEditor: 'agLargeTextCellEditor',
+    },
+  ], [])
+
+  const handleActivityCellChanged = async (event: CellValueChangedEvent<DcliRecord>) => {
+    const field = event.colDef.field
+    if (!field) return
+    const rowId = event.data?.id
+    if (!rowId) return
+    const newValue = event.newValue
+    const { error: updateErr } = await supabase
+      .from('dcli_activity')
+      .update({ [field]: newValue })
+      .eq('id', rowId)
+    if (updateErr) {
+      toast.error(`Failed to save ${field}: ${updateErr.message}`)
+      if (event.node) event.node.setDataValue(field, event.oldValue)
+    } else {
+      toast.success('Saved')
+    }
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -265,63 +357,22 @@ export default function DCLIPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Recent Invoices</CardTitle>
-              <p className="text-sm text-muted-foreground">Showing {dashboardInvoices.length} most recent</p>
+              <CardTitle>Invoices</CardTitle>
+              <p className="text-sm text-muted-foreground">{dashboardInvoices.length} records</p>
             </CardHeader>
-            <CardContent className="p-0">
-              {dashboardLoading ? (
-                <div className="p-4 space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-              ) : dashboardInvoices.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground text-sm">
-                  No invoices found. Click + New Invoice to add one.
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead>Invoice Date</TableHead>
-                      <TableHead>Due Date</TableHead>
-                      <TableHead>Account</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Portal Status</TableHead>
-                      <TableHead />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dashboardInvoices.map(inv => (
-                      <TableRow key={inv.id}>
-                        <TableCell className="font-mono text-sm font-medium">
-                          {inv.invoice_number || inv.id.slice(0, 8)}
-                        </TableCell>
-                        <TableCell className="text-sm">{safeDate(inv.invoice_date)}</TableCell>
-                        <TableCell className="text-sm">{safeDate(inv.due_date)}</TableCell>
-                        <TableCell className="text-sm">{inv.account_code || '—'}</TableCell>
-                        <TableCell className="text-sm text-right">
-                          {inv.total_amount != null ? formatCurrency(inv.total_amount) : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(inv.portal_status)}`}>
-                            {inv.portal_status || 'Not Set'}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Link to={`/vendors/dcli/invoices/${inv.id}/detail`}>
-                            <Button variant="outline" size="sm">View</Button>
-                          </Link>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+            <CardContent>
+              <DataGrid<DashboardInvoice>
+                rowData={dashboardInvoices}
+                columnDefs={invoiceColumnDefs}
+                loading={dashboardLoading}
+                gridProps={{
+                  onRowClicked: (e) => {
+                    if (e.data?.id) navigate(`/vendors/dcli/invoices/${e.data.id}/detail`)
+                  },
+                }}
+              />
             </CardContent>
           </Card>
-          <div className="flex justify-end">
-            <Link to="/vendors/dcli/invoices" className="text-sm text-primary hover:underline">
-              View All Invoices →
-            </Link>
-          </div>
         </div>
       )}
 
@@ -331,47 +382,19 @@ export default function DCLIPage() {
             <h2 className="text-xl font-semibold">DCLI Activity</h2>
             <p className="text-sm text-muted-foreground">{filtered.length} records</p>
           </div>
-          <input type="text" placeholder="Search chassis or reservation..." value={search} onChange={e => setSearch(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" />
-          {loading ? (
-            <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-          ) : (
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Chassis #</TableHead>
-                    <TableHead>Reservation</TableHead>
-                    <TableHead>Date Out</TableHead>
-                    <TableHead>Date In</TableHead>
-                    <TableHead>Days Out</TableHead>
-                    <TableHead>Pick Up</TableHead>
-                    <TableHead>Location In</TableHead>
-                    <TableHead>Pool/Contract</TableHead>
-                    <TableHead>Carrier</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
-                  ) : filtered.slice(0, 100).map(r => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-mono text-sm">{r.chassis?.trim() || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.reservation_number || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{safeDate(r.date_out)}</TableCell>
-                      <TableCell className="text-sm">{safeDate(r.date_in)}</TableCell>
-                      <TableCell>{r.days_out ?? 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.pick_up_location || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.location_in || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.pool_contract || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.motor_carrier_name || 'N/A'}</TableCell>
-                      <TableCell><Badge variant={getStatusVariant(r.request_status)}>{r.request_status || 'N/A'}</Badge></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          )}
+          <input
+            type="text"
+            placeholder="Search chassis or reservation..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full px-3 py-2 border rounded-md text-sm"
+          />
+          <DataGrid<DcliRecord>
+            rowData={filtered}
+            columnDefs={activityColumnDefs}
+            loading={loading}
+            onCellValueChanged={handleActivityCellChanged}
+          />
         </div>
       )}
 
