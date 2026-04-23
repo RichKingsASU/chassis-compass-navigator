@@ -366,11 +366,8 @@ export default function DCLIPage() {
                 rowData={dashboardInvoices}
                 columnDefs={invoiceColumnDefs}
                 loading={dashboardLoading}
-                gridProps={{
-                  onRowClicked: (e) => {
-                    if (e.data?.id) navigate(`/vendors/dcli/invoices/${e.data.id}/detail`)
-                  },
-                }}
+                onRowClicked={(e) => { if (e.data?.id) navigate(`/vendors/dcli/invoices/${e.data.id}/detail`) }}
+                rowStyle={{ cursor: 'pointer' }}
               />
             </CardContent>
           </Card>

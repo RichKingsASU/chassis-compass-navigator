@@ -6,6 +6,8 @@ import {
   ModuleRegistry,
   type ColDef,
   type CellValueChangedEvent,
+  type RowClickedEvent,
+  type RowStyle,
 } from 'ag-grid-community'
 import 'ag-grid-community/styles/ag-grid.css'
 import 'ag-grid-community/styles/ag-theme-quartz.css'
@@ -16,6 +18,8 @@ export interface DataGridProps<TRow = Record<string, unknown>> {
   rowData: TRow[]
   columnDefs: ColDef<TRow>[]
   onCellValueChanged?: (event: CellValueChangedEvent<TRow>) => void
+  onRowClicked?: (event: RowClickedEvent<TRow>) => void
+  rowStyle?: RowStyle
   height?: number
   loading?: boolean
   gridProps?: Partial<AgGridReactProps<TRow>>
@@ -25,6 +29,8 @@ export function DataGrid<TRow = Record<string, unknown>>({
   rowData,
   columnDefs,
   onCellValueChanged,
+  onRowClicked,
+  rowStyle,
   height = 500,
   loading = false,
   gridProps,
@@ -54,6 +60,8 @@ export function DataGrid<TRow = Record<string, unknown>>({
         columnDefs={columnDefs}
         defaultColDef={defaultColDef}
         onCellValueChanged={onCellValueChanged}
+        onRowClicked={onRowClicked}
+        rowStyle={rowStyle}
         {...gridProps}
       />
     </div>
