@@ -319,20 +319,9 @@ export default function DCLIInvoiceDetail() {
       sortable: true,
       cellRenderer: (params: any) => {
         const val = params.value;
-        if (!val) {
-          const span = document.createElement('span');
-          span.style.color = '#9ca3af';
-          span.textContent = '—';
-          return span;
-        }
-        if (val === 'none') {
-          const div = document.createElement('div');
-          div.style.cssText = 'width:100%;height:10px;border-radius:3px;background:#ef4444;margin-top:4px';
-          return div;
-        }
-        const div = document.createElement('div');
-        div.style.cssText = 'width:100%;height:10px;border-radius:3px;background:#f59e0b;margin-top:4px';
-        return div;
+        if (!val) return <span className="text-gray-400">—</span>;
+        if (val === 'none') return <div style={{width:'100%',height:10,borderRadius:3,background:'#ef4444',marginTop:4}} />;
+        return <div style={{width:'100%',height:10,borderRadius:3,background:'#f59e0b',marginTop:4}} />;
       },
     },
     {
@@ -380,14 +369,18 @@ export default function DCLIInvoiceDetail() {
       filter: false,
       resizable: false,
       cellRenderer: (params: any) => {
-        const btn = document.createElement('button');
-        btn.textContent = 'View';
-        btn.className = 'text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-100';
-        btn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          navigate(`/vendors/dcli/invoice-line/${params.value}`);
-        });
-        return btn;
+        if (!params.value) return null;
+        return (
+          <button
+            className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/vendors/dcli/invoice-line/${params.value}`);
+            }}
+          >
+            View
+          </button>
+        );
       },
     },
   ], [navigate])
