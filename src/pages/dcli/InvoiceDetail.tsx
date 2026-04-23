@@ -317,13 +317,22 @@ export default function DCLIInvoiceDetail() {
       width: 170,
       filter: false,
       sortable: true,
-      cellRenderer: function(params: ICellRendererParams<DcliLineItem>) {
+      cellRenderer: (params: any) => {
         const val = params.value;
-        if (!val || val === 'none') {
-          if (!val) return '<span style="color:#9ca3af">—</span>';
-          return '<div style="width:100%;height:10px;border-radius:3px;background:#ef4444"></div>';
+        if (!val) {
+          const span = document.createElement('span');
+          span.style.color = '#9ca3af';
+          span.textContent = '—';
+          return span;
         }
-        return '<div style="width:100%;height:10px;border-radius:3px;background:#f59e0b"></div>';
+        if (val === 'none') {
+          const div = document.createElement('div');
+          div.style.cssText = 'width:100%;height:10px;border-radius:3px;background:#ef4444;margin-top:4px';
+          return div;
+        }
+        const div = document.createElement('div');
+        div.style.cssText = 'width:100%;height:10px;border-radius:3px;background:#f59e0b;margin-top:4px';
+        return div;
       },
     },
     {
@@ -363,7 +372,25 @@ export default function DCLIInvoiceDetail() {
       editable: true,
       cellEditor: 'agLargeTextCellEditor',
     },
-  ], [])
+    {
+      headerName: '',
+      field: 'id',
+      width: 80,
+      sortable: false,
+      filter: false,
+      resizable: false,
+      cellRenderer: (params: any) => {
+        const btn = document.createElement('button');
+        btn.textContent = 'View';
+        btn.className = 'text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-100';
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          navigate(`/vendors/dcli/invoice-line/${params.value}`);
+        });
+        return btn;
+      },
+    },
+  ], [navigate])
 
   async function handleLineCellChanged(event: CellValueChangedEvent<DcliLineItem>) {
     const field = event.colDef.field as keyof DcliLineItem | undefined
