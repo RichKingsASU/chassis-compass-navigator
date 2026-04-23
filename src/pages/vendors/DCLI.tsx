@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
@@ -10,7 +10,7 @@ import { VendorFinancialsTab } from '@/components/vendor/VendorFinancialsTab'
 import { VendorDocumentsTab } from '@/components/vendor/VendorDocumentsTab'
 import { VendorTabNav, type VendorTabKey } from '@/components/vendor/VendorTabNav'
 import { DataGrid } from '@/components/ui/DataGrid'
-import type { ColDef, CellValueChangedEvent, ICellRendererParams } from 'ag-grid-community'
+import type { ColDef, CellValueChangedEvent, ICellRendererParams, GridApi, GridReadyEvent } from 'ag-grid-community'
 
 const VENDOR_SLUG = 'dcli'
 
@@ -46,6 +46,8 @@ interface DashboardInvoice {
   portal_status: string | null
   created_at: string
 }
+
+type InvoiceStatusFilter = 'all' | 'Open' | 'Closed' | 'unset'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
@@ -88,6 +90,9 @@ export default function DCLIPage() {
   const [activityCount, setActivityCount] = useState(0)
   const [dashboardInvoices, setDashboardInvoices] = useState<DashboardInvoice[]>([])
   const [dashboardLoading, setDashboardLoading] = useState(true)
+  const [invoiceSearch, setInvoiceSearch] = useState('')
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<InvoiceStatusFilter>('all')
+  const invoicesGridApiRef = useRef<GridApi<DashboardInvoice> | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -213,9 +218,25 @@ export default function DCLIPage() {
     : records
 
   const invoiceColumnDefs = useMemo<ColDef<DashboardInvoice>[]>(() => [
-    { headerName: 'Invoice #', field: 'invoice_number', width: 160, cellClass: 'font-mono' },
-    { headerName: 'Invoice Date', field: 'invoice_date', width: 140 },
-    { headerName: 'Due Date', field: 'due_date', width: 140 },
+    {
+      headerName: 'Invoice #',
+      field: 'invoice_number',
+      width: 160,
+      cellClass: 'font-mono',
+      getQuickFilterText: (p) => p.value ?? '',
+    },
+    {
+      headerName: 'Invoice Date',
+      field: 'invoice_date',
+      width: 140,
+      getQuickFilterText: () => '',
+    },
+    {
+      headerName: 'Due Date',
+      field: 'due_date',
+      width: 140,
+      getQuickFilterText: () => '',
+    },
     {
       headerName: 'Invoice Amount',
       colId: 'invoice_amount',
@@ -223,6 +244,7 @@ export default function DCLIPage() {
       width: 150,
       valueGetter: (p) => p.data?.total_amount ?? p.data?.invoice_amount ?? null,
       valueFormatter: currencyFormatter,
+      getQuickFilterText: () => '',
     },
     {
       headerName: 'Amount Paid',
@@ -230,6 +252,7 @@ export default function DCLIPage() {
       type: 'numericColumn',
       width: 140,
       valueFormatter: currencyFormatter,
+      getQuickFilterText: () => '',
     },
     {
       headerName: 'Amount Due',
@@ -237,6 +260,7 @@ export default function DCLIPage() {
       type: 'numericColumn',
       width: 140,
       valueFormatter: currencyFormatter,
+      getQuickFilterText: () => '',
     },
     {
       headerName: 'Status',
@@ -245,8 +269,82 @@ export default function DCLIPage() {
       cellRenderer: (params: ICellRendererParams<DashboardInvoice, string | null>) => (
         <span className={invoiceStatusColorClass(params.value)}>{params.value || 'Not Set'}</span>
       ),
+      getQuickFilterText: (p) => p.value ?? '',
     },
-  ], [])
+    {
+      colId: 'account_code_hidden',
+      field: 'account_code',
+      hide: true,
+      suppressColumnsToolPanel: true,
+      getQuickFilterText: (p) => p.value ?? '',
+    },
+    {
+      headerName: 'Action',
+      colId: 'actions',
+      width: 100,
+      sortable: false,
+      filter: false,
+      resizable: false,
+      getQuickFilterText: () => '',
+      cellRenderer: (params: ICellRendererParams<DashboardInvoice>) => {
+        const id = params.data?.id
+        if (!id) return null
+        return (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/vendors/dcli/invoices/${id}/detail`)
+            }}
+            className="px-3 py-1 text-xs border rounded hover:bg-accent"
+          >
+            View
+          </button>
+        )
+      },
+    },
+  ], [navigate])
+
+  useEffect(() => {
+    invoicesGridApiRef.current?.setGridOption('quickFilterText', invoiceSearch)
+  }, [invoiceSearch])
+
+  useEffect(() => {
+    const api = invoicesGridApiRef.current
+    if (!api) return
+    if (invoiceStatusFilter === 'all') {
+      api.setFilterModel(null)
+    } else if (invoiceStatusFilter === 'unset') {
+      api.setFilterModel({
+        portal_status: { filterType: 'text', type: 'blank' },
+      })
+    } else {
+      api.setFilterModel({
+        portal_status: { filterType: 'text', type: 'equals', filter: invoiceStatusFilter },
+      })
+    }
+  }, [invoiceStatusFilter])
+
+  const handleInvoicesGridReady = (e: GridReadyEvent<DashboardInvoice>) => {
+    invoicesGridApiRef.current = e.api
+    if (invoiceSearch) e.api.setGridOption('quickFilterText', invoiceSearch)
+    if (invoiceStatusFilter !== 'all') {
+      if (invoiceStatusFilter === 'unset') {
+        e.api.setFilterModel({ portal_status: { filterType: 'text', type: 'blank' } })
+      } else {
+        e.api.setFilterModel({
+          portal_status: { filterType: 'text', type: 'equals', filter: invoiceStatusFilter },
+        })
+      }
+    }
+  }
+
+  const invoiceStatusCounts = useMemo(() => ({
+    all: dashboardInvoices.length,
+    open: dashboardInvoices.filter(i => i.portal_status === 'Open').length,
+    closed: dashboardInvoices.filter(i => i.portal_status === 'Closed').length,
+    unset: dashboardInvoices.filter(i => !i.portal_status).length,
+  }), [dashboardInvoices])
 
   const activityColumnDefs = useMemo<ColDef<DcliRecord>[]>(() => [
     { headerName: 'Chassis', field: 'chassis', pinned: 'left', width: 140, cellClass: 'font-mono' },
@@ -361,13 +459,45 @@ export default function DCLIPage() {
               <CardTitle>Invoices</CardTitle>
               <p className="text-sm text-muted-foreground">{dashboardInvoices.length} records</p>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: 'all', label: `All (${invoiceStatusCounts.all})` },
+                  { key: 'Open', label: `Open (${invoiceStatusCounts.open})` },
+                  { key: 'Closed', label: `Closed (${invoiceStatusCounts.closed})` },
+                  { key: 'unset', label: `No Status (${invoiceStatusCounts.unset})` },
+                ] as const).map(pill => (
+                  <button
+                    key={pill.key}
+                    type="button"
+                    onClick={() => setInvoiceStatusFilter(pill.key)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      invoiceStatusFilter === pill.key
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-muted text-muted-foreground border-border hover:bg-accent'
+                    }`}
+                  >
+                    {pill.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
+                placeholder="Search invoice #, account, status..."
+                value={invoiceSearch}
+                onChange={e => setInvoiceSearch(e.target.value)}
+                className="w-full max-w-sm px-3 py-2 border rounded-md text-sm"
+              />
               <DataGrid<DashboardInvoice>
                 rowData={dashboardInvoices}
                 columnDefs={invoiceColumnDefs}
                 loading={dashboardLoading}
                 onRowClicked={(e) => { if (e.data?.id) navigate(`/vendors/dcli/invoices/${e.data.id}/detail`) }}
                 rowStyle={{ cursor: 'pointer' }}
+                gridProps={{
+                  onGridReady: handleInvoicesGridReady,
+                  includeHiddenColumnsInQuickFilter: true,
+                }}
               />
             </CardContent>
           </Card>
