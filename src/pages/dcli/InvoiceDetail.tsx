@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import {
@@ -7,27 +8,10 @@ import {
   INVOICE_STATUSES, statusBadgeClass, eventLabel, eventIcon,
 } from '@/types/invoice'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DataGrid } from '@/components/ui/DataGrid'
+import type { ColDef, CellValueChangedEvent } from 'ag-grid-community'
 import { AlertCircle, CheckCircle2, RefreshCw, TrendingUp } from 'lucide-react'
-
-// ── Confidence bar ─────────────────────────────────────────────────────────
-function ConfidenceBar({ score }: { score: number | null }) {
-  if (score == null) return <span className="text-xs text-muted-foreground">—</span>
-  const color = score >= 75 ? 'bg-emerald-500' : score >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-  const text  = score >= 75 ? 'text-emerald-700 dark:text-emerald-400'
-              : score >= 40 ? 'text-yellow-700 dark:text-yellow-400'
-              :               'text-red-600 dark:text-red-400'
-  return (
-    <div className="flex items-center gap-1.5 min-w-[90px]">
-      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${score}%` }} />
-      </div>
-      <span className={`text-xs font-semibold tabular-nums ${text}`}>{score}%</span>
-    </div>
-  )
-}
 
 // ── Analytics panel ────────────────────────────────────────────────────────
 function LineItemAnalytics({ lineItems }: { lineItems: DcliLineItem[] }) {
@@ -185,9 +169,6 @@ export default function DCLIInvoiceDetail() {
   const [error,      setError]      = useState<string | null>(null)
   const [matching,   setMatching]   = useState(false)
   const [matchMsg,   setMatchMsg]   = useState<string | null>(null)
-  // Per-row inline status: lineId -> selected status value
-  const [rowStatus,  setRowStatus]  = useState<Record<string, string>>({})
-  const [rowSaving,  setRowSaving]  = useState<Record<string, boolean>>({})
 
   const load = useCallback(async () => {
     if (!invoiceId) return
@@ -203,10 +184,6 @@ export default function DCLIInvoiceDetail() {
       const lines = lineRes.data || []
       setLineItems(lines)
       setEvents(evtRes.data || [])
-      // Seed inline status selectors with current values
-      const init: Record<string, string> = {}
-      lines.forEach(l => { init[l.id] = l.portal_status ?? '' })
-      setRowStatus(init)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load invoice')
     } finally {
@@ -215,6 +192,67 @@ export default function DCLIInvoiceDetail() {
   }, [invoiceId])
 
   useEffect(() => { load() }, [load])
+
+  // ── Editable line item grid: column defs + cell change handler ────────
+  const lineItemColumnDefs = useMemo<ColDef<DcliLineItem>[]>(() => [
+    { headerName: 'Chassis', field: 'chassis', width: 130, cellClass: 'font-mono' },
+    { headerName: 'Container', field: 'container', width: 140, cellClass: 'font-mono' },
+    { headerName: 'Date Out', field: 'date_out', width: 130 },
+    { headerName: 'Date In', field: 'date_in', width: 130 },
+    { headerName: 'Days', field: 'days_used', type: 'numericColumn', width: 90 },
+    {
+      headerName: 'Rate',
+      field: 'daily_rate',
+      type: 'numericColumn',
+      width: 110,
+      editable: true,
+      valueParser: (p) => (p.newValue === '' || p.newValue == null ? null : Number(p.newValue)),
+      valueFormatter: (p) => (p.value == null ? '' : formatCurrency(Number(p.value))),
+    },
+    {
+      headerName: 'Total',
+      field: 'line_total',
+      type: 'numericColumn',
+      width: 120,
+      editable: true,
+      valueParser: (p) => (p.newValue === '' || p.newValue == null ? null : Number(p.newValue)),
+      valueFormatter: (p) => (p.value == null ? '' : formatCurrency(Number(p.value))),
+    },
+    {
+      headerName: 'Status',
+      field: 'portal_status',
+      width: 180,
+      editable: true,
+      cellEditor: 'agSelectCellEditor',
+      cellEditorParams: { values: ['', ...INVOICE_STATUSES] },
+    },
+    {
+      headerName: 'Remarks',
+      field: 'internal_notes',
+      width: 260,
+      editable: true,
+      cellEditor: 'agLargeTextCellEditor',
+    },
+  ], [])
+
+  async function handleLineCellChanged(event: CellValueChangedEvent<DcliLineItem>) {
+    const field = event.colDef.field as keyof DcliLineItem | undefined
+    if (!field) return
+    const rowId = event.data?.id
+    if (!rowId) return
+    const newValue = event.newValue
+    const { error: updateErr } = await supabase
+      .from('dcli_invoice_line_item')
+      .update({ [field]: newValue, updated_at: new Date().toISOString() })
+      .eq('id', rowId)
+    if (updateErr) {
+      toast.error(`Failed to save ${String(field)}: ${updateErr.message}`)
+      if (event.node) event.node.setDataValue(field as string, event.oldValue)
+      return
+    }
+    setLineItems(prev => prev.map(l => (l.id === rowId ? { ...l, [field]: newValue } as DcliLineItem : l)))
+    toast.success('Saved')
+  }
 
   // ── Run activity matching ──────────────────────────────────────────────
   async function runMatching() {
@@ -230,35 +268,6 @@ export default function DCLIInvoiceDetail() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Matching failed')
     } finally { setMatching(false) }
-  }
-
-  // ── Inline status change per line item ────────────────────────────────
-  async function saveLineStatus(lineId: string, status: string, currentStatus: string | null) {
-    if (!status || !invoiceId) return
-    setRowSaving(prev => ({ ...prev, [lineId]: true }))
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('dcli_invoice_line_item')
-        .update({ portal_status: status, updated_at: new Date().toISOString() })
-        .eq('id', lineId)
-      await supabase.from('dcli_invoice_events').insert({
-        invoice_id: invoiceId,
-        line_item_id: lineId,
-        event_type: 'line_status_change',
-        from_status: currentStatus,
-        to_status: status,
-        note: null,
-        created_by_email: user?.email ?? null,
-        metadata: {},
-      })
-      setLineItems(prev => prev.map(l => l.id === lineId ? { ...l, portal_status: status as DcliLineItem['portal_status'] } : l))
-      const { data: evts } = await supabase.from('dcli_invoice_events').select('*').eq('invoice_id', invoiceId).order('created_at', { ascending: false })
-      setEvents(evts || [])
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update status')
-    } finally {
-      setRowSaving(prev => ({ ...prev, [lineId]: false }))
-    }
   }
 
   if (loading) return <div className="p-6 flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
@@ -314,81 +323,15 @@ export default function DCLIInvoiceDetail() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Line Items</CardTitle>
-            <span className="text-xs text-muted-foreground">Set status inline or click View for full details</span>
+            <span className="text-xs text-muted-foreground">Double-click a cell to edit. Changes save on blur.</span>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Chassis</TableHead>
-                  <TableHead>Container</TableHead>
-                  <TableHead>Date Out</TableHead>
-                  <TableHead>Date In</TableHead>
-                  <TableHead className="text-right">Days</TableHead>
-                  <TableHead className="text-right">Rate</TableHead>
-                  <TableHead className="text-right">Total</TableHead>
-                  <TableHead>Match</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {lineItems.length === 0 ? (
-                  <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">No line items found.</TableCell></TableRow>
-                ) : lineItems.map(line => {
-                  const rowData = line.row_data as Record<string, unknown> | null
-                  const containerVal =
-                    line.container
-                    ?? (rowData?.['Container On-Hire'] as string | undefined)
-                    ?? (rowData?.['Container'] as string | undefined)
-                    ?? '—'
-                  return (
-                  <TableRow key={line.id}>
-                    <TableCell className="font-mono text-xs font-medium">{line.chassis ?? '—'}</TableCell>
-                    <TableCell className="font-mono text-xs">{containerVal}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(line.date_out)}</TableCell>
-                    <TableCell className="text-xs whitespace-nowrap">{formatDate(line.date_in)}</TableCell>
-                    <TableCell className="text-right text-xs">{line.days_used ?? '—'}</TableCell>
-                    <TableCell className="text-right text-xs">{line.daily_rate != null ? formatCurrency(line.daily_rate) : '—'}</TableCell>
-                    <TableCell className="text-right text-xs font-medium">{line.line_total != null ? formatCurrency(line.line_total) : '—'}</TableCell>
-                    <TableCell><ConfidenceBar score={line.match_confidence} /></TableCell>
-                    <TableCell>
-                      {/* Inline status dropdown — changes save immediately */}
-                      <div className="flex items-center gap-1.5">
-                        <Select
-                          value={rowStatus[line.id] ?? ''}
-                          onValueChange={val => {
-                            setRowStatus(prev => ({ ...prev, [line.id]: val }))
-                            saveLineStatus(line.id, val, line.portal_status)
-                          }}
-                        >
-                          <SelectTrigger className="h-7 text-xs w-[160px]">
-                            <SelectValue placeholder="Set status…" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {INVOICE_STATUSES.map(s => (
-                              <SelectItem key={s} value={s}>
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${statusBadgeClass(s)}`}>{s}</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {rowSaving[line.id] && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary flex-shrink-0" />}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Link to={`/vendors/dcli/invoice-line/${line.id}`}>
-                        <Button variant="outline" size="sm">View</Button>
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
+        <CardContent>
+          <DataGrid<DcliLineItem>
+            rowData={lineItems}
+            columnDefs={lineItemColumnDefs}
+            onCellValueChanged={handleLineCellChanged}
+          />
         </CardContent>
       </Card>
 
