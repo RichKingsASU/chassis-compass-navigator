@@ -4,13 +4,12 @@ import type { AgGridReactProps } from 'ag-grid-react'
 import {
   AllCommunityModule,
   ModuleRegistry,
+  themeQuartz,
   type ColDef,
   type CellValueChangedEvent,
   type RowClickedEvent,
   type RowStyle,
 } from 'ag-grid-community'
-import 'ag-grid-community/styles/ag-grid.css'
-import 'ag-grid-community/styles/ag-theme-quartz.css'
 
 ModuleRegistry.registerModules([AllCommunityModule])
 
@@ -45,7 +44,7 @@ export function DataGrid<TRow = Record<string, unknown>>({
   if (loading) {
     return (
       <div
-        className="ag-theme-quartz w-full flex items-center justify-center bg-muted/30 rounded-md border"
+        className="w-full flex items-center justify-center bg-muted/30 rounded-md border"
         style={{ height }}
       >
         <span className="text-sm text-muted-foreground">Loading...</span>
@@ -54,8 +53,9 @@ export function DataGrid<TRow = Record<string, unknown>>({
   }
 
   return (
-    <div className="ag-theme-quartz w-full" style={{ height }}>
+    <div className="w-full" style={{ height }}>
       <AgGridReact<TRow>
+        theme={themeQuartz}
         rowData={rowData}
         columnDefs={columnDefs}
         defaultColDef={defaultColDef}
