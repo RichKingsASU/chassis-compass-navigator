@@ -187,28 +187,26 @@ function statusDotColor(status: string): string {
 }
 
 // ── AG Grid cell renderers ─────────────────────────────────────────────────
-function MatchCell({ value, data }: ICellRendererParams<DcliLineItem, number | null>) {
-  if (value == null) return <span className="text-xs text-muted-foreground">—</span>
-  const pct = Math.round(value <= 1 ? value * 100 : value)
-  const color = pct >= 75 ? 'bg-emerald-500' : pct >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-  const text  = pct >= 75 ? 'text-emerald-700' : pct >= 40 ? 'text-yellow-700' : 'text-red-600'
-  const label = data?.match_type === 'activity' ? 'activity' : data?.match_type === 'tms' ? 'tms' : 'none'
+function MatchCell({ data }: ICellRendererParams<DcliLineItem, number | null>) {
+  const mt = data?.match_type
+  if (!mt) return <span className="text-xs text-muted-foreground">—</span>
+  const color =
+    mt === 'activity' ? 'bg-emerald-500' :
+    mt === 'tms'      ? 'bg-amber-400'   :
+    mt === 'none'     ? 'bg-red-500'     :
+                        'bg-muted-foreground/40'
   return (
-    <div className="flex items-center gap-1.5 h-full">
-      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden min-w-[50px]">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className={`text-xs font-semibold tabular-nums ${text}`}>{pct}%</span>
-      <span className="text-[10px] text-muted-foreground uppercase">{label}</span>
+    <div className="flex items-center h-full">
+      <div className={`h-2 w-full rounded-full ${color}`} />
     </div>
   )
 }
 
 const VALIDATION_BADGE_CLS: Record<ValidationStatus, string> = {
-  pass:    'bg-emerald-100 text-emerald-800 border-emerald-300',
-  fail:    'bg-red-100 text-red-800 border-red-300',
-  warn:    'bg-yellow-100 text-yellow-800 border-yellow-300',
-  skipped: 'bg-muted text-muted-foreground border-border',
+  pass:    'bg-green-100 text-green-700',
+  fail:    'bg-red-100 text-red-700',
+  warn:    'bg-yellow-100 text-yellow-700',
+  skipped: 'bg-gray-100 text-gray-500',
 }
 
 function ValidationCell({ value, data }: ICellRendererParams<DcliLineItem, ValidationStatus | null>) {
@@ -216,7 +214,7 @@ function ValidationCell({ value, data }: ICellRendererParams<DcliLineItem, Valid
   const label = value.charAt(0).toUpperCase() + value.slice(1)
   const findings = (data?.validation_findings ?? []) as ValidationFinding[]
   const badge = (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border cursor-pointer ${VALIDATION_BADGE_CLS[value]}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer ${VALIDATION_BADGE_CLS[value] ?? 'bg-gray-100 text-gray-500'}`}>
       {label}
     </span>
   )
@@ -346,9 +344,8 @@ export default function DCLIInvoiceDetail() {
       cellClass: (p) => {
         const v = p.value as number | null | undefined
         if (v == null) return 'text-muted-foreground'
-        if (v === 0)   return 'text-emerald-700 font-semibold'
-        if (v > 0)     return 'text-red-700 font-semibold'
-        return 'text-yellow-700 font-semibold'
+        if (v === 0)   return 'text-green-700 font-semibold'
+        return 'text-red-700 font-semibold'
       },
     },
     {
