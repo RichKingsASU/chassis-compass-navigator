@@ -7,66 +7,32 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { NewInvoiceDialog } from '@/components/vendor/NewInvoiceDialog'
 import type { VendorInvoice } from '@/components/vendor/VendorInvoicesTab'
 import { VendorFinancialsTab } from '@/components/vendor/VendorFinancialsTab'
-import { VendorDocumentsTab } from '@/components/vendor/VendorDocumentsTab'
 import { VendorTabNav, type VendorTabKey } from '@/components/vendor/VendorTabNav'
 import { DataGrid } from '@/components/ui/DataGrid'
-import type { ColDef, CellValueChangedEvent, ICellRendererParams, GridApi, GridReadyEvent } from 'ag-grid-community'
+import type {
+  ColDef,
+  CellValueChangedEvent,
+  ICellRendererParams,
+  GridApi,
+  GridReadyEvent,
+} from 'ag-grid-community'
+import { useDcliInvoices } from '@/features/dcli/hooks/useDcliInvoices'
+import { InvoiceDrawer } from '@/features/dcli/components/InvoiceDrawer'
+import { DcliDocumentsTab } from '@/features/dcli/components/DcliDocumentsTab'
+import { formatShortDate, formatUSD } from '@/features/dcli/format'
+import type { DcliInvoiceInternal, DcliActivityRow } from '@/features/dcli/types'
 
 const VENDOR_SLUG = 'dcli'
 
-interface DcliRecord {
-  id: string
-  chassis: string
-  reservation: string
-  date_out: string
-  date_in: string
-  days_out: number
-  pick_up_location: string
-  location_in: string
-  pool_contract: string
-  container: string
-  ss_scac: string
-  request_status: string
-  motor_carrier_name: string
-  market: string
-  region: string
-  [key: string]: unknown
-}
-
-interface DashboardInvoice {
-  id: string
-  invoice_number: string | null
-  invoice_date: string | null
-  due_date: string | null
-  invoice_amount: number | null
-  invoice_balance: number | null
-  total_payments: number | null
-  dispute_pending: number | null
-  dispute_approved: number | null
-  portal_status: string | null
-  dispute_status: string | null
-  invoice_type: string | null
-}
-
 type InvoiceStatusFilter = 'all' | 'Open' | 'Closed' | 'Credit' | 'unset'
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
-}
+type PoolContractFilter = 'all' | 'GACP' | 'DCLI' | 'EVER' | 'blank'
 
 function currencyFormatter(params: { value: unknown }): string {
-  const v = params.value
-  if (v == null || v === '') return ''
-  const n = typeof v === 'number' ? v : Number(v)
-  if (!Number.isFinite(n)) return ''
-  return formatCurrency(n)
+  return formatUSD(params.value)
 }
 
 function dateFormatter(params: { value: unknown }): string {
-  if (!params.value) return ''
-  const d = new Date(params.value as string)
-  if (isNaN(d.getTime())) return String(params.value)
-  return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+  return formatShortDate(params.value)
 }
 
 function invoiceStatusColorClass(status: string | null | undefined): string {
@@ -80,46 +46,59 @@ function invoiceStatusColorClass(status: string | null | undefined): string {
 
 export default function DCLIPage() {
   const navigate = useNavigate()
-  const [records, setRecords] = useState<DcliRecord[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [activity, setActivity] = useState<DcliActivityRow[]>([])
+  const [activityLoading, setActivityLoading] = useState(true)
+  const [activityError, setActivityError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<VendorTabKey>('dashboard')
   const [search, setSearch] = useState('')
+  const [poolContractFilter, setPoolContractFilter] = useState<PoolContractFilter>('all')
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0)
   const [invoices, setInvoices] = useState<VendorInvoice[]>([])
 
-  // DCLI-specific dashboard aggregates (from dcli_invoice_internal / dcli_internal_line_item / dcli_activity)
-  const [invoiceCount, setInvoiceCount] = useState(0)
-  const [uniqueChassis, setUniqueChassis] = useState(0)
-  const [statusCount, setStatusCount] = useState(0)
-  const [totalAmount, setTotalAmount] = useState(0)
+  // Dashboard KPIs from dcli_invoice_internal
+  const [totalBilled, setTotalBilled] = useState(0)
+  const [openBalance, setOpenBalance] = useState(0)
+  const [disputedCount, setDisputedCount] = useState(0)
   const [activityCount, setActivityCount] = useState(0)
-  const [dashboardInvoices, setDashboardInvoices] = useState<DashboardInvoice[]>([])
-  const [dashboardLoading, setDashboardLoading] = useState(true)
+  const [kpiLoading, setKpiLoading] = useState(true)
+
+  const { invoices: dashboardInvoices, loading: invoicesLoading } = useDcliInvoices(invoiceRefreshKey)
+
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerInvoice, setDrawerInvoice] = useState<DcliInvoiceInternal | null>(null)
+
   const [invoiceSearch, setInvoiceSearch] = useState('')
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<InvoiceStatusFilter>('all')
-  const invoicesGridApiRef = useRef<GridApi<DashboardInvoice> | null>(null)
+  const invoicesGridApiRef = useRef<GridApi<DcliInvoiceInternal> | null>(null)
 
+  // Load dcli_activity rows for the Activity tab
   useEffect(() => {
-    async function loadData() {
-      setLoading(true)
-      setError(null)
+    let cancelled = false
+    async function load() {
+      setActivityLoading(true)
+      setActivityError(null)
       try {
         const { data, error: fetchErr } = await supabase
           .from('dcli_activity')
           .select('*')
           .order('date_out', { ascending: false })
-          .limit(500)
+          .limit(2000)
         if (fetchErr) throw fetchErr
-        setRecords(data || [])
+        if (!cancelled) setActivity((data ?? []) as DcliActivityRow[])
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load data')
+        if (!cancelled) {
+          setActivityError(err instanceof Error ? err.message : 'Failed to load activity')
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setActivityLoading(false)
       }
     }
-    loadData()
+    load()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // Load vendor_invoices for the Financials tab (shared schema across vendors)
@@ -135,67 +114,48 @@ export default function DCLIPage() {
     loadVendorInvoices()
   }, [invoiceRefreshKey])
 
-  // Load dcli_invoice_internal / dcli_internal_line_item / dcli_activity aggregates for dashboard KPIs and tab badges
+  // Load aggregate KPIs from dcli_invoice_internal + dcli_activity
   useEffect(() => {
-    async function loadDcliDashboard() {
-      setDashboardLoading(true)
+    let cancelled = false
+    async function loadKpis() {
+      setKpiLoading(true)
       try {
-        const [
-          invoiceCountRes,
-          chassisRes,
-          statusRes,
-          amountRes,
-          activityCountRes,
-          recentInvoicesRes,
-        ] = await Promise.all([
-          supabase.from('dcli_invoice_internal').select('*', { count: 'exact', head: true }),
-          supabase.from('dcli_internal_line_item').select('chassis'),
-          supabase.from('dcli_invoice_internal').select('portal_status'),
-          supabase.from('dcli_invoice_internal').select('invoice_balance, portal_status'),
-          supabase.from('dcli_activity').select('*', { count: 'exact', head: true }),
+        const [amountRes, disputeRes, activityRes] = await Promise.all([
           supabase
             .from('dcli_invoice_internal')
-            .select('id, invoice_number, invoice_date, due_date, invoice_amount, invoice_balance, total_payments, dispute_pending, dispute_approved, portal_status, dispute_status, invoice_type')
-            .order('invoice_date', { ascending: false })
-            .limit(500),
+            .select('invoice_amount, invoice_balance, portal_status'),
+          supabase.from('dcli_invoice_internal').select('dispute_status'),
+          supabase.from('dcli_activity').select('*', { count: 'exact', head: true }),
         ])
 
-        setInvoiceCount(invoiceCountRes.count ?? 0)
+        if (cancelled) return
 
-        const chassisRows = (chassisRes.data || []) as Array<{ chassis: string | null }>
-        setUniqueChassis(
-          new Set(chassisRows.map(r => r.chassis?.trim()).filter((c): c is string => !!c)).size
-        )
-
-        const statusRows = (statusRes.data || []) as Array<{ portal_status: string | null }>
-        setStatusCount(statusRows.filter(r => r.portal_status === 'Disputed').length)
-
-        const amountRows = (amountRes.data || []) as Array<{ invoice_balance: number | null; portal_status: string | null }>
-        setTotalAmount(
+        const amountRows = (amountRes.data || []) as Array<{
+          invoice_amount: number | null
+          invoice_balance: number | null
+          portal_status: string | null
+        }>
+        setTotalBilled(amountRows.reduce((s, r) => s + (r.invoice_amount ?? 0), 0))
+        setOpenBalance(
           amountRows
-            .filter(r => r.portal_status === 'Open')
-            .reduce((sum, r) => sum + (r.invoice_balance ?? 0), 0)
+            .filter((r) => r.portal_status === 'Open')
+            .reduce((s, r) => s + (r.invoice_balance ?? 0), 0)
         )
 
-        setActivityCount(activityCountRes.count ?? 0)
+        const disputeRows = (disputeRes.data || []) as Array<{ dispute_status: string | null }>
+        setDisputedCount(disputeRows.filter((r) => r.dispute_status === 'Disputed').length)
 
-        const rawInvoices = (recentInvoicesRes.data || []) as DashboardInvoice[]
-        const seen = new Set<string>()
-        const deduped = rawInvoices.filter(inv => {
-          const key = inv.invoice_number ?? inv.id
-          if (!inv.invoice_number || inv.invoice_number === 'TOTAL') return false
-          if (seen.has(key)) return false
-          seen.add(key)
-          return true
-        })
-        setDashboardInvoices(deduped)
+        setActivityCount(activityRes.count ?? 0)
       } catch (err: unknown) {
-        console.error('Failed to load DCLI dashboard data', err)
+        console.error('Failed to load DCLI KPIs', err)
       } finally {
-        setDashboardLoading(false)
+        if (!cancelled) setKpiLoading(false)
       }
     }
-    loadDcliDashboard()
+    loadKpis()
+    return () => {
+      cancelled = true
+    }
   }, [invoiceRefreshKey])
 
   // Sync activeTab with URL hash
@@ -220,109 +180,133 @@ export default function DCLIPage() {
     }
   }
 
-  const filtered = search
-    ? records.filter(r => {
-        const q = search.toUpperCase().trim()
-        return r.chassis?.trim().toUpperCase().includes(q) || r.reservation?.toUpperCase().includes(q)
-      })
-    : records
+  const filteredActivity = useMemo(() => {
+    const q = search.toUpperCase().trim()
+    return activity.filter((r) => {
+      if (q) {
+        const chassis = r.chassis?.trim().toUpperCase() ?? ''
+        const reservation = r.reservation?.toUpperCase() ?? ''
+        if (!chassis.includes(q) && !reservation.includes(q)) return false
+      }
+      if (poolContractFilter !== 'all') {
+        const pc = (r.pool_contract ?? '').trim()
+        if (poolContractFilter === 'blank') {
+          if (pc) return false
+        } else if (pc !== poolContractFilter) return false
+      }
+      return true
+    })
+  }, [activity, search, poolContractFilter])
 
-  const invoiceColumnDefs = useMemo<ColDef<DashboardInvoice>[]>(() => [
-    {
-      headerName: 'Invoice #',
-      field: 'invoice_number',
-      width: 160,
-      cellClass: 'font-mono',
-      getQuickFilterText: (p) => p.value ?? '',
-    },
-    {
-      headerName: 'Invoice Date',
-      field: 'invoice_date',
-      width: 140,
-      valueFormatter: dateFormatter,
-      getQuickFilterText: () => '',
-    },
-    {
-      headerName: 'Invoice Type',
-      field: 'invoice_type',
-      width: 180,
-      tooltipField: 'invoice_type',
-      getQuickFilterText: (p) => p.value ?? '',
-    },
-    {
-      headerName: 'Invoice Amount',
-      field: 'invoice_amount',
-      type: 'numericColumn',
-      width: 150,
-      valueFormatter: currencyFormatter,
-      getQuickFilterText: () => '',
-    },
-    {
-      headerName: 'Balance',
-      field: 'invoice_balance',
-      type: 'numericColumn',
-      width: 140,
-      valueFormatter: currencyFormatter,
-      getQuickFilterText: () => '',
-    },
-    {
-      headerName: 'Payments',
-      field: 'total_payments',
-      type: 'numericColumn',
-      width: 140,
-      valueFormatter: currencyFormatter,
-      getQuickFilterText: () => '',
-    },
-    {
-      headerName: 'Portal Status',
-      field: 'portal_status',
-      width: 160,
-      cellRenderer: (params: ICellRendererParams<DashboardInvoice, string | null>) => (
-        <span className={invoiceStatusColorClass(params.value)}>{params.value || 'Not Set'}</span>
-      ),
-      getQuickFilterText: (p) => p.value ?? '',
-    },
-    {
-      headerName: 'Dispute Status',
-      field: 'dispute_status',
-      width: 150,
-      cellRenderer: (params: ICellRendererParams<DashboardInvoice, string | null>) => {
-        const v = params.value
-        if (v !== 'Disputed') return null
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-            Disputed
+  const invoiceColumnDefs = useMemo<ColDef<DcliInvoiceInternal>[]>(
+    () => [
+      {
+        headerName: 'Invoice #',
+        field: 'invoice_number',
+        width: 160,
+        cellClass: 'font-mono',
+        getQuickFilterText: (p) => p.value ?? '',
+      },
+      {
+        headerName: 'Billing Date',
+        field: 'billing_date',
+        width: 140,
+        valueFormatter: dateFormatter,
+        valueGetter: (p) => p.data?.billing_date ?? p.data?.invoice_date ?? null,
+        getQuickFilterText: () => '',
+      },
+      {
+        headerName: 'Due Date',
+        field: 'due_date',
+        width: 140,
+        valueFormatter: dateFormatter,
+        getQuickFilterText: () => '',
+      },
+      {
+        headerName: 'Invoice Type',
+        field: 'invoice_type',
+        width: 180,
+        tooltipField: 'invoice_type',
+        getQuickFilterText: (p) => p.value ?? '',
+      },
+      {
+        headerName: 'Invoice Amount',
+        field: 'invoice_amount',
+        type: 'numericColumn',
+        width: 150,
+        valueFormatter: currencyFormatter,
+        getQuickFilterText: () => '',
+      },
+      {
+        headerName: 'Balance',
+        field: 'invoice_balance',
+        type: 'numericColumn',
+        width: 140,
+        valueFormatter: currencyFormatter,
+        getQuickFilterText: () => '',
+      },
+      {
+        headerName: 'Payments',
+        field: 'total_payments',
+        type: 'numericColumn',
+        width: 140,
+        valueFormatter: currencyFormatter,
+        getQuickFilterText: () => '',
+      },
+      {
+        headerName: 'Portal Status',
+        field: 'portal_status',
+        width: 160,
+        cellRenderer: (params: ICellRendererParams<DcliInvoiceInternal, string | null>) => (
+          <span className={invoiceStatusColorClass(params.value)}>
+            {params.value || 'Not Set'}
           </span>
-        )
+        ),
+        getQuickFilterText: (p) => p.value ?? '',
       },
-      getQuickFilterText: (p) => p.value ?? '',
-    },
-    {
-      headerName: 'Action',
-      colId: 'actions',
-      width: 100,
-      sortable: false,
-      filter: false,
-      resizable: false,
-      getQuickFilterText: () => '',
-      cellRenderer: (params: ICellRendererParams<DashboardInvoice>) => {
-        const invoiceNumber = params.data?.invoice_number
-        if (!invoiceNumber) return null
-        return (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate(`/vendors/dcli/invoices/${invoiceNumber}/detail`)
-            }}
-            className="px-3 py-1 text-xs border rounded hover:bg-accent"
-          >
-            View
-          </button>
-        )
+      {
+        headerName: 'Dispute Status',
+        field: 'dispute_status',
+        width: 150,
+        cellRenderer: (params: ICellRendererParams<DcliInvoiceInternal, string | null>) => {
+          const v = params.value
+          if (v !== 'Disputed') return null
+          return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+              Disputed
+            </span>
+          )
+        },
+        getQuickFilterText: (p) => p.value ?? '',
       },
-    },
-  ], [navigate])
+      {
+        headerName: 'Action',
+        colId: 'actions',
+        width: 100,
+        sortable: false,
+        filter: false,
+        resizable: false,
+        getQuickFilterText: () => '',
+        cellRenderer: (params: ICellRendererParams<DcliInvoiceInternal>) => {
+          const invoiceNumber = params.data?.invoice_number
+          if (!invoiceNumber) return null
+          return (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate(`/vendors/dcli/invoices/${encodeURIComponent(invoiceNumber)}/detail`)
+              }}
+              className="px-3 py-1 text-xs border rounded hover:bg-accent"
+            >
+              View
+            </button>
+          )
+        },
+      },
+    ],
+    [navigate]
+  )
 
   useEffect(() => {
     invoicesGridApiRef.current?.setGridOption('quickFilterText', invoiceSearch)
@@ -344,7 +328,7 @@ export default function DCLIPage() {
     }
   }, [invoiceStatusFilter])
 
-  const handleInvoicesGridReady = (e: GridReadyEvent<DashboardInvoice>) => {
+  const handleInvoicesGridReady = (e: GridReadyEvent<DcliInvoiceInternal>) => {
     invoicesGridApiRef.current = e.api
     if (invoiceSearch) e.api.setGridOption('quickFilterText', invoiceSearch)
     if (invoiceStatusFilter !== 'all') {
@@ -358,43 +342,52 @@ export default function DCLIPage() {
     }
   }
 
-  const invoiceStatusCounts = useMemo(() => ({
-    all: dashboardInvoices.length,
-    open: dashboardInvoices.filter(i => i.portal_status === 'Open').length,
-    closed: dashboardInvoices.filter(i => i.portal_status === 'Closed').length,
-    credit: dashboardInvoices.filter(i => i.portal_status === 'Credit').length,
-    unset: dashboardInvoices.filter(i => !i.portal_status).length,
-  }), [dashboardInvoices])
+  const invoiceStatusCounts = useMemo(
+    () => ({
+      all: dashboardInvoices.length,
+      open: dashboardInvoices.filter((i) => i.portal_status === 'Open').length,
+      closed: dashboardInvoices.filter((i) => i.portal_status === 'Closed').length,
+      credit: dashboardInvoices.filter((i) => i.portal_status === 'Credit').length,
+      unset: dashboardInvoices.filter((i) => !i.portal_status).length,
+    }),
+    [dashboardInvoices]
+  )
 
-  const activityColumnDefs = useMemo<ColDef<DcliRecord>[]>(() => [
-    { headerName: 'Chassis', field: 'chassis', pinned: 'left', width: 140, cellClass: 'font-mono' },
-    { headerName: 'Pick Up Location', field: 'pick_up_location', width: 200 },
-    { headerName: 'Location In', field: 'location_in', width: 200 },
-    { headerName: 'Date Out', field: 'date_out', width: 150 },
-    { headerName: 'Date In', field: 'date_in', width: 150 },
-    { headerName: 'Days Out', field: 'days_out', type: 'numericColumn', width: 90 },
-    { headerName: 'Asset Type', field: 'asset_type', width: 130 },
-    { headerName: 'Reservation', field: 'reservation', width: 140 },
-    { headerName: 'Container', field: 'container', width: 140 },
-    { headerName: 'SS SCAC', field: 'ss_scac', width: 90 },
-    {
-      headerName: 'Request Status',
-      field: 'request_status',
-      width: 150,
-      editable: true,
-      cellEditor: 'agSelectCellEditor',
-      cellEditorParams: { values: ['', 'APPROVED', 'PENDING', 'REJECTED'] },
-    },
-    {
-      headerName: 'Remarks',
-      field: 'remarks',
-      width: 260,
-      editable: true,
-      cellEditor: 'agLargeTextCellEditor',
-    },
-  ], [])
+  const activityColumnDefs = useMemo<ColDef<DcliActivityRow>[]>(
+    () => [
+      { headerName: 'Chassis', field: 'chassis', pinned: 'left', width: 140, cellClass: 'font-mono' },
+      { headerName: 'Container', field: 'container', width: 140, cellClass: 'font-mono' },
+      { headerName: 'Pool Contract', field: 'pool_contract', width: 140 },
+      { headerName: 'Haulage Type', field: 'haulage_type', width: 130 },
+      { headerName: 'Ocean Carrier SCAC', field: 'ss_scac', width: 150 },
+      { headerName: 'Reservation', field: 'reservation', width: 140 },
+      { headerName: 'Reservation Status', field: 'reservation_status', width: 160 },
+      { headerName: 'Pick Up Location', field: 'pick_up_location', width: 200 },
+      { headerName: 'Location In', field: 'location_in', width: 200 },
+      { headerName: 'Date Out', field: 'date_out', width: 130, valueFormatter: dateFormatter },
+      { headerName: 'Date In', field: 'date_in', width: 130, valueFormatter: dateFormatter },
+      { headerName: 'Days Out', field: 'days_out', type: 'numericColumn', width: 100 },
+      { headerName: 'Asset Type', field: 'asset_type', width: 130 },
+      {
+        headerName: 'Request Status',
+        field: 'request_status',
+        width: 150,
+        editable: true,
+        cellEditor: 'agSelectCellEditor',
+        cellEditorParams: { values: ['', 'APPROVED', 'PENDING', 'REJECTED'] },
+      },
+      {
+        headerName: 'Remarks',
+        field: 'remarks',
+        width: 260,
+        editable: true,
+        cellEditor: 'agLargeTextCellEditor',
+      },
+    ],
+    []
+  )
 
-  const handleActivityCellChanged = async (event: CellValueChangedEvent<DcliRecord>) => {
+  const handleActivityCellChanged = async (event: CellValueChangedEvent<DcliActivityRow>) => {
     const field = event.colDef.field
     if (!field) return
     const rowId = event.data?.id
@@ -419,52 +412,116 @@ export default function DCLIPage() {
         <p className="text-muted-foreground">Direct ChassisLink Inc. — Vendor Dashboard</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
+      {activityError && (
+        <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">
+          {activityError}
+        </div>
+      )}
 
       <VendorTabNav
         vendorSlug={VENDOR_SLUG}
         activeTab={activeTab}
         onTabChange={handleTabChange}
         onNewInvoice={() => navigate('/vendors/dcli/invoices/new')}
-        counts={{ invoices: invoiceCount, activity: activityCount }}
+        counts={{ invoices: dashboardInvoices.length, activity: activityCount }}
       />
 
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle></CardHeader>
-              <CardContent>{dashboardLoading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{invoiceCount}</p>}</CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Invoices
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {invoicesLoading ? (
+                  <Skeleton className="h-9 w-20" />
+                ) : (
+                  <p className="text-3xl font-bold">{dashboardInvoices.length.toLocaleString()}</p>
+                )}
+              </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Unique Chassis</CardTitle></CardHeader>
-              <CardContent>{dashboardLoading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{uniqueChassis}</p>}</CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Total Billed
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {kpiLoading ? (
+                  <Skeleton className="h-9 w-32" />
+                ) : (
+                  <p className="text-3xl font-bold">{formatUSD(totalBilled)}</p>
+                )}
+              </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Disputed</CardTitle></CardHeader>
-              <CardContent>{dashboardLoading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{statusCount}</p>}</CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Open Balance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {kpiLoading ? (
+                  <Skeleton className="h-9 w-32" />
+                ) : (
+                  <p className="text-3xl font-bold">{formatUSD(openBalance)}</p>
+                )}
+              </CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Amount Due</CardTitle></CardHeader>
-              <CardContent>{dashboardLoading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{formatCurrency(totalAmount)}</p>}</CardContent>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Disputed
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {kpiLoading ? (
+                  <Skeleton className="h-9 w-20" />
+                ) : (
+                  <p className="text-3xl font-bold">{disputedCount.toLocaleString()}</p>
+                )}
+              </CardContent>
             </Card>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
-              <CardHeader><CardTitle>Contact Information</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>Contact Information</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-2">
-                <p><span className="font-medium">Company:</span> Direct ChassisLink Inc. (DCLI)</p>
-                <p><span className="font-medium">Website:</span> <a href="https://www.dcli.com" className="text-primary underline" target="_blank" rel="noreferrer">www.dcli.com</a></p>
-                <p><span className="font-medium">Phone:</span> 1-800-227-3254</p>
+                <p>
+                  <span className="font-medium">Company:</span> Direct ChassisLink Inc. (DCLI)
+                </p>
+                <p>
+                  <span className="font-medium">Website:</span>{' '}
+                  <a
+                    href="https://www.dcli.com"
+                    className="text-primary underline"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    www.dcli.com
+                  </a>
+                </p>
+                <p>
+                  <span className="font-medium">Phone:</span> 1-800-227-3254
+                </p>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader><CardTitle>Important Notices</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>Important Notices</CardTitle>
+              </CardHeader>
               <CardContent>
                 <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                   <p className="text-sm font-medium text-yellow-800">Dispute Deadline</p>
-                  <p className="text-sm text-yellow-700">All disputes must be filed within 30 days of invoice date.</p>
+                  <p className="text-sm text-yellow-700">
+                    All disputes must be filed within 30 days of invoice date.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -481,13 +538,15 @@ export default function DCLIPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                {([
-                  { key: 'all', label: `All (${invoiceStatusCounts.all})` },
-                  { key: 'Open', label: `Open (${invoiceStatusCounts.open})` },
-                  { key: 'Closed', label: `Closed (${invoiceStatusCounts.closed})` },
-                  { key: 'Credit', label: `Credit (${invoiceStatusCounts.credit})` },
-                  { key: 'unset', label: `No Status (${invoiceStatusCounts.unset})` },
-                ] as const).map(pill => (
+                {(
+                  [
+                    { key: 'all', label: `All (${invoiceStatusCounts.all})` },
+                    { key: 'Open', label: `Open (${invoiceStatusCounts.open})` },
+                    { key: 'Closed', label: `Closed (${invoiceStatusCounts.closed})` },
+                    { key: 'Credit', label: `Credit (${invoiceStatusCounts.credit})` },
+                    { key: 'unset', label: `No Status (${invoiceStatusCounts.unset})` },
+                  ] as const
+                ).map((pill) => (
                   <button
                     key={pill.key}
                     type="button"
@@ -504,16 +563,21 @@ export default function DCLIPage() {
               </div>
               <input
                 type="text"
-                placeholder="Search invoice #, account, status..."
+                placeholder="Search invoice #, type, status..."
                 value={invoiceSearch}
-                onChange={e => setInvoiceSearch(e.target.value)}
+                onChange={(e) => setInvoiceSearch(e.target.value)}
                 className="w-full max-w-sm px-3 py-2 border rounded-md text-sm"
               />
-              <DataGrid<DashboardInvoice>
+              <DataGrid<DcliInvoiceInternal>
                 rowData={dashboardInvoices}
                 columnDefs={invoiceColumnDefs}
-                loading={dashboardLoading}
-                onRowClicked={(e) => { if (e.data?.invoice_number) navigate(`/vendors/dcli/invoices/${e.data.invoice_number}/detail`) }}
+                loading={invoicesLoading}
+                onRowClicked={(e) => {
+                  if (e.data?.invoice_number) {
+                    setDrawerInvoice(e.data)
+                    setDrawerOpen(true)
+                  }
+                }}
                 rowStyle={{ cursor: 'pointer' }}
                 gridProps={{
                   onGridReady: handleInvoicesGridReady,
@@ -522,6 +586,11 @@ export default function DCLIPage() {
               />
             </CardContent>
           </Card>
+          <InvoiceDrawer
+            open={drawerOpen}
+            invoice={drawerInvoice}
+            onClose={() => setDrawerOpen(false)}
+          />
         </div>
       )}
 
@@ -529,19 +598,33 @@ export default function DCLIPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">DCLI Activity</h2>
-            <p className="text-sm text-muted-foreground">{filtered.length} records</p>
+            <p className="text-sm text-muted-foreground">{filteredActivity.length} records</p>
           </div>
-          <input
-            type="text"
-            placeholder="Search chassis or reservation..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md text-sm"
-          />
-          <DataGrid<DcliRecord>
-            rowData={filtered}
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="text"
+              placeholder="Search chassis or reservation..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 min-w-[260px] px-3 py-2 border rounded-md text-sm"
+            />
+            <select
+              value={poolContractFilter}
+              onChange={(e) => setPoolContractFilter(e.target.value as PoolContractFilter)}
+              className="px-3 py-2 border rounded-md text-sm bg-background"
+              aria-label="Filter by pool contract"
+            >
+              <option value="all">All pool contracts</option>
+              <option value="GACP">GACP</option>
+              <option value="DCLI">DCLI</option>
+              <option value="EVER">EVER</option>
+              <option value="blank">Blank</option>
+            </select>
+          </div>
+          <DataGrid<DcliActivityRow>
+            rowData={filteredActivity}
             columnDefs={activityColumnDefs}
-            loading={loading}
+            loading={activityLoading}
             onCellValueChanged={handleActivityCellChanged}
           />
         </div>
@@ -553,17 +636,13 @@ export default function DCLIPage() {
         </div>
       )}
 
-      {activeTab === 'documents' && (
-        <div className="space-y-4">
-          <VendorDocumentsTab />
-        </div>
-      )}
+      {activeTab === 'documents' && <DcliDocumentsTab />}
 
       <NewInvoiceDialog
         open={invoiceDialogOpen}
         onOpenChange={setInvoiceDialogOpen}
         vendorSlug={VENDOR_SLUG}
-        onCreated={() => setInvoiceRefreshKey(k => k + 1)}
+        onCreated={() => setInvoiceRefreshKey((k) => k + 1)}
       />
     </div>
   )
