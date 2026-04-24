@@ -17,7 +17,7 @@ const VENDOR_SLUG = 'dcli'
 interface DcliRecord {
   id: string
   chassis: string
-  reservation_number: string
+  reservation: string
   date_out: string
   date_in: string
   days_out: number
@@ -38,16 +38,17 @@ interface DashboardInvoice {
   invoice_number: string | null
   invoice_date: string | null
   due_date: string | null
-  account_code: string | null
-  total_amount: number | null
   invoice_amount: number | null
-  amount_paid: number | null
-  amount_due: number | null
+  invoice_balance: number | null
+  total_payments: number | null
+  dispute_pending: number | null
+  dispute_approved: number | null
   portal_status: string | null
-  created_at: string
+  dispute_status: string | null
+  invoice_type: string | null
 }
 
-type InvoiceStatusFilter = 'all' | 'Open' | 'Closed' | 'unset'
+type InvoiceStatusFilter = 'all' | 'Open' | 'Closed' | 'Credit' | 'unset'
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
@@ -64,10 +65,9 @@ function currencyFormatter(params: { value: unknown }): string {
 function invoiceStatusColorClass(status: string | null | undefined): string {
   if (!status) return 'text-gray-600'
   const s = status.trim()
-  if (s === 'Paid') return 'text-green-700 font-medium'
   if (s === 'Open') return 'text-amber-600 font-medium'
   if (s === 'Closed') return 'text-gray-600 font-medium'
-  if (s === 'Dispute' || s.startsWith('Dispute')) return 'text-red-700 font-medium'
+  if (s === 'Credit') return 'text-blue-700 font-medium'
   return 'text-gray-600'
 }
 
@@ -82,7 +82,7 @@ export default function DCLIPage() {
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0)
   const [invoices, setInvoices] = useState<VendorInvoice[]>([])
 
-  // DCLI-specific dashboard aggregates (from dcli_invoice / dcli_invoice_line_item / dcli_activity)
+  // DCLI-specific dashboard aggregates (from dcli_invoice_internal / dcli_internal_line_item / dcli_activity)
   const [invoiceCount, setInvoiceCount] = useState(0)
   const [uniqueChassis, setUniqueChassis] = useState(0)
   const [statusCount, setStatusCount] = useState(0)
@@ -128,7 +128,7 @@ export default function DCLIPage() {
     loadVendorInvoices()
   }, [invoiceRefreshKey])
 
-  // Load dcli_invoice / line_item / activity aggregates for dashboard KPIs and tab badges
+  // Load dcli_invoice_internal / dcli_internal_line_item / dcli_activity aggregates for dashboard KPIs and tab badges
   useEffect(() => {
     async function loadDcliDashboard() {
       setDashboardLoading(true)
@@ -141,15 +141,15 @@ export default function DCLIPage() {
           activityCountRes,
           recentInvoicesRes,
         ] = await Promise.all([
-          supabase.from('dcli_invoice').select('*', { count: 'exact', head: true }),
-          supabase.from('dcli_invoice_line_item').select('chassis'),
-          supabase.from('dcli_invoice').select('portal_status'),
-          supabase.from('dcli_invoice').select('total_amount'),
+          supabase.from('dcli_invoice_internal').select('*', { count: 'exact', head: true }),
+          supabase.from('dcli_internal_line_item').select('chassis'),
+          supabase.from('dcli_invoice_internal').select('portal_status'),
+          supabase.from('dcli_invoice_internal').select('invoice_balance, portal_status'),
           supabase.from('dcli_activity').select('*', { count: 'exact', head: true }),
           supabase
-            .from('dcli_invoice')
-            .select('*')
-            .order('created_at', { ascending: false })
+            .from('dcli_invoice_internal')
+            .select('id, invoice_number, invoice_date, due_date, invoice_amount, invoice_balance, total_payments, dispute_pending, dispute_approved, portal_status, dispute_status, invoice_type')
+            .order('invoice_date', { ascending: false })
             .limit(500),
         ])
 
@@ -161,12 +161,14 @@ export default function DCLIPage() {
         )
 
         const statusRows = (statusRes.data || []) as Array<{ portal_status: string | null }>
-        setStatusCount(
-          new Set(statusRows.map(r => r.portal_status).filter((s): s is string => !!s)).size
-        )
+        setStatusCount(statusRows.filter(r => r.portal_status === 'Disputed').length)
 
-        const amountRows = (amountRes.data || []) as Array<{ total_amount: number | null }>
-        setTotalAmount(amountRows.reduce((sum, r) => sum + (r.total_amount ?? 0), 0))
+        const amountRows = (amountRes.data || []) as Array<{ invoice_balance: number | null; portal_status: string | null }>
+        setTotalAmount(
+          amountRows
+            .filter(r => r.portal_status === 'Open')
+            .reduce((sum, r) => sum + (r.invoice_balance ?? 0), 0)
+        )
 
         setActivityCount(activityCountRes.count ?? 0)
 
@@ -213,7 +215,7 @@ export default function DCLIPage() {
   const filtered = search
     ? records.filter(r => {
         const q = search.toUpperCase().trim()
-        return r.chassis?.trim().toUpperCase().includes(q) || r.reservation_number?.toUpperCase().includes(q)
+        return r.chassis?.trim().toUpperCase().includes(q) || r.reservation?.toUpperCase().includes(q)
       })
     : records
 
@@ -232,38 +234,37 @@ export default function DCLIPage() {
       getQuickFilterText: () => '',
     },
     {
-      headerName: 'Due Date',
-      field: 'due_date',
+      headerName: 'Invoice Type',
+      field: 'invoice_type',
       width: 140,
-      getQuickFilterText: () => '',
+      getQuickFilterText: (p) => p.value ?? '',
     },
     {
       headerName: 'Invoice Amount',
-      colId: 'invoice_amount',
+      field: 'invoice_amount',
       type: 'numericColumn',
       width: 150,
-      valueGetter: (p) => p.data?.total_amount ?? p.data?.invoice_amount ?? null,
       valueFormatter: currencyFormatter,
       getQuickFilterText: () => '',
     },
     {
-      headerName: 'Amount Paid',
-      field: 'amount_paid',
+      headerName: 'Balance',
+      field: 'invoice_balance',
       type: 'numericColumn',
       width: 140,
       valueFormatter: currencyFormatter,
       getQuickFilterText: () => '',
     },
     {
-      headerName: 'Amount Due',
-      field: 'amount_due',
+      headerName: 'Payments',
+      field: 'total_payments',
       type: 'numericColumn',
       width: 140,
       valueFormatter: currencyFormatter,
       getQuickFilterText: () => '',
     },
     {
-      headerName: 'Status',
+      headerName: 'Portal Status',
       field: 'portal_status',
       width: 160,
       cellRenderer: (params: ICellRendererParams<DashboardInvoice, string | null>) => (
@@ -272,10 +273,18 @@ export default function DCLIPage() {
       getQuickFilterText: (p) => p.value ?? '',
     },
     {
-      colId: 'account_code_hidden',
-      field: 'account_code',
-      hide: true,
-      suppressColumnsToolPanel: true,
+      headerName: 'Dispute Status',
+      field: 'dispute_status',
+      width: 150,
+      cellRenderer: (params: ICellRendererParams<DashboardInvoice, string | null>) => {
+        const v = params.value
+        if (v !== 'Disputed') return null
+        return (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+            Disputed
+          </span>
+        )
+      },
       getQuickFilterText: (p) => p.value ?? '',
     },
     {
@@ -287,14 +296,14 @@ export default function DCLIPage() {
       resizable: false,
       getQuickFilterText: () => '',
       cellRenderer: (params: ICellRendererParams<DashboardInvoice>) => {
-        const id = params.data?.id
-        if (!id) return null
+        const invoiceNumber = params.data?.invoice_number
+        if (!invoiceNumber) return null
         return (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation()
-              navigate(`/vendors/dcli/invoices/${id}/detail`)
+              navigate(`/vendors/dcli/invoices/${invoiceNumber}/detail`)
             }}
             className="px-3 py-1 text-xs border rounded hover:bg-accent"
           >
@@ -343,6 +352,7 @@ export default function DCLIPage() {
     all: dashboardInvoices.length,
     open: dashboardInvoices.filter(i => i.portal_status === 'Open').length,
     closed: dashboardInvoices.filter(i => i.portal_status === 'Closed').length,
+    credit: dashboardInvoices.filter(i => i.portal_status === 'Credit').length,
     unset: dashboardInvoices.filter(i => !i.portal_status).length,
   }), [dashboardInvoices])
 
@@ -354,7 +364,7 @@ export default function DCLIPage() {
     { headerName: 'Date In', field: 'date_in', width: 150 },
     { headerName: 'Days Out', field: 'days_out', type: 'numericColumn', width: 90 },
     { headerName: 'Asset Type', field: 'asset_type', width: 130 },
-    { headerName: 'Reservation', field: 'reservation_number', width: 140 },
+    { headerName: 'Reservation', field: 'reservation', width: 140 },
     { headerName: 'Container', field: 'container', width: 140 },
     { headerName: 'SS SCAC', field: 'ss_scac', width: 90 },
     {
@@ -421,7 +431,7 @@ export default function DCLIPage() {
               <CardContent>{dashboardLoading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{uniqueChassis}</p>}</CardContent>
             </Card>
             <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Statuses</CardTitle></CardHeader>
+              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Disputed</CardTitle></CardHeader>
               <CardContent>{dashboardLoading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{statusCount}</p>}</CardContent>
             </Card>
             <Card>
@@ -465,6 +475,7 @@ export default function DCLIPage() {
                   { key: 'all', label: `All (${invoiceStatusCounts.all})` },
                   { key: 'Open', label: `Open (${invoiceStatusCounts.open})` },
                   { key: 'Closed', label: `Closed (${invoiceStatusCounts.closed})` },
+                  { key: 'Credit', label: `Credit (${invoiceStatusCounts.credit})` },
                   { key: 'unset', label: `No Status (${invoiceStatusCounts.unset})` },
                 ] as const).map(pill => (
                   <button
@@ -492,7 +503,7 @@ export default function DCLIPage() {
                 rowData={dashboardInvoices}
                 columnDefs={invoiceColumnDefs}
                 loading={dashboardLoading}
-                onRowClicked={(e) => { if (e.data?.id) navigate(`/vendors/dcli/invoices/${e.data.id}/detail`) }}
+                onRowClicked={(e) => { if (e.data?.invoice_number) navigate(`/vendors/dcli/invoices/${e.data.invoice_number}/detail`) }}
                 rowStyle={{ cursor: 'pointer' }}
                 gridProps={{
                   onGridReady: handleInvoicesGridReady,
