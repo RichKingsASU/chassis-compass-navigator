@@ -62,6 +62,13 @@ function currencyFormatter(params: { value: unknown }): string {
   return formatCurrency(n)
 }
 
+function dateFormatter(params: { value: unknown }): string {
+  if (!params.value) return ''
+  const d = new Date(params.value as string)
+  if (isNaN(d.getTime())) return String(params.value)
+  return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+}
+
 function invoiceStatusColorClass(status: string | null | undefined): string {
   if (!status) return 'text-gray-600'
   const s = status.trim()
@@ -176,6 +183,7 @@ export default function DCLIPage() {
         const seen = new Set<string>()
         const deduped = rawInvoices.filter(inv => {
           const key = inv.invoice_number ?? inv.id
+          if (!inv.invoice_number || inv.invoice_number === 'TOTAL') return false
           if (seen.has(key)) return false
           seen.add(key)
           return true
@@ -231,12 +239,14 @@ export default function DCLIPage() {
       headerName: 'Invoice Date',
       field: 'invoice_date',
       width: 140,
+      valueFormatter: dateFormatter,
       getQuickFilterText: () => '',
     },
     {
       headerName: 'Invoice Type',
       field: 'invoice_type',
-      width: 140,
+      width: 180,
+      tooltipField: 'invoice_type',
       getQuickFilterText: (p) => p.value ?? '',
     },
     {
