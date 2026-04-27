@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase } from '@/lib/supabase'
 import { isPdf, isXlsx } from '../format'
 
-const UPLOAD_BUCKET = 'invoice-documents'
+const UPLOAD_BUCKET = 'dcli-invoices'
 const SIGNED_URL_TTL_SECONDS = 3600
 
 interface LineItemDocumentsPanelProps {
@@ -83,7 +83,7 @@ export function LineItemDocumentsPanel({ invoiceNumber, lineItemId }: LineItemDo
     setUploading(true)
     try {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const path = `dcli/${invoiceNumber}/lines/${lineItemId}/${Date.now()}_${safeName}`
+      const path = `${invoiceNumber}/lines/${lineItemId}/${Date.now()}_${safeName}`
       const { error: upErr } = await supabase.storage
         .from(UPLOAD_BUCKET)
         .upload(path, file, { upsert: false, contentType: file.type || undefined })

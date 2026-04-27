@@ -13,7 +13,7 @@ interface DocumentsPanelProps {
   emptyMessage?: string
 }
 
-const UPLOAD_BUCKET = 'invoice-documents'
+const UPLOAD_BUCKET = 'dcli-invoices'
 
 export function DocumentsPanel({
   invoiceNumber,
@@ -31,7 +31,7 @@ export function DocumentsPanel({
     setUploading(true)
     try {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const path = `dcli/${invoiceNumber}/${Date.now()}_${safeName}`
+      const path = `${invoiceNumber}/${Date.now()}_${safeName}`
       const { error: upErr } = await supabase.storage
         .from(UPLOAD_BUCKET)
         .upload(path, file, { upsert: false, contentType: file.type || undefined })
