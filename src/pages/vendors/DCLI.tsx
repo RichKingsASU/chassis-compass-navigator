@@ -17,7 +17,6 @@ import type {
   GridReadyEvent,
 } from 'ag-grid-community'
 import { useDcliInvoices } from '@/features/dcli/hooks/useDcliInvoices'
-import { InvoiceDrawer } from '@/features/dcli/components/InvoiceDrawer'
 import { DcliDocumentsTab } from '@/features/dcli/components/DcliDocumentsTab'
 import { formatShortDate, formatUSD } from '@/features/dcli/format'
 import type { DcliInvoiceInternal, DcliActivityRow } from '@/features/dcli/types'
@@ -80,10 +79,6 @@ export default function DCLIPage() {
   const [kpiLoading, setKpiLoading] = useState(true)
 
   const { invoices: dashboardInvoices, loading: invoicesLoading } = useDcliInvoices(invoiceRefreshKey)
-
-  // Drawer state
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [drawerInvoice, setDrawerInvoice] = useState<DcliInvoiceInternal | null>(null)
 
   const [invoiceSearch, setInvoiceSearch] = useState('')
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<InvoiceStatusFilter>('all')
@@ -598,13 +593,6 @@ export default function DCLIPage() {
                 rowData={dashboardInvoices}
                 columnDefs={invoiceColumnDefs}
                 loading={invoicesLoading}
-                onRowClicked={(e) => {
-                  if (e.data?.invoice_number) {
-                    setDrawerInvoice(e.data)
-                    setDrawerOpen(true)
-                  }
-                }}
-                rowStyle={{ cursor: 'pointer' }}
                 gridProps={{
                   onGridReady: handleInvoicesGridReady,
                   includeHiddenColumnsInQuickFilter: true,
@@ -612,11 +600,6 @@ export default function DCLIPage() {
               />
             </CardContent>
           </Card>
-          <InvoiceDrawer
-            open={drawerOpen}
-            invoice={drawerInvoice}
-            onClose={() => setDrawerOpen(false)}
-          />
         </div>
       )}
 
