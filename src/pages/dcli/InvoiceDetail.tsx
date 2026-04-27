@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, CheckCircle2, RefreshCw, Eye, Loader2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, RefreshCw, Eye, Loader2, FileSpreadsheet } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DataGrid } from '@/components/ui/DataGrid'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ColDef, ICellRendererParams, ValueGetterParams } from 'ag-grid-community'
 import { useDcliLineItems } from '@/features/dcli/hooks/useDcliLineItems'
 import { useDcliActivity } from '@/features/dcli/hooks/useDcliActivity'
 import { DocumentsPanel } from '@/features/dcli/components/DocumentsPanel'
+import { BCExportDialog } from '@/features/dcli/components/BCExportDialog'
 import { formatShortDate, formatUSD } from '@/features/dcli/format'
 import type {
   DcliInternalLineItem,
@@ -79,6 +81,7 @@ export default function DCLIInvoiceDetail() {
   const [validating, setValidating] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
 
   const { lineItems, loading: linesLoading, error: linesError } = useDcliLineItems(
     invoiceNumber,
@@ -167,20 +170,56 @@ export default function DCLIInvoiceDetail() {
         actByChassis.set(k, arr)
       }
 
+      // Pull SO numbers from mg_data (base table, never the mg_tms view).
+      const soByChassis = new Map<string, string>()
+      if (trimmedChassis.length > 0) {
+        const { data: mgRows, error: mgErr } = await supabase
+          .from('mg_data')
+          .select('chassis_number, so_num, delivery_actual_date')
+          .in('chassis_number', trimmedChassis)
+          .order('delivery_actual_date', { ascending: false })
+        if (mgErr && !/relation .*mg_data/i.test(mgErr.message)) {
+          throw mgErr
+        }
+        for (const r of (mgRows ?? []) as {
+          chassis_number: string | null
+          so_num: string | null
+        }[]) {
+          const k = (r.chassis_number ?? '').trim().toUpperCase()
+          if (!k || !r.so_num) continue
+          if (!soByChassis.has(k)) soByChassis.set(k, r.so_num)
+        }
+      }
+
       let matched = 0
       let mismatched = 0
       let unmatched = 0
+      let soUpdated = 0
       for (const l of lineItems) {
         const k = (l.chassis ?? '').trim().toUpperCase()
         const records = k ? actByChassis.get(k) : undefined
         if (!records || records.length === 0) {
           unmatched++
-          continue
+        } else {
+          const sumDays = records.reduce((s, r) => s + (Number(r.days_out) || 0), 0)
+          const lineDays = Number(l.bill_days ?? 0)
+          if (Math.abs(sumDays - lineDays) <= 1) matched++
+          else mismatched++
         }
-        const sumDays = records.reduce((s, r) => s + (Number(r.days_out) || 0), 0)
-        const lineDays = Number(l.bill_days ?? 0)
-        if (Math.abs(sumDays - lineDays) <= 1) matched++
-        else mismatched++
+
+        const tmsSo = k ? soByChassis.get(k) : undefined
+        if (tmsSo && tmsSo !== l.so_num) {
+          const { error: soErr } = await supabase
+            .from('dcli_internal_line_item')
+            .update({ so_num: tmsSo })
+            .eq('id', l.id)
+          if (!soErr) {
+            soUpdated++
+          } else if (/column .*so_num/i.test(soErr.message)) {
+            // Column not yet migrated — silently skip.
+            break
+          }
+        }
       }
 
       const status =
@@ -199,8 +238,11 @@ export default function DCLIInvoiceDetail() {
       }
 
       toast.success(
-        `Validation ${status.toUpperCase()} — ${matched} matched · ${mismatched} mismatched · ${unmatched} unmatched`
+        `Validation ${status.toUpperCase()} — ${matched} matched · ${mismatched} mismatched · ${unmatched} unmatched${
+          soUpdated > 0 ? ` · ${soUpdated} SO# populated` : ''
+        }`
       )
+      if (soUpdated > 0) setRefreshKey((k) => k + 1)
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Validation failed')
     } finally {
@@ -281,6 +323,29 @@ export default function DCLIInvoiceDetail() {
     }
   }, [lineItems, chassisList])
 
+  const isPaid = useMemo(() => {
+    const s = (invoice?.portal_status ?? '').trim().toLowerCase()
+    return s === 'paid'
+  }, [invoice?.portal_status])
+
+  const exportableLines = useMemo(
+    () =>
+      lineItems
+        .filter(
+          (l) => (l as Partial<DcliInternalLineItem>).du_number !== 'TOTAL' && !!l.id
+        )
+        .map((l) => ({
+          id: String(l.id),
+          chassis: l.chassis ?? null,
+          date_in: l.date_in ?? null,
+          total: typeof l.total === 'number' ? l.total : Number(l.total ?? 0) || null,
+          so_num: (l.so_num as string | null | undefined) ?? null,
+          bc_exported: (l.bc_exported as boolean | null | undefined) ?? null,
+          bc_exported_at: (l.bc_exported_at as string | null | undefined) ?? null,
+        })),
+    [lineItems]
+  )
+
   const lineItemColumnDefs = useMemo<ColDef<DcliInternalLineItem>[]>(
     () => [
       {
@@ -311,6 +376,25 @@ export default function DCLIInvoiceDetail() {
       { headerName: 'Container In', field: 'container_in', width: 140, cellClass: 'font-mono' },
       { headerName: 'Tax Amount', field: 'tax_amount', type: 'numericColumn', width: 120, valueFormatter: (p) => formatUSD(p.value) },
       { headerName: 'Total Fees', field: 'total_fees', type: 'numericColumn', width: 120, valueFormatter: (p) => formatUSD(p.value) },
+      { headerName: 'SO #', field: 'so_num', width: 120, cellClass: 'font-mono' },
+      {
+        headerName: 'BC',
+        width: 110,
+        sortable: false,
+        filter: false,
+        cellRenderer: (p: ICellRendererParams<DcliInternalLineItem>) => {
+          if (!p.data) return null
+          if ((p.data as Partial<DcliInternalLineItem>).du_number === 'TOTAL') return null
+          const exported = p.data.bc_exported
+          if (!exported) return null
+          const at = p.data.bc_exported_at
+          return (
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-blue-50 text-blue-800 border-blue-200">
+              Exported{at ? ` ${formatShortDate(at)}` : ''}
+            </span>
+          )
+        },
+      },
       {
         headerName: 'Match',
         width: 110,
@@ -453,8 +537,41 @@ export default function DCLIInvoiceDetail() {
             )}
             Sync TMS Data
           </Button>
+          {isPaid ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setExportDialogOpen(true)}
+              disabled={linesLoading || exportableLines.length === 0}
+            >
+              <FileSpreadsheet size={14} />
+              Export to BC
+            </Button>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span tabIndex={0}>
+                  <Button variant="outline" size="sm" disabled>
+                    <FileSpreadsheet size={14} />
+                    Export to BC
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Invoice must be Paid to export</TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
+
+      <BCExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        vendorKey="dcli"
+        invoiceId={invoiceNumber}
+        activityTable="dcli_internal_line_item"
+        lineItems={exportableLines}
+        onExported={() => setRefreshKey((k) => k + 1)}
+      />
 
       {error && (
         <div className="p-3 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm">

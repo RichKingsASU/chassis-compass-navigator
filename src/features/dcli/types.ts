@@ -33,6 +33,10 @@ export interface DcliInternalLineItem {
   container_in: string | null
   tax_amount: number | null
   total_fees: number | null
+  so_num?: string | null
+  bc_exported?: boolean | null
+  bc_exported_at?: string | null
+  bc_export_batch_id?: number | null
   [key: string]: unknown
 }
 

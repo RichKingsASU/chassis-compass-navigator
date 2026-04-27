@@ -106,7 +106,15 @@ const navItems: NavigationItem[] = [
     ],
   },
   { title: 'Provar', path: '/provar', icon: Plug },
-  { title: 'Settings', path: '/settings', icon: Settings },
+  {
+    title: 'Settings',
+    path: '/settings',
+    icon: Settings,
+    subItems: [
+      { title: 'General', path: '/settings' },
+      { title: 'BC Export Config', path: '/settings/bc-export-config' },
+    ],
+  },
 ]
 
 export default function SidebarNavigation() {
