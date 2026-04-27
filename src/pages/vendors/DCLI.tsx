@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -44,12 +44,28 @@ function invoiceStatusColorClass(status: string | null | undefined): string {
   return 'text-gray-600'
 }
 
+const VALID_TABS: VendorTabKey[] = ['dashboard', 'invoices', 'activity', 'financials', 'documents']
+
+function isValidTab(value: string | null): value is VendorTabKey {
+  return value !== null && (VALID_TABS as string[]).includes(value)
+}
+
 export default function DCLIPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [activity, setActivity] = useState<DcliActivityRow[]>([])
   const [activityLoading, setActivityLoading] = useState(true)
   const [activityError, setActivityError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<VendorTabKey>('dashboard')
+  const initialTab = ((): VendorTabKey => {
+    const queryTab = searchParams.get('tab')
+    if (isValidTab(queryTab)) return queryTab
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '')
+      if (isValidTab(hash)) return hash
+    }
+    return 'dashboard'
+  })()
+  const [activeTab, setActiveTab] = useState<VendorTabKey>(initialTab)
   const [search, setSearch] = useState('')
   const [poolContractFilter, setPoolContractFilter] = useState<PoolContractFilter>('all')
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
@@ -158,12 +174,20 @@ export default function DCLIPage() {
     }
   }, [invoiceRefreshKey])
 
-  // Sync activeTab with URL hash
+  // Sync activeTab when ?tab= query param changes (e.g. via Back button navigation)
+  useEffect(() => {
+    const queryTab = searchParams.get('tab')
+    if (isValidTab(queryTab)) {
+      setActiveTab(queryTab)
+    }
+  }, [searchParams])
+
+  // Backwards-compat: also sync activeTab with URL hash
   useEffect(() => {
     const applyHash = () => {
       const hash = window.location.hash.replace('#', '')
-      if (['dashboard', 'invoices', 'activity', 'financials', 'documents'].includes(hash)) {
-        setActiveTab(hash as VendorTabKey)
+      if (isValidTab(hash)) {
+        setActiveTab(hash)
       }
     }
     applyHash()
@@ -173,11 +197,13 @@ export default function DCLIPage() {
 
   const handleTabChange = (value: VendorTabKey) => {
     setActiveTab(value)
+    const next = new URLSearchParams(searchParams)
     if (value === 'dashboard') {
-      history.replaceState(null, '', window.location.pathname)
+      next.delete('tab')
     } else {
-      history.replaceState(null, '', `${window.location.pathname}#${value}`)
+      next.set('tab', value)
     }
+    setSearchParams(next, { replace: true })
   }
 
   const filteredActivity = useMemo(() => {

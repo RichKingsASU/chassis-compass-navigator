@@ -110,7 +110,7 @@ export default function DCLIInvoiceReview() {
           <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
           <p className="text-sm">{error}</p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/vendors/dcli#invoices')}>
+        <Button variant="outline" onClick={() => navigate('/vendors/dcli?tab=invoices')}>
           Back to Invoices
         </Button>
       </div>
@@ -121,7 +121,7 @@ export default function DCLIInvoiceReview() {
     return (
       <div className="p-6 space-y-4">
         <p className="text-destructive">Invoice not found.</p>
-        <Button variant="outline" onClick={() => navigate('/vendors/dcli#invoices')}>
+        <Button variant="outline" onClick={() => navigate('/vendors/dcli?tab=invoices')}>
           Back to Invoices
         </Button>
       </div>
@@ -132,10 +132,16 @@ export default function DCLIInvoiceReview() {
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate('/vendors/dcli')}
+          onClick={() =>
+            navigate(
+              invoiceId
+                ? `/vendors/dcli/invoices/${encodeURIComponent(invoiceId)}/detail`
+                : '/vendors/dcli?tab=invoices'
+            )
+          }
           className="text-muted-foreground hover:text-foreground text-sm"
         >
-          &larr; Back to DCLI
+          &larr; Back
         </button>
         <h1 className="text-3xl font-bold">Review Invoice</h1>
       </div>

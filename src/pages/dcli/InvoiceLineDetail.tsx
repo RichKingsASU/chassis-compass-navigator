@@ -182,7 +182,7 @@ export default function DCLIInvoiceLineDetail() {
     if (invoiceNumber) {
       navigate(`/vendors/dcli/invoices/${encodeURIComponent(invoiceNumber)}/detail`)
     } else {
-      navigate('/vendors/dcli#invoices')
+      navigate('/vendors/dcli?tab=invoices')
     }
   }
 

@@ -343,10 +343,10 @@ export default function DCLIInvoiceDetail() {
       {/* Header row */}
       <div className="flex items-center gap-3 flex-wrap">
         <button
-          onClick={() => navigate('/vendors/dcli/invoices/tracker')}
+          onClick={() => navigate('/vendors/dcli?tab=invoices')}
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft size={14} /> Invoice Tracker
+          <ArrowLeft size={14} /> Invoices
         </button>
         <span className="text-muted-foreground">/</span>
         <h1 className="text-xl font-semibold font-mono">Invoice {invoiceNumber}</h1>
@@ -663,7 +663,7 @@ export default function DCLIInvoiceDetail() {
       />
 
       <div className="flex justify-end pt-2">
-        <Button variant="outline" onClick={() => navigate('/vendors/dcli#invoices')}>
+        <Button variant="outline" onClick={() => navigate('/vendors/dcli?tab=invoices')}>
           Back to Invoices
         </Button>
       </div>
