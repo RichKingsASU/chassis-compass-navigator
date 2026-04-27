@@ -176,9 +176,9 @@ export default function App() {
                   {/* Vendors */}
                   <Route path="/vendor-validation" element={<ProtectedPage><VendorValidation /></ProtectedPage>} />
                   <Route path="/vendors/dcli" element={<ProtectedPage><DCLI /></ProtectedPage>} />
-                  <Route path="/vendors/dcli/invoices" element={<Navigate to="/vendors/dcli#invoices" replace />} />
+                  <Route path="/vendors/dcli/invoices" element={<Navigate to="/vendors/dcli?tab=invoices" replace />} />
                   <Route path="/vendors/dcli/invoices/new" element={<ProtectedPage><DCLINewInvoice /></ProtectedPage>} />
-                  <Route path="/vendors/dcli/invoices/tracker" element={<ProtectedPage><DCLIInvoiceTracker /></ProtectedPage>} />
+                  <Route path="/vendors/dcli/invoices/tracker" element={<Navigate to="/vendors/dcli?tab=invoices" replace />} />
                   <Route path="/vendors/dcli/invoices/:invoiceId/review" element={<ProtectedPage><DCLIInvoiceReview /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoices/:invoiceId/detail" element={<ProtectedPage><DCLIInvoiceDetail /></ProtectedPage>} />
                   <Route path="/vendors/dcli/invoices/:invoiceId/lines/:lineId" element={<ProtectedPage><DCLIInvoiceLineDetail /></ProtectedPage>} />
