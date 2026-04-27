@@ -8,7 +8,10 @@ export interface UseDcliLineItemsResult {
   error: string | null
 }
 
-export function useDcliLineItems(invoiceNumber: string | null | undefined): UseDcliLineItemsResult {
+export function useDcliLineItems(
+  invoiceNumber: string | null | undefined,
+  refreshKey: number = 0
+): UseDcliLineItemsResult {
   const [lineItems, setLineItems] = useState<DcliInternalLineItem[]>([])
   const [loading, setLoading] = useState<boolean>(!!invoiceNumber)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +49,7 @@ export function useDcliLineItems(invoiceNumber: string | null | undefined): UseD
     return () => {
       cancelled = true
     }
-  }, [invoiceNumber])
+  }, [invoiceNumber, refreshKey])
 
   return { lineItems, loading, error }
 }
