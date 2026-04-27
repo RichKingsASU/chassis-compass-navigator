@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import type { DcliDocumentWithUrl, DcliInvoiceDocument } from '../types'
 
 const LEGACY_BUCKET = 'dcli-invoices'
-const NEW_BUCKET = 'invoice-documents'
+const NEW_BUCKET = 'dcli-invoices'
 const SIGNED_URL_TTL_SECONDS = 3600
 
 export interface UseDcliDocumentsResult {

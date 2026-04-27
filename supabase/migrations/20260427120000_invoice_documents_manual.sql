@@ -15,8 +15,9 @@
 --   - "Validate Invoice" button (writes validation_status on dcli_invoice_internal)
 --   - "Sync TMS Data" button (writes tms_match jsonb on dcli_internal_line_item)
 --
--- It also assumes a Supabase Storage bucket named `invoice-documents` exists.
--- Create it via the Storage UI or `supabase storage create invoice-documents`.
+-- Uploads reuse the existing `dcli-invoices` storage bucket. Files are stored
+-- under `${invoiceId}/${filename}` (and `${invoiceId}/lines/${lineItemId}/...`
+-- for line-scoped uploads) so each invoice gets its own folder.
 -- ============================================================================
 
 begin;
