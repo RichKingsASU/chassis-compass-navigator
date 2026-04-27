@@ -14,11 +14,42 @@ export interface DcliInvoiceInternal {
   invoice_type: string | null
 }
 
+export type DcliLineItemStatus =
+  | 'Approved'
+  | 'Disputed'
+  | 'On Hold'
+  | 'Pending'
+  | 'Skipped'
+
+export type DcliValidationStatus = 'pass' | 'fail' | 'warn' | 'skipped'
+
+export interface DcliTmsMatchSnapshot {
+  chassis?: string | null
+  container?: string | null
+  date_out?: string | null
+  date_in?: string | null
+  days?: number | null
+  days_out?: number | null
+  rate?: number | null
+  total?: number | null
+  load_id?: string | null
+  reservation_number?: string | null
+  pick_up_location?: string | null
+  location_in?: string | null
+  motor_carrier_scac?: string | null
+  asset_type?: string | null
+  pool_contract?: string | null
+  market?: string | null
+  match_score?: number | null
+  [key: string]: unknown
+}
+
 export interface DcliInternalLineItem {
   id: string
   invoice: string | null
   du_number: string | null
   chassis: string | null
+  container?: string | null
   date_out: string | null
   date_in: string | null
   bill_days: number | null
@@ -34,6 +65,9 @@ export interface DcliInternalLineItem {
   tax_amount: number | null
   total_fees: number | null
   so_num?: string | null
+  tms_match?: DcliTmsMatchSnapshot | null
+  validation_status?: DcliValidationStatus | null
+  line_item_status?: DcliLineItemStatus | null
   bc_exported?: boolean | null
   bc_exported_at?: string | null
   bc_export_batch_id?: number | null

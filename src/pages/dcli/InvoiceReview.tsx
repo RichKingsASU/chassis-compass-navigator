@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,7 +26,7 @@ interface ValidationResult {
 }
 
 export default function DCLIInvoiceReview() {
-  const { id } = useParams<{ id: string }>()
+  const { invoiceId } = useParams<{ invoiceId: string }>()
   const navigate = useNavigate()
   const [invoice, setInvoice] = useState<StagedInvoice | null>(null)
   const [validation, setValidation] = useState<ValidationResult | null>(null)
@@ -34,27 +35,40 @@ export default function DCLIInvoiceReview() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
     async function load() {
-      if (!id) return
-      setLoading(true)
-      try {
-        const { data, error: fetchErr } = await supabase.from('dcli_invoice_staging').select('*').eq('id', id).single()
-        if (fetchErr) throw fetchErr
-        setInvoice(data)
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load invoice')
-      } finally {
+      if (!invoiceId) {
         setLoading(false)
+        return
+      }
+      setLoading(true)
+      setError(null)
+      try {
+        const { data, error: fetchErr } = await supabase
+          .from('dcli_invoice_staging')
+          .select('*')
+          .eq('id', invoiceId)
+          .maybeSingle()
+        if (fetchErr) throw fetchErr
+        if (!cancelled) setInvoice((data ?? null) as StagedInvoice | null)
+      } catch (err: unknown) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to load invoice')
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     }
     load()
-  }, [id])
+    return () => {
+      cancelled = true
+    }
+  }, [invoiceId])
 
   async function runValidation() {
-    if (!id) return
+    if (!invoiceId) return
     setValidating(true)
+    setError(null)
     try {
-      const { data, error: rpcErr } = await supabase.rpc('validate_dcli_invoice', { invoice_id: id })
+      const { data, error: rpcErr } = await supabase.rpc('validate_dcli_invoice', { invoice_id: invoiceId })
       if (rpcErr) throw rpcErr
       setValidation(data as ValidationResult)
     } catch (err: unknown) {
@@ -65,9 +79,12 @@ export default function DCLIInvoiceReview() {
   }
 
   async function approveInvoice() {
-    if (!id) return
+    if (!invoiceId) return
     try {
-      const { error: updateErr } = await supabase.from('dcli_invoice_staging').update({ status: 'approved' }).eq('id', id)
+      const { error: updateErr } = await supabase
+        .from('dcli_invoice_staging')
+        .update({ status: 'approved' })
+        .eq('id', invoiceId)
       if (updateErr) throw updateErr
       navigate('/vendors/dcli')
     } catch (err: unknown) {
@@ -75,17 +92,53 @@ export default function DCLIInvoiceReview() {
     }
   }
 
-  if (loading) return <div className="p-6"><p className="text-muted-foreground">Loading...</p></div>
-  if (!invoice) return <div className="p-6"><p className="text-destructive">Invoice not found.</p></div>
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[300px]">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 size={16} className="animate-spin" />
+          <span>Loading invoice review...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-4">
+        <div className="flex items-start gap-2 p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">
+          <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />
+          <p className="text-sm">{error}</p>
+        </div>
+        <Button variant="outline" onClick={() => navigate('/vendors/dcli#invoices')}>
+          Back to Invoices
+        </Button>
+      </div>
+    )
+  }
+
+  if (!invoice) {
+    return (
+      <div className="p-6 space-y-4">
+        <p className="text-destructive">Invoice not found.</p>
+        <Button variant="outline" onClick={() => navigate('/vendors/dcli#invoices')}>
+          Back to Invoices
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
-        <button onClick={() => navigate('/vendors/dcli')} className="text-muted-foreground hover:text-foreground text-sm">&larr; Back to DCLI</button>
+        <button
+          onClick={() => navigate('/vendors/dcli')}
+          className="text-muted-foreground hover:text-foreground text-sm"
+        >
+          &larr; Back to DCLI
+        </button>
         <h1 className="text-3xl font-bold">Review Invoice</h1>
       </div>
-
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
