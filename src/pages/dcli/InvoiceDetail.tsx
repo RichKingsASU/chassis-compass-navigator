@@ -254,9 +254,9 @@ export default function DCLIInvoiceDetail() {
     setMatching(true)
     try {
       const { data, error: rpcErr } = await supabase.rpc('match_dcli_line_items', {
-        p_invoice_id: invoiceNumber,
+        p_invoice_id: String(invoiceNumber),
       })
-      if (rpcErr) throw rpcErr
+      if (rpcErr) throw new Error(rpcErr.message)
       const r = data as
         | { total?: number; matched?: number; fuzzy?: number; none?: number }
         | null
@@ -270,8 +270,11 @@ export default function DCLIInvoiceDetail() {
         toast.success('Activity matching complete')
       }
       setRefreshKey((k) => k + 1)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
+    } catch (error: unknown) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : ((error as { message?: string })?.message ?? 'Unknown error')
       toast.error(`Activity matching failed: ${msg}`)
     } finally {
       setMatching(false)
@@ -288,9 +291,9 @@ export default function DCLIInvoiceDetail() {
     setValidating(true)
     try {
       const { data, error: rpcErr } = await supabase.rpc('validate_dcli_line_items', {
-        p_invoice_id: invoiceNumber,
+        p_invoice_id: String(invoiceNumber),
       })
-      if (rpcErr) throw rpcErr
+      if (rpcErr) throw new Error(rpcErr.message)
       const r = data as
         | { total?: number; pass?: number; fail?: number; warn?: number; skipped?: number }
         | null
@@ -304,8 +307,11 @@ export default function DCLIInvoiceDetail() {
         toast.success('Validation complete')
       }
       setRefreshKey((k) => k + 1)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
+    } catch (error: unknown) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : ((error as { message?: string })?.message ?? 'Unknown error')
       toast.error(`Validation failed: ${msg}`)
     } finally {
       setValidating(false)
