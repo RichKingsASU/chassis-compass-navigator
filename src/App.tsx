@@ -25,6 +25,7 @@ const ChassisUtilization = lazy(() => import('@/pages/ChassisUtilization'))
 const TMSData = lazy(() => import('@/pages/TMSData'))
 const GpsOverview = lazy(() => import('@/pages/GpsOverview'))
 const Settings = lazy(() => import('@/pages/Settings'))
+const VendorBCConfigPage = lazy(() => import('@/pages/settings/VendorBCConfig'))
 const VendorValidation = lazy(() => import('@/pages/VendorValidation'))
 const ActiveLoads = lazy(() => import('@/pages/ActiveLoads'))
 const NotFound = lazy(() => import('@/pages/NotFound'))
@@ -243,6 +244,7 @@ export default function App() {
 
                   {/* Settings */}
                   <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
+                  <Route path="/settings/bc-export-config" element={<ProtectedPage><VendorBCConfigPage /></ProtectedPage>} />
 
                   {/* 404 */}
                   <Route path="*" element={<NotFound />} />
