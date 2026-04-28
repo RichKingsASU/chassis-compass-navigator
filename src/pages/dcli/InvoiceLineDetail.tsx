@@ -174,7 +174,22 @@ export default function DCLIInvoiceLineDetail() {
     )
   }
 
-  if (!loading && !line) {
+  if (loading) {
+    return (
+      <div className="p-8 space-y-8">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 size={16} className="animate-spin" />
+          <span className="text-sm">Loading line item…</span>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <Skeleton className="h-[420px] w-full" />
+          <Skeleton className="h-[420px] w-full" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!line) {
     return (
       <div className="p-8 space-y-4">
         <p className="text-destructive font-medium text-lg text-center py-20">Line item record not found in system.</p>
@@ -185,10 +200,10 @@ export default function DCLIInvoiceLineDetail() {
     )
   }
 
-  const tms: DcliTmsMatchSnapshot | null = line?.tms_match ?? null
+  const tms: DcliTmsMatchSnapshot | null = line.tms_match ?? null
   const matchScore = deriveMatchScore(tms)
-  const dayVariance = deriveDayVariance(line!)
-  const amountVariance = deriveAmountVariance(line!)
+  const dayVariance = deriveDayVariance(line)
+  const amountVariance = deriveAmountVariance(line)
   const tmsDays = tms
     ? typeof tms.days === 'number'
       ? tms.days

@@ -25,7 +25,10 @@ export function deriveMatchScore(tms: DcliTmsMatchSnapshot | null | undefined): 
   return 100
 }
 
-export function deriveMatchBucket(line: DcliInternalLineItem): MatchBucket {
+export function deriveMatchBucket(
+  line: DcliInternalLineItem | null | undefined
+): MatchBucket {
+  if (!line) return 'unmatched'
   const tms = line.tms_match
   if (tms == null) return 'unmatched'
   const score = deriveMatchScore(tms)
@@ -37,8 +40,9 @@ export function deriveMatchBucket(line: DcliInternalLineItem): MatchBucket {
 }
 
 export function deriveValidationStatus(
-  line: DcliInternalLineItem
-): DcliValidationStatus {
+  line: DcliInternalLineItem | null | undefined
+): DcliValidationStatus | null {
+  if (!line) return null
   if (line.validation_status) return line.validation_status
   const tms = line.tms_match
   if (tms == null) return 'skipped'
@@ -53,7 +57,10 @@ export function deriveValidationStatus(
   return 'fail'
 }
 
-export function deriveDayVariance(line: DcliInternalLineItem): number | null {
+export function deriveDayVariance(
+  line: DcliInternalLineItem | null | undefined
+): number | null {
+  if (!line) return null
   const tms = line.tms_match
   if (tms == null) return null
   const tmsDays =
@@ -67,7 +74,10 @@ export function deriveDayVariance(line: DcliInternalLineItem): number | null {
   return billDays - tmsDays
 }
 
-export function deriveAmountVariance(line: DcliInternalLineItem): number | null {
+export function deriveAmountVariance(
+  line: DcliInternalLineItem | null | undefined
+): number | null {
+  if (!line) return null
   const tms = line.tms_match
   if (tms == null) return null
   const tmsTotal = typeof tms.total === 'number' ? tms.total : null
