@@ -1,4 +1,4 @@
-import * as React from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   PieChart,
@@ -13,11 +13,10 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts'
-import { Truck, Warehouse, Clock, DollarSign, Wrench, Inbox } from 'lucide-react'
+import { Truck, Warehouse, Package, Clock, DollarSign, Search } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -34,234 +33,249 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { ChassisStatusBadge } from '@/features/yard/statusBadge'
 import ChassisDetailDrawer from '@/components/chassis/ChassisDetailDrawer'
+import { formatDateTime, formatCurrency } from '@/utils/dateUtils'
 
 interface MclChassisRow {
   chassis_number: string
-  lessor: string | null
   chassis_type: string | null
-  chassis_status: string | null
+  lessor: string | null
   region: string | null
   gps_provider: string | null
-  lease_rate_per_day: number | null
-  on_hire_date: string | null
-  contract_end_date: string | null
-  reporting_category: string | null
+  chassis_status: string | null
+  current_rate_per_day: number | null
 }
 
-const COLORS = [
-  'hsl(var(--primary))',
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#ec4899',
-  '#14b8a6',
-]
-
-function formatMoney(amount: number): string {
-  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+interface GpsRow {
+  chassis_number: string | null
+  last_updated: string | null
+  landmark: string | null
+  address: string | null
+  dormant_days: number | null
 }
 
-function StatusBadge({ status }: { status: string | null }) {
-  if (!status) return <Badge variant="outline">Unknown</Badge>
-  const upper = status.toUpperCase()
-  if (upper === 'ACTIVE')
-    return <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/20">ACTIVE</Badge>
-  if (upper === 'OFFHIRED' || upper === 'OFF-HIRED')
-    return <Badge variant="secondary">OFFHIRED</Badge>
-  if (upper === 'STOLEN') return <Badge variant="destructive">STOLEN</Badge>
-  return <Badge variant="outline">{upper}</Badge>
+interface MgRow {
+  chassis_number: string | null
+  status: string | null
 }
+
+interface YardInvRow {
+  chassis_number: string | null
+  status: string | null
+  actual_exit_at: string | null
+}
+
+const COLORS = ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#9333ea', '#0891b2', '#ea580c', '#65a30d']
 
 export default function FleetOverview() {
-  const [search, setSearch] = React.useState('')
-  const [lessorFilter, setLessorFilter] = React.useState<string>('all')
-  const [regionFilter, setRegionFilter] = React.useState<string>('all')
-  const [drawerOpen, setDrawerOpen] = React.useState(false)
-  const [selectedChassis, setSelectedChassis] = React.useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [lessorFilter, setLessorFilter] = useState<string>('all')
+  const [regionFilter, setRegionFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [selectedChassis, setSelectedChassis] = useState<string | null>(null)
 
-  const { data: chassisRows, isLoading } = useQuery<MclChassisRow[]>({
-    queryKey: ['mcl_chassis', 'all'],
+  const { data, isLoading } = useQuery({
+    queryKey: ['fleet_overview'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('mcl_chassis').select('*')
-      if (error) throw error
-      return (data ?? []) as MclChassisRow[]
+      const [mclRes, gpsRes, mgRes, yardRes] = await Promise.all([
+        supabase.from('mcl_chassis').select(
+          'chassis_number, chassis_type, lessor, region, gps_provider, chassis_status, current_rate_per_day'
+        ),
+        supabase.from('v_chassis_gps_unified').select(
+          'chassis_number, last_updated, landmark, address, dormant_days'
+        ),
+        supabase.from('mg_data').select('chassis_number, status'),
+        supabase.from('yard_inventory').select('chassis_number, status, actual_exit_at'),
+      ])
+
+      const mcl: MclChassisRow[] = (mclRes.data as MclChassisRow[] | null) ?? []
+      const gps: GpsRow[] = (gpsRes.data as GpsRow[] | null) ?? []
+      const mg: MgRow[] = (mgRes.data as MgRow[] | null) ?? []
+      const yard: YardInvRow[] = (yardRes.data as YardInvRow[] | null) ?? []
+
+      const gpsByChassis = new Map<string, GpsRow>()
+      gps.forEach((g) => {
+        if (g.chassis_number) gpsByChassis.set(g.chassis_number.trim(), g)
+      })
+
+      return { mcl, gpsByChassis, mg, yard }
     },
   })
 
-  const { data: yardEmptyCount } = useQuery<number>({
-    queryKey: ['yard_inventory', 'empty_count'],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('yard_inventory')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'EMPTY')
-        .is('actual_exit_at', null)
-      if (error) throw error
-      return count ?? 0
-    },
-  })
+  const mcl = data?.mcl ?? []
+  const gpsByChassis = data?.gpsByChassis ?? new Map<string, GpsRow>()
+  const mg = data?.mg ?? []
+  const yard = data?.yard ?? []
 
-  const { data: idleCount } = useQuery<number>({
-    queryKey: ['v_chassis_gps_mcl', 'idle_gt_7'],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('v_chassis_gps_mcl')
-        .select('chassis_number', { count: 'exact', head: true })
-        .gt('dormant_days', 7)
-      if (error) throw error
-      return count ?? 0
-    },
-  })
-
-  const { data: repairTotal } = useQuery<number>({
-    queryKey: ['chassis_repairs', 'total_cost'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('chassis_repairs').select('cost')
-      if (error) throw error
-      return (data ?? []).reduce((s: number, r: { cost: number | null }) => s + (r.cost || 0), 0)
-    },
-  })
-
-  const activeChassis = React.useMemo(
-    () => (chassisRows ?? []).filter((c) => (c.chassis_status || '').toUpperCase() === 'ACTIVE'),
-    [chassisRows]
+  const activeChassis = useMemo(
+    () => mcl.filter((c) => (c.chassis_status ?? '').toUpperCase() === 'ACTIVE'),
+    [mcl]
   )
 
-  const totalActive = activeChassis.length
-  const dailyBurn = activeChassis.reduce((s, c) => s + (c.lease_rate_per_day || 0), 0)
+  const kpis = useMemo(() => {
+    const totalActive = activeChassis.length
 
-  const lessorChartData = React.useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const c of activeChassis) {
-      const k = c.lessor || 'Unknown'
-      map[k] = (map[k] || 0) + 1
-    }
-    return Object.entries(map).map(([name, value]) => ({ name, value }))
+    const availableAtYard = yard.filter(
+      (y) => (y.status ?? '').toUpperCase() === 'EMPTY' && !y.actual_exit_at
+    ).length
+
+    const activeMgChassis = new Set(
+      mg
+        .filter((m) => {
+          const s = (m.status ?? '').toLowerCase()
+          return s !== 'delivered' && s !== 'cancelled' && m.chassis_number
+        })
+        .map((m) => (m.chassis_number ?? '').trim())
+    )
+    const onActiveLoad = activeChassis.filter((c) =>
+      activeMgChassis.has(c.chassis_number.trim())
+    ).length
+
+    let idleOver7 = 0
+    activeChassis.forEach((c) => {
+      const g = gpsByChassis.get(c.chassis_number.trim())
+      if (g && (g.dormant_days ?? 0) > 7) idleOver7 += 1
+    })
+
+    const dailyBurn = activeChassis.reduce(
+      (sum, c) => sum + (Number(c.current_rate_per_day) || 0),
+      0
+    )
+
+    return { totalActive, availableAtYard, onActiveLoad, idleOver7, dailyBurn }
+  }, [activeChassis, yard, mg, gpsByChassis])
+
+  const lessorData = useMemo(() => {
+    const counts = new Map<string, number>()
+    activeChassis.forEach((c) => {
+      const key = c.lessor || 'Unknown'
+      counts.set(key, (counts.get(key) || 0) + 1)
+    })
+    return Array.from(counts, ([name, value]) => ({ name, value })).sort(
+      (a, b) => b.value - a.value
+    )
   }, [activeChassis])
 
-  const regionChartData = React.useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const c of activeChassis) {
-      const k = c.region || 'Unknown'
-      map[k] = (map[k] || 0) + 1
-    }
-    return Object.entries(map).map(([name, count]) => ({ name, count }))
+  const regionData = useMemo(() => {
+    const counts = new Map<string, number>()
+    activeChassis.forEach((c) => {
+      const key = c.region || 'Unknown'
+      counts.set(key, (counts.get(key) || 0) + 1)
+    })
+    return Array.from(counts, ([region, count]) => ({ region, count })).sort(
+      (a, b) => b.count - a.count
+    )
   }, [activeChassis])
 
-  const lessorOptions = React.useMemo(() => {
-    const set = new Set<string>()
-    for (const c of activeChassis) if (c.lessor) set.add(c.lessor)
-    return Array.from(set).sort()
-  }, [activeChassis])
+  const lessorOptions = useMemo(
+    () => Array.from(new Set(mcl.map((c) => c.lessor).filter((v): v is string => !!v))).sort(),
+    [mcl]
+  )
+  const regionOptions = useMemo(
+    () => Array.from(new Set(mcl.map((c) => c.region).filter((v): v is string => !!v))).sort(),
+    [mcl]
+  )
+  const statusOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(mcl.map((c) => (c.chassis_status ?? '').toUpperCase()).filter((v) => v))
+      ).sort(),
+    [mcl]
+  )
 
-  const regionOptions = React.useMemo(() => {
-    const set = new Set<string>()
-    for (const c of activeChassis) if (c.region) set.add(c.region)
-    return Array.from(set).sort()
-  }, [activeChassis])
-
-  const filtered = React.useMemo(() => {
-    return activeChassis.filter((c) => {
-      if (search && !c.chassis_number.toLowerCase().includes(search.toLowerCase())) return false
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return mcl.filter((c) => {
+      if (q && !c.chassis_number.toLowerCase().includes(q)) return false
       if (lessorFilter !== 'all' && c.lessor !== lessorFilter) return false
       if (regionFilter !== 'all' && c.region !== regionFilter) return false
+      if (
+        statusFilter !== 'all' &&
+        (c.chassis_status ?? '').toUpperCase() !== statusFilter
+      )
+        return false
       return true
     })
-  }, [activeChassis, search, lessorFilter, regionFilter])
+  }, [mcl, search, lessorFilter, regionFilter, statusFilter])
+
+  const handleRowClick = (chassisNumber: string) => {
+    setSelectedChassis(chassisNumber)
+    setDrawerOpen(true)
+  }
+
+  const kpiCards = [
+    { label: 'Total MCL Chassis', value: kpis.totalActive.toLocaleString(), icon: Truck },
+    { label: 'Available at Yard', value: kpis.availableAtYard.toLocaleString(), icon: Warehouse },
+    { label: 'On Active Load', value: kpis.onActiveLoad.toLocaleString(), icon: Package },
+    { label: 'Idle >7 Days', value: kpis.idleOver7.toLocaleString(), icon: Clock },
+    {
+      label: 'Daily Lease Burn',
+      value: formatCurrency(kpis.dailyBurn),
+      icon: DollarSign,
+    },
+  ]
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Fleet Overview</h1>
-        <p className="text-muted-foreground">
-          Active chassis fleet metrics and breakdowns by lessor and region.
-        </p>
+    <div className="p-8 space-y-8">
+      <div className="flex items-center gap-3">
+        <Truck className="h-7 w-7" />
+        <div>
+          <h1 className="text-3xl font-bold">Fleet Overview</h1>
+          <p className="text-muted-foreground mt-2">
+            Real-time view of every active chassis in the MCL fleet
+          </p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Truck className="h-4 w-4" /> Total Active Chassis
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalActive.toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Warehouse className="h-4 w-4" /> Available at Yard
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{(yardEmptyCount ?? 0).toLocaleString()}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Clock className="h-4 w-4" /> Idle &gt; 7 Days
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">
-              {(idleCount ?? 0).toLocaleString()}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <DollarSign className="h-4 w-4" /> Daily Lease Burn
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatMoney(dailyBurn)}/day</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Wrench className="h-4 w-4" /> Total Repair Spend
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatMoney(repairTotal ?? 0)}</div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        {kpiCards.map((k) => (
+          <Card key={k.label}>
+            <CardContent className="pt-4 pb-3 px-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                <k.icon className="h-3.5 w-3.5" />
+                {k.label}
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <p className="text-2xl font-bold">{k.value}</p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Chassis by Lessor</CardTitle>
-            <CardDescription>Active chassis distribution</CardDescription>
+            <CardTitle className="text-lg">Chassis by Lessor</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            {lessorChartData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                No active chassis data
-              </div>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : lessorData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active chassis</p>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={lessorChartData}
+                    data={lessorData}
+                    dataKey="value"
+                    nameKey="name"
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
                     outerRadius={100}
-                    paddingAngle={3}
-                    dataKey="value"
+                    label={(entry: { name?: string; value?: number }) =>
+                      `${entry.name ?? ''} (${entry.value ?? 0})`
+                    }
                   >
-                    {lessorChartData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    {lessorData.map((_, idx) => (
+                      <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -274,22 +288,21 @@ export default function FleetOverview() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Chassis by Region</CardTitle>
-            <CardDescription>Active chassis count per region</CardDescription>
+            <CardTitle className="text-lg">Chassis by Region</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            {regionChartData.length === 0 ? (
-              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                No active chassis data
-              </div>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-[300px] w-full" />
+            ) : regionData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No active chassis</p>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={regionChartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" />
-                  <YAxis />
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={regionData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="region" />
+                  <YAxis allowDecimals={false} />
                   <Tooltip />
-                  <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" fill="#2563eb" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -299,20 +312,20 @@ export default function FleetOverview() {
 
       <Card>
         <CardHeader>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <CardTitle>Active Chassis</CardTitle>
-              <CardDescription>Detailed view of active fleet</CardDescription>
-            </div>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <CardTitle className="text-lg">Active Fleet</CardTitle>
             <div className="flex flex-wrap gap-2">
-              <Input
-                placeholder="Search chassis #"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-[200px]"
-              />
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search chassis #"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-8 w-[200px]"
+                />
+              </div>
               <Select value={lessorFilter} onValueChange={setLessorFilter}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[150px]">
                   <SelectValue placeholder="Lessor" />
                 </SelectTrigger>
                 <SelectContent>
@@ -325,7 +338,7 @@ export default function FleetOverview() {
                 </SelectContent>
               </Select>
               <Select value={regionFilter} onValueChange={setRegionFilter}>
-                <SelectTrigger className="w-[160px]">
+                <SelectTrigger className="w-[150px]">
                   <SelectValue placeholder="Region" />
                 </SelectTrigger>
                 <SelectContent>
@@ -337,58 +350,81 @@ export default function FleetOverview() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {statusOptions.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="py-12 text-center text-muted-foreground">Loading…</div>
-          ) : filtered.length === 0 ? (
+            <Skeleton className="h-[400px] w-full" />
+          ) : filteredRows.length === 0 ? (
             <EmptyState
-              icon={Inbox}
               title="No chassis found"
-              description="No active chassis match the current filters."
+              description="Try adjusting your filters or search query"
             />
           ) : (
-            <div className="overflow-auto max-h-[60vh] border rounded-md">
+            <div className="rounded-md border max-h-[600px] overflow-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-background">
                   <TableRow>
                     <TableHead>Chassis #</TableHead>
-                    <TableHead>Lessor</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Lessor</TableHead>
                     <TableHead>Region</TableHead>
                     <TableHead>GPS Provider</TableHead>
+                    <TableHead>Last GPS Ping</TableHead>
+                    <TableHead>Current Location</TableHead>
+                    <TableHead className="text-right">Days Dormant</TableHead>
                     <TableHead className="text-right">Daily Rate</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((c) => (
-                    <TableRow key={c.chassis_number}>
-                      <TableCell>
-                        <button
-                          className="font-mono font-medium text-primary hover:underline"
-                          onClick={() => {
-                            setSelectedChassis(c.chassis_number)
-                            setDrawerOpen(true)
-                          }}
-                        >
+                  {filteredRows.map((c) => {
+                    const g = gpsByChassis.get(c.chassis_number.trim())
+                    return (
+                      <TableRow
+                        key={c.chassis_number}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleRowClick(c.chassis_number)}
+                      >
+                        <TableCell className="font-mono font-medium">
                           {c.chassis_number}
-                        </button>
-                      </TableCell>
-                      <TableCell>{c.lessor || '—'}</TableCell>
-                      <TableCell>{c.chassis_type || '—'}</TableCell>
-                      <TableCell>{c.region || '—'}</TableCell>
-                      <TableCell>{c.gps_provider || '—'}</TableCell>
-                      <TableCell className="text-right">
-                        {c.lease_rate_per_day != null ? formatMoney(c.lease_rate_per_day) : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={c.chassis_status} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>{c.chassis_type ?? '—'}</TableCell>
+                        <TableCell>{c.lessor ?? '—'}</TableCell>
+                        <TableCell>{c.region ?? '—'}</TableCell>
+                        <TableCell>{c.gps_provider ?? '—'}</TableCell>
+                        <TableCell>{formatDateTime(g?.last_updated ?? null)}</TableCell>
+                        <TableCell className="max-w-[220px] truncate">
+                          {g?.landmark || g?.address || '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {g?.dormant_days ?? '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {c.current_rate_per_day != null
+                            ? formatCurrency(c.current_rate_per_day)
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <ChassisStatusBadge status={c.chassis_status} />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -399,7 +435,10 @@ export default function FleetOverview() {
       <ChassisDetailDrawer
         chassisNumber={selectedChassis}
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => {
+          setDrawerOpen(false)
+          setSelectedChassis(null)
+        }}
       />
     </div>
   )

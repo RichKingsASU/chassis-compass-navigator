@@ -91,10 +91,15 @@ export default function App() {
                   <Route path="/terminal-events" element={<ProtectedPage><TerminalEventsPage /></ProtectedPage>} />
                   <Route path="/provar" element={<ProtectedPage><ProvarPage /></ProtectedPage>} />
 
-                  {/* Yards */}
-                  <Route path="/yard" element={<ProtectedPage><YardManagementHub /></ProtectedPage>} />
+                  {/* Yards — new redesigned routes */}
+                  <Route path="/yard" element={<ProtectedPage><YardDashboard /></ProtectedPage>} />
                   <Route path="/yard/dashboard" element={<ProtectedPage><YardDashboard /></ProtectedPage>} />
-                  <Route path="/yard/:slug" element={<ProtectedPage><YardPage /></ProtectedPage>} />
+                  <Route path="/yard/17th" element={<ProtectedPage><YardPage yardShortCode="17TH" yardLabel="17th St Yard" gateLogSource="inventory" /></ProtectedPage>} />
+                  <Route path="/yard/jed" element={<ProtectedPage><YardPage yardShortCode="JED" yardLabel="JED Yard" gateLogSource="jed" /></ProtectedPage>} />
+                  <Route path="/yard/pier-s" element={<ProtectedPage><YardPage yardShortCode="PIERS" yardLabel="Pier S" gateLogSource="pier_s" /></ProtectedPage>} />
+
+                  {/* Legacy yard routes preserved */}
+                  <Route path="/yard/hub" element={<ProtectedPage><YardManagementHub /></ProtectedPage>} />
                   <Route path="/yards/pola" element={<ProtectedPage><YardDetail yardId="PIER S" /></ProtectedPage>} />
                   <Route path="/yards/jedyard" element={<ProtectedPage><YardDetail yardId="JED YARD" /></ProtectedPage>} />
 

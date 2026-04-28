@@ -18,10 +18,30 @@ import {
 
 const navItems = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { title: 'Chassis Management', path: '/chassis', icon: Truck },
+  {
+    title: 'Chassis Management',
+    path: '/chassis',
+    icon: Truck,
+    subItems: [
+      { title: 'Fleet Overview', path: '/chassis/fleet-overview' },
+      { title: 'Equipment Board', path: '/chassis/equipment-board' },
+      { title: 'Chassis Tracker', path: '/chassis-tracker' },
+      { title: 'Repair & Costs', path: '/chassis/repairs' },
+    ],
+  },
   { title: 'Utilization', path: '/utilization', icon: BarChart3 },
   { title: 'TMS Data', path: '/tms', icon: Database },
-  { title: 'Yard Management', path: '/yard', icon: Warehouse },
+  {
+    title: 'Yard Management',
+    path: '/yard',
+    icon: Warehouse,
+    subItems: [
+      { title: 'Yard Dashboard', path: '/yard/dashboard' },
+      { title: '17th St Yard', path: '/yard/17th' },
+      { title: 'JED Yard', path: '/yard/jed' },
+      { title: 'Pier S', path: '/yard/pier-s' },
+    ],
+  },
   {
     title: 'GPS Providers',
     path: '/gps',

@@ -1,21 +1,22 @@
-import * as React from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { format, parseISO, startOfMonth } from 'date-fns'
+import { toast } from 'sonner'
 import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
+  Bar,
+  BarChart,
   CartesianGrid,
   XAxis,
   YAxis,
   Tooltip,
-  BarChart,
-  Bar,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
 } from 'recharts'
-import { Plus, Trash2, Wrench } from 'lucide-react'
-import { toast } from 'sonner'
+import { Wrench, DollarSign, TrendingUp, Calendar, Plus } from 'lucide-react'
 
 import { supabase } from '@/lib/supabase'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,10 +31,9 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription,
 } from '@/components/ui/dialog'
 import {
   Table,
@@ -43,71 +43,235 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { formatCurrency, formatDate } from '@/utils/dateUtils'
 
 interface RepairRow {
   id: string
   chassis_number: string
-  repair_date: string | null
-  yard_id: string | null
-  vendor: string | null
+  repair_date: string
+  repair_type: string
   description: string | null
-  cost: number | null
+  vendor: string | null
+  cost: number
   invoice_number: string | null
-  repair_type: string | null
-  created_by: string | null
-  created_at: string | null
+  yard: string | null
+  created_at: string
 }
 
-interface Yard {
+interface YardOption {
   id: string
   name: string
-  short_code: string | null
-}
-
-interface ChassisLessor {
-  chassis_number: string
-  lessor: string | null
+  short_code: string
 }
 
 const REPAIR_TYPES = [
-  'PREVENTIVE',
-  'CORRECTIVE',
-  'INSPECTION',
   'TIRE',
-  'BRAKE',
-  'LIGHTING',
+  'BRAKES',
+  'AXLE',
+  'LIGHTS',
+  'ELECTRICAL',
+  'PAINT',
+  'FRAME',
+  'WHEEL',
+  'INSPECTION',
   'OTHER',
-] as const
+]
 
-interface RepairFormData {
-  chassisNumber: string
-  repairDate: string
-  repairType: string
-  vendor: string
-  description: string
-  cost: string
-  invoiceNumber: string
-  yardId: string
-}
+function LogRepairModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const [form, setForm] = useState({
+    chassis_number: '',
+    repair_date: new Date().toISOString().slice(0, 10),
+    repair_type: 'TIRE',
+    vendor: '',
+    description: '',
+    cost: '',
+    invoice_number: '',
+    yard: '',
+  })
 
-function formatMoney(amount: number): string {
-  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
+  const { data: yards } = useQuery({
+    queryKey: ['yards_list_modal'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('yards')
+        .select('id, name, short_code')
+        .order('name')
+      if (error) throw error
+      return (data ?? []) as YardOption[]
+    },
+    enabled: open,
+  })
 
-function formatDate(d: string | null): string {
-  if (!d) return '—'
-  const dt = new Date(d)
-  if (isNaN(dt.getTime())) return d
-  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const chassis = form.chassis_number.trim().toUpperCase()
+      if (!chassis) throw new Error('Chassis # is required')
+      const { data: chk, error: chkErr } = await supabase
+        .from('mcl_chassis')
+        .select('chassis_number')
+        .eq('chassis_number', chassis)
+        .maybeSingle()
+      if (chkErr) throw chkErr
+      if (!chk) throw new Error(`Chassis ${chassis} not found in MCL fleet`)
+
+      const cost = Number.parseFloat(form.cost)
+      if (Number.isNaN(cost) || cost < 0) throw new Error('Cost must be a positive number')
+
+      const { error } = await supabase.from('chassis_repairs').insert({
+        chassis_number: chassis,
+        repair_date: form.repair_date,
+        repair_type: form.repair_type,
+        description: form.description || null,
+        vendor: form.vendor || null,
+        cost,
+        invoice_number: form.invoice_number || null,
+        yard: form.yard || null,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      toast.success('Repair logged')
+      queryClient.invalidateQueries({ queryKey: ['chassis_repairs'] })
+      onClose()
+      setForm({
+        chassis_number: '',
+        repair_date: new Date().toISOString().slice(0, 10),
+        repair_type: 'TIRE',
+        vendor: '',
+        description: '',
+        cost: '',
+        invoice_number: '',
+        yard: '',
+      })
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Log Repair</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            mutation.mutate()
+          }}
+          className="space-y-3"
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Chassis # *</Label>
+              <Input
+                value={form.chassis_number}
+                onChange={(e) =>
+                  setForm({ ...form, chassis_number: e.target.value.toUpperCase() })
+                }
+              />
+            </div>
+            <div>
+              <Label>Repair Date *</Label>
+              <Input
+                type="date"
+                value={form.repair_date}
+                onChange={(e) => setForm({ ...form, repair_date: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Repair Type *</Label>
+              <Select
+                value={form.repair_type}
+                onValueChange={(v) => setForm({ ...form, repair_type: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPAIR_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Vendor</Label>
+              <Input
+                value={form.vendor}
+                onChange={(e) => setForm({ ...form, vendor: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Description</Label>
+            <Textarea
+              rows={2}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label>Cost ($) *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={form.cost}
+                onChange={(e) => setForm({ ...form, cost: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Invoice #</Label>
+              <Input
+                value={form.invoice_number}
+                onChange={(e) => setForm({ ...form, invoice_number: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Yard</Label>
+              <Select
+                value={form.yard}
+                onValueChange={(v) => setForm({ ...form, yard: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(yards ?? []).map((y) => (
+                    <SelectItem key={y.id} value={y.short_code}>
+                      {y.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={mutation.isPending}>
+              {mutation.isPending ? 'Saving…' : 'Save Repair'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 export default function RepairsAndCosts() {
-  const queryClient = useQueryClient()
-  const [logOpen, setLogOpen] = React.useState(false)
+  const [logOpen, setLogOpen] = useState(false)
 
-  const { data: repairs, isLoading } = useQuery<RepairRow[]>({
-    queryKey: ['chassis_repairs', 'all'],
+  const { data: repairs, isLoading } = useQuery({
+    queryKey: ['chassis_repairs'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('chassis_repairs')
@@ -118,440 +282,243 @@ export default function RepairsAndCosts() {
     },
   })
 
-  const { data: yards } = useQuery<Yard[]>({
-    queryKey: ['yards'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('yards').select('id, name, short_code')
-      if (error) throw error
-      return (data ?? []) as Yard[]
-    },
-  })
-
-  const { data: chassisLessors } = useQuery<ChassisLessor[]>({
-    queryKey: ['mcl_chassis', 'lessors_only'],
+  const { data: lessorMap } = useQuery({
+    queryKey: ['mcl_lessor_map'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('mcl_chassis')
         .select('chassis_number, lessor')
       if (error) throw error
-      return (data ?? []) as ChassisLessor[]
-    },
-  })
-
-  const lessorMap = React.useMemo(() => {
-    const m = new Map<string, string>()
-    for (const c of chassisLessors ?? []) {
-      if (c.chassis_number) m.set(c.chassis_number, c.lessor || '—')
-    }
-    return m
-  }, [chassisLessors])
-
-  const totalSpend = (repairs ?? []).reduce((s, r) => s + (r.cost || 0), 0)
-  const startOfMonth = React.useMemo(() => {
-    const d = new Date()
-    d.setDate(1)
-    d.setHours(0, 0, 0, 0)
-    return d
-  }, [])
-  const repairsThisMonth = (repairs ?? []).filter((r) => {
-    if (!r.repair_date) return false
-    return new Date(r.repair_date) >= startOfMonth
-  }).length
-  const avgCost =
-    (repairs ?? []).length > 0
-      ? totalSpend / (repairs ?? []).filter((r) => r.cost != null).length || 0
-      : 0
-  const mostRepaired = React.useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const r of repairs ?? []) {
-      counts[r.chassis_number] = (counts[r.chassis_number] || 0) + 1
-    }
-    let max = 0
-    let chassis = '—'
-    for (const [k, v] of Object.entries(counts)) {
-      if (v > max) {
-        max = v
-        chassis = k
-      }
-    }
-    return { chassis, count: max }
-  }, [repairs])
-
-  const monthlyData = React.useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const r of repairs ?? []) {
-      if (!r.repair_date) continue
-      const d = new Date(r.repair_date)
-      if (isNaN(d.getTime())) continue
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      map[key] = (map[key] || 0) + (r.cost || 0)
-    }
-    return Object.entries(map)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([month, cost]) => ({ month, cost }))
-  }, [repairs])
-
-  const typeData = React.useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const r of repairs ?? []) {
-      const k = r.repair_type || 'OTHER'
-      map[k] = (map[k] || 0) + (r.cost || 0)
-    }
-    return Object.entries(map).map(([type, cost]) => ({ type, cost }))
-  }, [repairs])
-
-  const insertMutation = useMutation({
-    mutationFn: async (values: RepairFormData) => {
-      const { error } = await supabase.from('chassis_repairs').insert({
-        chassis_number: values.chassisNumber,
-        repair_date: values.repairDate || null,
-        repair_type: values.repairType || null,
-        vendor: values.vendor || null,
-        description: values.description || null,
-        cost: values.cost ? parseFloat(values.cost) : null,
-        invoice_number: values.invoiceNumber || null,
-        yard_id: values.yardId || null,
+      const map: Record<string, string> = {}
+      ;(data ?? []).forEach((r: { chassis_number: string; lessor: string | null }) => {
+        if (r.lessor) map[r.chassis_number.trim()] = r.lessor
       })
-      if (error) throw error
+      return map
     },
-    onSuccess: () => {
-      toast.success('Repair logged')
-      queryClient.invalidateQueries({ queryKey: ['chassis_repairs'] })
-      setLogOpen(false)
-    },
-    onError: (e: Error) => toast.error(`Failed: ${e.message}`),
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('chassis_repairs').delete().eq('id', id)
-      if (error) throw error
+  const kpis = useMemo(() => {
+    const list = repairs ?? []
+    const total = list.reduce((s, r) => s + Number(r.cost || 0), 0)
+    const avg = list.length > 0 ? total / list.length : 0
+    const startMonth = startOfMonth(new Date())
+    const thisMonth = list.filter((r) => {
+      try {
+        return parseISO(r.repair_date).getTime() >= startMonth.getTime()
+      } catch {
+        return false
+      }
+    }).length
+
+    const counts = new Map<string, number>()
+    list.forEach((r) => counts.set(r.chassis_number, (counts.get(r.chassis_number) || 0) + 1))
+    let mostRepaired: string | null = null
+    let max = 0
+    counts.forEach((c, k) => {
+      if (c > max) {
+        max = c
+        mostRepaired = k
+      }
+    })
+
+    return { total, avg, thisMonth, mostRepaired, mostRepairedCount: max }
+  }, [repairs])
+
+  const monthlyData = useMemo(() => {
+    const map = new Map<string, number>()
+    ;(repairs ?? []).forEach((r) => {
+      try {
+        const key = format(parseISO(r.repair_date), 'yyyy-MM')
+        map.set(key, (map.get(key) || 0) + Number(r.cost || 0))
+      } catch {
+        /* skip */
+      }
+    })
+    return Array.from(map, ([month, total]) => ({ month, total }))
+      .sort((a, b) => a.month.localeCompare(b.month))
+      .map((r) => ({
+        month: format(parseISO(`${r.month}-01`), 'MMM yyyy'),
+        total: Math.round(r.total * 100) / 100,
+      }))
+  }, [repairs])
+
+  const typeData = useMemo(() => {
+    const map = new Map<string, number>()
+    ;(repairs ?? []).forEach((r) => {
+      map.set(r.repair_type, (map.get(r.repair_type) || 0) + Number(r.cost || 0))
+    })
+    return Array.from(map, ([type, total]) => ({
+      type,
+      total: Math.round(total * 100) / 100,
+    })).sort((a, b) => b.total - a.total)
+  }, [repairs])
+
+  const kpiCards = [
+    {
+      label: 'Total Repair Spend',
+      value: formatCurrency(kpis.total),
+      icon: DollarSign,
     },
-    onSuccess: () => {
-      toast.success('Repair deleted')
-      queryClient.invalidateQueries({ queryKey: ['chassis_repairs'] })
+    {
+      label: 'Avg Cost / Repair',
+      value: formatCurrency(kpis.avg),
+      icon: TrendingUp,
     },
-    onError: (e: Error) => toast.error(`Delete failed: ${e.message}`),
-  })
+    {
+      label: 'Repairs This Month',
+      value: kpis.thisMonth.toLocaleString(),
+      icon: Calendar,
+    },
+    {
+      label: 'Most Repaired Chassis',
+      value: kpis.mostRepaired
+        ? `${kpis.mostRepaired} (${kpis.mostRepairedCount})`
+        : '—',
+      icon: Wrench,
+    },
+  ]
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Repair &amp; Costs</h1>
-          <p className="text-muted-foreground">Track chassis repair spend and history.</p>
+    <div className="p-8 space-y-8">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <Wrench className="h-7 w-7" />
+          <div>
+            <h1 className="text-3xl font-bold">Repair & Costs</h1>
+            <p className="text-muted-foreground mt-2">
+              Repair history and cost analytics across the MCL fleet
+            </p>
+          </div>
         </div>
-        <Button onClick={() => setLogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Log Repair
+        <Button onClick={() => setLogOpen(true)} className="gap-1">
+          <Plus className="h-4 w-4" /> Log Repair
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="py-24 text-center text-muted-foreground">Loading repairs…</div>
-      ) : (repairs ?? []).length === 0 ? (
-        <EmptyState
-          icon={Wrench}
-          title="No repairs logged yet"
-          description="Once you log a repair, costs and trends will appear here."
-          actionLabel="Log Repair"
-          onAction={() => setLogOpen(true)}
-        />
-      ) : (
-        <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Repair Spend
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatMoney(totalSpend)}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Repairs This Month
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{repairsThisMonth}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Avg Cost / Repair
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatMoney(avgCost)}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Most Repaired
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold font-mono">{mostRepaired.chassis}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {mostRepaired.count} repair(s)
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Spend</CardTitle>
-                <CardDescription>Cost trend over time</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="month" />
-                    <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip formatter={(v) => formatMoney(v as number)} />
-                    <Area
-                      type="monotone"
-                      dataKey="cost"
-                      stroke="hsl(var(--primary))"
-                      fill="hsl(var(--primary))"
-                      fillOpacity={0.2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Cost by Repair Type</CardTitle>
-                <CardDescription>Total spend grouped by type</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={typeData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                    <YAxis type="category" dataKey="type" width={100} />
-                    <Tooltip formatter={(v) => formatMoney(v as number)} />
-                    <Bar dataKey="cost" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Repair Log</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-auto max-h-[60vh] border rounded-md">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Chassis #</TableHead>
-                      <TableHead>Lessor</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Vendor</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Cost</TableHead>
-                      <TableHead>Invoice #</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(repairs ?? []).map((r) => (
-                      <TableRow key={r.id}>
-                        <TableCell>{formatDate(r.repair_date)}</TableCell>
-                        <TableCell className="font-mono">{r.chassis_number}</TableCell>
-                        <TableCell>{lessorMap.get(r.chassis_number) || '—'}</TableCell>
-                        <TableCell>{r.repair_type || '—'}</TableCell>
-                        <TableCell>{r.vendor || '—'}</TableCell>
-                        <TableCell className="max-w-xs truncate">{r.description || '—'}</TableCell>
-                        <TableCell className="text-right">
-                          {r.cost != null ? formatMoney(r.cost) : '—'}
-                        </TableCell>
-                        <TableCell>{r.invoice_number || '—'}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              if (confirm(`Delete repair for ${r.chassis_number}?`)) {
-                                deleteMutation.mutate(r.id)
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {kpiCards.map((k) => (
+          <Card key={k.label}>
+            <CardContent className="pt-4 pb-3 px-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                <k.icon className="h-3.5 w-3.5" />
+                {k.label}
               </div>
+              {isLoading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <p className="text-2xl font-bold">{k.value}</p>
+              )}
             </CardContent>
           </Card>
-        </>
-      )}
+        ))}
+      </div>
 
-      <LogRepairDialog
-        open={logOpen}
-        yards={yards ?? []}
-        onClose={() => setLogOpen(false)}
-        onSubmit={(v) => insertMutation.mutate(v)}
-        loading={insertMutation.isPending}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Monthly Repair Spend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-[280px] w-full" />
+            ) : monthlyData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No repair data</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={monthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value) => formatCurrency(Number(value))}
+                  />
+                  <Area dataKey="total" stroke="#2563eb" fill="#2563eb33" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Repair Cost by Type</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-[280px] w-full" />
+            ) : typeData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No repair data</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={typeData} layout="vertical" margin={{ left: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis type="number" />
+                  <YAxis type="category" dataKey="type" width={100} />
+                  <Tooltip
+                    formatter={(value) => formatCurrency(Number(value))}
+                  />
+                  <Bar dataKey="total" fill="#16a34a" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">All Repairs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-[400px] w-full" />
+          ) : (repairs ?? []).length === 0 ? (
+            <EmptyState
+              title="No repairs logged"
+              description="Click 'Log Repair' to record the first repair."
+              actionLabel="Log Repair"
+              onAction={() => setLogOpen(true)}
+            />
+          ) : (
+            <div className="rounded-md border max-h-[600px] overflow-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background">
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Chassis #</TableHead>
+                    <TableHead>Lessor</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Vendor</TableHead>
+                    <TableHead className="text-right">Cost</TableHead>
+                    <TableHead>Invoice #</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(repairs ?? []).map((r) => (
+                    <TableRow key={r.id}>
+                      <TableCell>{formatDate(r.repair_date)}</TableCell>
+                      <TableCell className="font-mono">{r.chassis_number}</TableCell>
+                      <TableCell>{lessorMap?.[r.chassis_number.trim()] ?? '—'}</TableCell>
+                      <TableCell>{r.repair_type}</TableCell>
+                      <TableCell className="max-w-[280px] truncate">
+                        {r.description ?? '—'}
+                      </TableCell>
+                      <TableCell>{r.vendor ?? '—'}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(Number(r.cost))}
+                      </TableCell>
+                      <TableCell>{r.invoice_number ?? '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <LogRepairModal open={logOpen} onClose={() => setLogOpen(false)} />
     </div>
-  )
-}
-
-function LogRepairDialog({
-  open,
-  yards,
-  onClose,
-  onSubmit,
-  loading,
-}: {
-  open: boolean
-  yards: Yard[]
-  onClose: () => void
-  onSubmit: (values: RepairFormData) => void
-  loading: boolean
-}) {
-  const [form, setForm] = React.useState<RepairFormData>({
-    chassisNumber: '',
-    repairDate: new Date().toISOString().slice(0, 10),
-    repairType: 'CORRECTIVE',
-    vendor: '',
-    description: '',
-    cost: '',
-    invoiceNumber: '',
-    yardId: '',
-  })
-
-  React.useEffect(() => {
-    if (!open) {
-      setForm({
-        chassisNumber: '',
-        repairDate: new Date().toISOString().slice(0, 10),
-        repairType: 'CORRECTIVE',
-        vendor: '',
-        description: '',
-        cost: '',
-        invoiceNumber: '',
-        yardId: '',
-      })
-    }
-  }, [open])
-
-  const canSubmit = form.chassisNumber && form.repairDate
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Log Repair</DialogTitle>
-          <DialogDescription>Record a chassis repair event</DialogDescription>
-        </DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label>Chassis # *</Label>
-            <Input
-              value={form.chassisNumber}
-              onChange={(e) => setForm({ ...form, chassisNumber: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label>Repair Date *</Label>
-            <Input
-              type="date"
-              value={form.repairDate}
-              onChange={(e) => setForm({ ...form, repairDate: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label>Repair Type</Label>
-            <Select
-              value={form.repairType}
-              onValueChange={(v) => setForm({ ...form, repairType: v })}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REPAIR_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Vendor</Label>
-            <Input
-              value={form.vendor}
-              onChange={(e) => setForm({ ...form, vendor: e.target.value })}
-            />
-          </div>
-          <div className="col-span-2">
-            <Label>Description</Label>
-            <Textarea
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label>Cost ($)</Label>
-            <Input
-              type="number"
-              step="0.01"
-              value={form.cost}
-              onChange={(e) => setForm({ ...form, cost: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label>Invoice #</Label>
-            <Input
-              value={form.invoiceNumber}
-              onChange={(e) => setForm({ ...form, invoiceNumber: e.target.value })}
-            />
-          </div>
-          <div className="col-span-2">
-            <Label>Yard</Label>
-            <Select value={form.yardId} onValueChange={(v) => setForm({ ...form, yardId: v })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select yard (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                {yards.map((y) => (
-                  <SelectItem key={y.id} value={y.id}>
-                    {y.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={() => onSubmit(form)} disabled={loading || !canSubmit}>
-            {loading ? 'Saving…' : 'Save'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
