@@ -64,13 +64,14 @@ const navItems: NavigationItem[] = [
   },
 
   {
-    title: 'Fleet Management',
+    title: 'Chassis Management',
     path: '/chassis',
     icon: Truck,
     subItems: [
-      { title: 'Overview', path: '/chassis' },
-      { title: 'Chassis Locator', path: '/chassis/locator' },
-      { title: 'GPS Providers', path: '/gps' },
+      { title: 'Fleet Overview', path: '/chassis/fleet-overview' },
+      { title: 'Equipment Board', path: '/chassis/equipment-board' },
+      { title: 'Chassis Tracker', path: '/chassis-tracker' },
+      { title: 'Repair & Costs', path: '/chassis/repairs' },
     ],
   },
   {
@@ -78,9 +79,10 @@ const navItems: NavigationItem[] = [
     path: '/yard',
     icon: Warehouse,
     subItems: [
-      { title: 'Overview', path: '/yard' },
-      { title: 'PIER S', path: '/yards/pola' },
-      { title: 'JED YARD', path: '/yards/jedyard' },
+      { title: 'Yard Dashboard', path: '/yard/dashboard' },
+      { title: '17th St Yard', path: '/yard/17th' },
+      { title: 'JED Yard', path: '/yard/jed' },
+      { title: 'Pier S', path: '/yard/pier-s' },
     ],
   },
   {
