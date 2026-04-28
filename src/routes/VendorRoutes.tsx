@@ -69,23 +69,25 @@ export default function VendorRoutes() {
 
         <Route path="ccm" element={<ProtectedPage><CCM /></ProtectedPage>} />
         <Route path="ccm/invoices/new" element={<ProtectedPage><CCMNewInvoice /></ProtectedPage>} />
-        <Route path="ccm/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="ccm/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="ccm/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+        <Route path="ccm/invoices" element={<Navigate to="/vendors/ccm?tab=invoices" replace />} />
+        <Route path="ccm/activity" element={<Navigate to="/vendors/ccm?tab=activity" replace />} />
+        <Route path="ccm/financials" element={<Navigate to="/vendors/ccm?tab=financials" replace />} />
+        <Route path="ccm/documents" element={<Navigate to="/vendors/ccm?tab=documents" replace />} />
         <Route path="ccm/invoice-line/:lineId" element={<ProtectedPage><CCMInvoiceLineDetails /></ProtectedPage>} />
 
         <Route path="scspa" element={<ProtectedPage><SCSPA /></ProtectedPage>} />
         <Route path="scspa/invoices/new" element={<ProtectedPage><SCSPANewInvoice /></ProtectedPage>} />
-        <Route path="scspa/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="scspa/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="scspa/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+        <Route path="scspa/invoices" element={<Navigate to="/vendors/scspa?tab=invoices" replace />} />
+        <Route path="scspa/activity" element={<Navigate to="/vendors/scspa?tab=activity" replace />} />
+        <Route path="scspa/financials" element={<Navigate to="/vendors/scspa?tab=financials" replace />} />
+        <Route path="scspa/documents" element={<Navigate to="/vendors/scspa?tab=documents" replace />} />
 
         <Route path="trac" element={<ProtectedPage><TRAC /></ProtectedPage>} />
         <Route path="trac/invoices/new" element={<ProtectedPage><TRACNewInvoice /></ProtectedPage>} />
-        <Route path="trac/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="trac/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="trac/financials" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="trac/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+        <Route path="trac/invoices" element={<Navigate to="/vendors/trac?tab=invoices" replace />} />
+        <Route path="trac/activity" element={<Navigate to="/vendors/trac?tab=activity" replace />} />
+        <Route path="trac/financials" element={<Navigate to="/vendors/trac?tab=financials" replace />} />
+        <Route path="trac/documents" element={<Navigate to="/vendors/trac?tab=documents" replace />} />
         <Route path="trac/invoices/:invoiceId/review" element={<ProtectedPage><TRACInvoiceReview /></ProtectedPage>} />
         <Route path="trac/invoices/:invoiceId/validate" element={<ProtectedPage><TRACInvoiceValidate /></ProtectedPage>} />
         <Route path="trac/invoice-line/:lineId" element={<ProtectedPage><TRACInvoiceLineDetails /></ProtectedPage>} />
@@ -93,16 +95,17 @@ export default function VendorRoutes() {
 
         <Route path="flexivan" element={<ProtectedPage><FLEXIVAN /></ProtectedPage>} />
         <Route path="flexivan/invoices/new" element={<ProtectedPage><FLEXIVANNewInvoice /></ProtectedPage>} />
-        <Route path="flexivan/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="flexivan/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="flexivan/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+        <Route path="flexivan/invoices" element={<Navigate to="/vendors/flexivan?tab=invoices" replace />} />
+        <Route path="flexivan/activity" element={<Navigate to="/vendors/flexivan?tab=activity" replace />} />
+        <Route path="flexivan/financials" element={<Navigate to="/vendors/flexivan?tab=financials" replace />} />
+        <Route path="flexivan/documents" element={<Navigate to="/vendors/flexivan?tab=documents" replace />} />
 
         <Route path="wccp" element={<ProtectedPage><WCCP /></ProtectedPage>} />
         <Route path="wccp/invoices/new" element={<ProtectedPage><WCCPNewInvoice /></ProtectedPage>} />
-        <Route path="wccp/invoices" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="wccp/activity" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="wccp/financials" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
-        <Route path="wccp/documents" element={<ProtectedPage><VendorComingSoon /></ProtectedPage>} />
+        <Route path="wccp/invoices" element={<Navigate to="/vendors/wccp?tab=invoices" replace />} />
+        <Route path="wccp/activity" element={<Navigate to="/vendors/wccp?tab=activity" replace />} />
+        <Route path="wccp/financials" element={<Navigate to="/vendors/wccp?tab=financials" replace />} />
+        <Route path="wccp/documents" element={<Navigate to="/vendors/wccp?tab=documents" replace />} />
         <Route path="wccp/invoices/:invoiceId/review" element={<ProtectedPage><WCCPInvoiceReview /></ProtectedPage>} />
         <Route path="wccp/invoice-line/:lineId" element={<ProtectedPage><WCCPInvoiceLineDetails /></ProtectedPage>} />
         <Route path="wccp/invoice-line/:lineId/dispute" element={<ProtectedPage><WCCPInvoiceLineDispute /></ProtectedPage>} />
