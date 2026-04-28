@@ -437,7 +437,7 @@ export default function DCLIInvoiceDetail() {
                 ) : (
                   lineItems.map((line) => {
                     const variance = deriveDayVariance(line)
-                    const validationStatus = deriveValidationStatus(line)
+                    const validationStatus = deriveValidationStatus(line) ?? 'skipped'
                     const containerVal = line.container ?? line.container_in ?? '—'
                     return (
                       <tr key={line.id} className="border-b last:border-b-0 hover:bg-muted/10 transition-colors">
