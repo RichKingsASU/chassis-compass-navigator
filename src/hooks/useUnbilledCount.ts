@@ -8,19 +8,16 @@ export function useUnbilledCount() {
   useEffect(() => {
     async function load() {
       try {
-        const { data } = await supabase
-          .from('mg_data')
-          .select('customer_rate_amount, customer_inv_amount')
-          .not('status', 'in', '("Cancelled","Void")')
-          .neq('zero_rev', 'Y')
+        const { data, error } = await supabase
+          .from('v_unbilled_loads')
+          .select('revenue_at_risk')
+
+        if (error) throw error
         if (data) {
-          const unbilled = data.filter(r => {
-            const rate = parseFloat(r.customer_rate_amount) || 0
-            const inv = parseFloat(r.customer_inv_amount) || 0
-            return rate > 0 && inv === 0
-          })
-          setCount(unbilled.length)
-          setTotalAtRisk(unbilled.reduce((s, r) => s + (parseFloat(r.customer_rate_amount) || 0), 0))
+          setCount(data.length)
+          setTotalAtRisk(
+            data.reduce((s, r) => s + (Number(r.revenue_at_risk) || 0), 0)
+          )
         }
       } catch {
         // silently fail
