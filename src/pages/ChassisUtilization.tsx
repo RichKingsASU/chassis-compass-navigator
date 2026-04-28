@@ -35,7 +35,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 
 import { ColumnDef } from '@tanstack/react-table'
-import { mockChassisUtilization } from '@/features/operations/mockData'
 import { ChassisUtilizationMetric, UtilizationRow } from '@/types/operations'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -276,19 +275,18 @@ export default function ChassisUtilization() {
   })
 
   const data: ChassisUtilizationMetric[] = React.useMemo(() => {
-    if (realData && realData.length > 0) {
-      return realData.map((r: any) => ({
-        chassisNumber: r.chassis_number,
-        status: r.utilization_status as any || 'ACTIVE',
-        location: r.region || 'Unknown',
-        daysInUse: (r.total_loads || 0) * 2, // Mocking days in use
-        daysIdle: r.days_idle || 0,
-        utilizationPercent: r.utilization_status === 'ACTIVE' ? 85 : (r.utilization_status === 'IDLE' ? 20 : 0),
-        customer: r.acct_mgr,
-        lastMoveDate: r.last_activity_date
-      }))
-    }
-    return mockChassisUtilization
+    if (!realData || realData.length === 0) return []
+    return realData.map((r: any) => ({
+      chassisNumber: r.chassis_number,
+      status: (r.utilization_status as ChassisUtilizationMetric['status']) || 'ACTIVE',
+      location: r.region || 'Unknown',
+      daysInUse: (r.total_loads || 0) * 2,
+      daysIdle: r.days_idle || 0,
+      utilizationPercent:
+        r.utilization_status === 'ACTIVE' ? 85 : r.utilization_status === 'IDLE' ? 20 : 0,
+      customer: r.acct_mgr,
+      lastMoveDate: r.last_activity_date,
+    }))
   }, [realData])
 
   const totalChassis = data.length

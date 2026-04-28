@@ -39,6 +39,8 @@ const ProvarPage = lazy(() => import('@/pages/ProvarPage'))
 // Yards
 const YardManagementHub = lazy(() => import('@/pages/YardManagementHub'))
 const YardDetail = lazy(() => import('@/pages/YardDetail'))
+const YardDashboard = lazy(() => import('@/pages/YardDashboard'))
+const YardPage = lazy(() => import('@/pages/YardPage'))
 
 const queryClient = new QueryClient()
 
@@ -91,6 +93,8 @@ export default function App() {
 
                   {/* Yards */}
                   <Route path="/yard" element={<ProtectedPage><YardManagementHub /></ProtectedPage>} />
+                  <Route path="/yard/dashboard" element={<ProtectedPage><YardDashboard /></ProtectedPage>} />
+                  <Route path="/yard/:slug" element={<ProtectedPage><YardPage /></ProtectedPage>} />
                   <Route path="/yards/pola" element={<ProtectedPage><YardDetail yardId="PIER S" /></ProtectedPage>} />
                   <Route path="/yards/jedyard" element={<ProtectedPage><YardDetail yardId="JED YARD" /></ProtectedPage>} />
 
