@@ -1,81 +1,98 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { safeAmount } from '@/lib/formatters'
+import { safeAmount, safeDate } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useQuery } from '@tanstack/react-query'
 
-interface UtilRecord {
+interface UtilizationRow {
   chassis_number: string
-  total_loads: number
-  completed_loads: number
-  total_revenue: number
-  total_carrier_cost: number
-  total_margin: number
-  first_load_date: string
-  last_load_date: string
+  lessor: string | null
+  chassis_type: string | null
+  chassis_status: string | null
+  chassis_category: string | null
+  region: string | null
+  gps_provider: string | null
+  lease_rate_per_day: number | null
+  on_hire_date: string | null
+  off_hire_date: string | null
+  contract_end_date: string | null
+  total_loads: number | null
+  completed_loads: number | null
+  first_load_date: string | null
+  last_activity_date: string | null
+  days_idle: number | null
+  total_revenue: number | null
+  total_invoiced: number | null
+  total_carrier_cost: number | null
+  gross_margin: number | null
+  unbilled_load_count: number | null
+  unbilled_revenue: number | null
+  idle_lease_cost: number | null
+  utilization_status: string | null
 }
+
+type StatusFilter = 'ALL' | 'ACTIVE' | 'IDLE' | 'DORMANT'
 
 export default function ChassisUtilization() {
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [page, setPage] = useState(1)
   const ITEMS_PER_PAGE = 15
 
-  // Reset pagination when search changes
   useEffect(() => {
     setPage(1)
-  }, [search])
+  }, [search, statusFilter])
 
-  const { data = [], isLoading: loading, error: fetchError } = useQuery({
-    queryKey: ['mg_data_utilization'],
+  const { data = [], isLoading: loading, error: fetchError } = useQuery<UtilizationRow[]>({
+    queryKey: ['v_chassis_utilization'],
     queryFn: async () => {
-      const { data: rawData, error } = await supabase
-        .from('mg_data')
-        .select('chassis_number, customer_rate_amount, carrier_rate_amount, status, zero_rev, create_date')
-        .not('chassis_number', 'is', null)
-
+      const { data, error } = await supabase
+        .from('v_chassis_utilization')
+        .select('*')
+        .order('total_revenue', { ascending: false })
       if (error) throw error
-
-      const map = new Map<string, UtilRecord>()
-      for (const row of (rawData || [])) {
-        const cn = (row.chassis_number as string)?.trim()
-        if (!cn) continue
-        const existing = map.get(cn) || {
-          chassis_number: cn,
-          total_loads: 0,
-          completed_loads: 0,
-          total_revenue: 0,
-          total_carrier_cost: 0,
-          total_margin: 0,
-          first_load_date: row.create_date as string,
-          last_load_date: row.create_date as string,
-        }
-        existing.total_loads++
-        if (!['Cancelled', 'Void'].includes(row.status as string)) existing.completed_loads++
-        if (row.zero_rev !== 'Y') existing.total_revenue += parseFloat(row.customer_rate_amount as string) || 0
-        existing.total_carrier_cost += parseFloat(row.carrier_rate_amount as string) || 0
-        existing.total_margin = existing.total_revenue - existing.total_carrier_cost
-        if (row.create_date && row.create_date < existing.first_load_date) existing.first_load_date = row.create_date as string
-        if (row.create_date && row.create_date > existing.last_load_date) existing.last_load_date = row.create_date as string
-        map.set(cn, existing)
-      }
-      return Array.from(map.values()).sort((a, b) => b.total_loads - a.total_loads)
-    }
+      return (data || []) as UtilizationRow[]
+    },
   })
 
   const error = fetchError ? (fetchError as Error).message : null
 
-  const filtered = search ? data.filter(d => d.chassis_number.trim().toUpperCase().includes(search.toUpperCase().trim())) : data
-  const totalRevenue = data.reduce((s, d) => s + (d.total_revenue || 0), 0)
-  const totalLoads = data.reduce((s, d) => s + (d.total_loads || 0), 0)
-  const totalMargin = data.reduce((s, d) => s + (d.total_margin || 0), 0)
+  const filtered = data.filter((d) => {
+    if (statusFilter !== 'ALL' && d.utilization_status !== statusFilter) return false
+    if (search && !d.chassis_number?.trim().toUpperCase().includes(search.toUpperCase().trim())) return false
+    return true
+  })
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
+  const totalRevenue = data.reduce((s, d) => s + (Number(d.total_revenue) || 0), 0)
+  const totalLoads = data.reduce((s, d) => s + (Number(d.total_loads) || 0), 0)
+  const totalMargin = data.reduce((s, d) => s + (Number(d.gross_margin) || 0), 0)
+  const dormantCount = data.filter((d) => d.utilization_status === 'DORMANT').length
+  const idleLeaseCost = data
+    .filter((d) => d.utilization_status !== 'ACTIVE')
+    .reduce((s, d) => s + (Number(d.idle_lease_cost) || 0), 0)
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE))
   const paginatedRecords = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+
+  const renderStatusBadge = (status: string | null) => {
+    if (!status) return <span className="text-muted-foreground">—</span>
+    if (status === 'ACTIVE') {
+      return <Badge variant="default" className="bg-green-600">ACTIVE</Badge>
+    }
+    if (status === 'IDLE') {
+      return <Badge variant="secondary">IDLE</Badge>
+    }
+    if (status === 'DORMANT') {
+      return <Badge variant="destructive">DORMANT</Badge>
+    }
+    return <Badge variant="outline">{status}</Badge>
+  }
 
   return (
     <div className="p-8 space-y-8">
@@ -85,8 +102,8 @@ export default function ChassisUtilization() {
       </div>
 
       {error && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
-      
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Chassis Tracked</CardTitle></CardHeader>
           <CardContent>{loading ? <Skeleton className="h-9 w-16" /> : <p className="text-3xl font-bold">{data.length.toLocaleString()}</p>}</CardContent>
@@ -108,15 +125,33 @@ export default function ChassisUtilization() {
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Margin</CardTitle></CardHeader>
           <CardContent>{loading ? <Skeleton className="h-9 w-24" /> : <p className={`text-3xl font-bold ${totalMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>{safeAmount(totalMargin)}</p>}</CardContent>
         </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Dormant Chassis</CardTitle></CardHeader>
+          <CardContent>{loading ? <Skeleton className="h-9 w-16" /> : <p className="text-3xl font-bold text-red-600">{dormantCount.toLocaleString()}</p>}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Idle Lease Cost</CardTitle></CardHeader>
+          <CardContent>{loading ? <Skeleton className="h-9 w-24" /> : <p className="text-3xl font-bold text-red-600">{safeAmount(idleLeaseCost)}</p>}</CardContent>
+        </Card>
       </div>
 
-      <input 
-        type="text" 
-        placeholder="Search chassis number..." 
-        value={search} 
-        onChange={e => setSearch(e.target.value)} 
-        className="w-full max-w-md px-4 py-2 border rounded-md text-sm" 
-      />
+      <div className="flex flex-wrap items-center gap-4">
+        <input
+          type="text"
+          placeholder="Search chassis number..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full max-w-md px-4 py-2 border rounded-md text-sm"
+        />
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+          <TabsList>
+            <TabsTrigger value="ALL">All</TabsTrigger>
+            <TabsTrigger value="ACTIVE">Active</TabsTrigger>
+            <TabsTrigger value="IDLE">Idle</TabsTrigger>
+            <TabsTrigger value="DORMANT">Dormant</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
       <Card>
         <CardHeader><CardTitle>Utilization by Chassis</CardTitle></CardHeader>
@@ -132,30 +167,41 @@ export default function ChassisUtilization() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Chassis #</TableHead>
+                      <TableHead>Lessor</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Days Idle</TableHead>
                       <TableHead className="text-right">Total Loads</TableHead>
-                      <TableHead className="text-right">Completed</TableHead>
                       <TableHead className="text-right">Revenue</TableHead>
-                      <TableHead className="text-right">Carrier Cost</TableHead>
-                      <TableHead className="text-right">Margin</TableHead>
-                      <TableHead>First Load</TableHead>
-                      <TableHead>Last Load</TableHead>
+                      <TableHead className="text-right">Gross Margin</TableHead>
+                      <TableHead className="text-right">Unbilled $</TableHead>
+                      <TableHead className="text-right">Idle Lease Cost</TableHead>
+                      <TableHead>Last Activity</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedRecords.map(d => (
-                      <TableRow key={d.chassis_number} className="hover:bg-muted/50">
-                        <TableCell className="font-mono font-medium text-sm">{d.chassis_number}</TableCell>
-                        <TableCell className="text-right">{d.total_loads}</TableCell>
-                        <TableCell className="text-right">{d.completed_loads}</TableCell>
-                        <TableCell className="text-right">{safeAmount(d.total_revenue)}</TableCell>
-                        <TableCell className="text-right">{safeAmount(d.total_carrier_cost)}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant={d.total_margin >= 0 ? 'default' : 'destructive'}>{safeAmount(d.total_margin)}</Badge>
-                        </TableCell>
-                        <TableCell className="text-sm">{d.first_load_date?.slice(0, 10) || 'N/A'}</TableCell>
-                        <TableCell className="text-sm">{d.last_load_date?.slice(0, 10) || 'N/A'}</TableCell>
-                      </TableRow>
-                    ))}
+                    {paginatedRecords.map((d) => {
+                      const margin = Number(d.gross_margin) || 0
+                      const isDormant = d.utilization_status === 'DORMANT'
+                      const idleLeaseClass = isDormant ? 'text-red-600 font-medium' : ''
+                      return (
+                        <TableRow key={d.chassis_number} className="hover:bg-muted/50">
+                          <TableCell className="font-mono font-medium text-sm">{d.chassis_number}</TableCell>
+                          <TableCell className="text-sm">{d.lessor || '—'}</TableCell>
+                          <TableCell className="text-sm">{d.chassis_type || '—'}</TableCell>
+                          <TableCell>{renderStatusBadge(d.utilization_status)}</TableCell>
+                          <TableCell className="text-right">{d.days_idle ?? '—'}</TableCell>
+                          <TableCell className="text-right">{Number(d.total_loads) || 0}</TableCell>
+                          <TableCell className="text-right">{safeAmount(d.total_revenue)}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant={margin >= 0 ? 'default' : 'destructive'}>{safeAmount(margin)}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right">{safeAmount(d.unbilled_revenue)}</TableCell>
+                          <TableCell className={`text-right ${idleLeaseClass}`}>{safeAmount(d.idle_lease_cost)}</TableCell>
+                          <TableCell className="text-sm">{safeDate(d.last_activity_date)}</TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -166,8 +212,8 @@ export default function ChassisUtilization() {
                     Showing {Math.min((page - 1) * ITEMS_PER_PAGE + 1, filtered.length)} to {Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} records
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
-                    <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</Button>
                   </div>
                 </div>
               )}
