@@ -20,6 +20,11 @@ import {
 } from '@/components/ui/select'
 import { QueryEmptyState } from '@/components/ui/QueryEmptyState'
 import { safeAmount } from '@/lib/formatters'
+import {
+  AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
+} from 'recharts'
 
 interface BillingExposureRow {
   period_month: string | null
@@ -98,6 +103,64 @@ export default function BillingExposurePage() {
   )
   const weightedGapPct = totalRated > 0 ? (totalGap / totalRated) * 100 : 0
 
+  const monthlyTrend = useMemo(() => {
+    const map = new Map<string, { rated: number; invoiced: number }>()
+    for (const r of filtered) {
+      if (!r.period_month) continue
+      const cur = map.get(r.period_month) || { rated: 0, invoiced: 0 }
+      cur.rated += Number(r.total_rated) || 0
+      cur.invoiced += Number(r.total_invoiced) || 0
+      map.set(r.period_month, cur)
+    }
+    return Array.from(map.entries())
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([k, v]) => ({ month: formatPeriod(k), rated: v.rated, invoiced: v.invoiced }))
+  }, [filtered])
+
+  const topCustomersByGap = useMemo(() => {
+    const map = new Map<string, { gap: number; rated: number }>()
+    for (const r of filtered) {
+      const key = r.acct_mgr || 'Unknown'
+      const cur = map.get(key) || { gap: 0, rated: 0 }
+      cur.gap += Number(r.revenue_gap) || 0
+      cur.rated += Number(r.total_rated) || 0
+      map.set(key, cur)
+    }
+    const arr = Array.from(map.entries())
+      .map(([acct_mgr, v]) => ({
+        acct_mgr,
+        gap: v.gap,
+        gap_pct: v.rated > 0 ? (v.gap / v.rated) * 100 : 0,
+      }))
+      .sort((a, b) => b.gap - a.gap)
+      .slice(0, 10)
+    const max = arr[0]?.gap || 1
+    return arr.map((x) => ({ ...x, intensity: Math.max(0.4, x.gap / max) }))
+  }, [filtered])
+
+  const gapByRegion = useMemo(() => {
+    const map = new Map<string, { gap: number; rated: number }>()
+    for (const r of filtered) {
+      const key = r.region || 'Unknown'
+      const cur = map.get(key) || { gap: 0, rated: 0 }
+      cur.gap += Number(r.revenue_gap) || 0
+      cur.rated += Number(r.total_rated) || 0
+      map.set(key, cur)
+    }
+    return Array.from(map.entries())
+      .map(([region, v]) => ({
+        region,
+        gap_pct: v.rated > 0 ? (v.gap / v.rated) * 100 : 0,
+      }))
+      .sort((a, b) => b.gap_pct - a.gap_pct)
+  }, [filtered])
+
+  const regionColor = (pct: number) => {
+    if (pct > 10) return '#ef4444'
+    if (pct >= 5) return '#f59e0b'
+    return '#10b981'
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
@@ -150,6 +213,78 @@ export default function BillingExposurePage() {
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Rated</CardTitle></CardHeader>
           <CardContent>
             {loading ? <Skeleton className="h-9 w-24" /> : <p className="text-3xl font-bold">{safeAmount(totalRated)}</p>}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Charts */}
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Monthly Revenue Gap Trend</CardTitle></CardHeader>
+        <CardContent>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={monthlyTrend}>
+              <defs>
+                <linearGradient id="be-rated" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.5} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05} />
+                </linearGradient>
+                <linearGradient id="be-invoiced" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.5} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" fontSize={11} />
+              <YAxis fontSize={11} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
+              <RechartsTooltip formatter={(v: unknown) => safeAmount(v)} />
+              <Area type="monotone" dataKey="rated" name="Total Rated" stroke="#3b82f6" fill="url(#be-rated)" />
+              <Area type="monotone" dataKey="invoiced" name="Total Invoiced" stroke="#10b981" fill="url(#be-invoiced)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Top 10 Customers by Gap</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={topCustomersByGap} layout="vertical" margin={{ left: 30 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} fontSize={11} />
+                <YAxis type="category" dataKey="acct_mgr" width={100} fontSize={11} />
+                <RechartsTooltip
+                  formatter={(v: unknown, _n: unknown, item: unknown) => {
+                    const pct = (item as { payload?: { gap_pct?: number } })?.payload?.gap_pct ?? 0
+                    return [`${safeAmount(v)} (${pct.toFixed(1)}%)`, 'Gap']
+                  }}
+                />
+                <Bar dataKey="gap">
+                  {topCustomersByGap.map((d, i) => (
+                    <Cell key={i} fill={`rgba(239, 68, 68, ${d.intensity})`} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Gap % by Region</CardTitle></CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={gapByRegion}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="region" fontSize={11} />
+                <YAxis fontSize={11} tickFormatter={(v: number) => `${v.toFixed(0)}%`} />
+                <RechartsTooltip formatter={(v: unknown) => `${(Number(v) || 0).toFixed(2)}%`} />
+                <Bar dataKey="gap_pct">
+                  {gapByRegion.map((d, i) => (
+                    <Cell key={i} fill={regionColor(d.gap_pct)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
