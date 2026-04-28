@@ -32,6 +32,7 @@ import {
   type ProvarContainerRow,
   type ProvarPortal,
   type ProvarPortalSummary,
+  type ProvarPullRun,
   type ProvarSyncLogRow,
   type PullSummary,
 } from '@/types/provar'

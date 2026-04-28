@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { SidebarProvider, Sidebar, SidebarContent } from '@/components/ui/sidebar'
 import SidebarNavigation from './SidebarNavigation'
 import DashboardHeader from './DashboardHeader'
+import AIChatPanel from './AIChatPanel'
 import { getPageTitle } from '@/utils/navigationHelpers'
 import {
   LayoutDashboard,
@@ -54,11 +56,21 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation()
+  const [isChatOpen, setIsChatOpen] = useState(false)
   const pageTitle = getPageTitle(
     location.pathname,
     navItems,
     location.state as { title?: string } | null
   )
+
+  useEffect(() => {
+    const handler = () => setIsChatOpen(true)
+    window.addEventListener('ccn:open-ai-chat', handler)
+    return () => window.removeEventListener('ccn:open-ai-chat', handler)
+  }, [])
+
+  const contextString =
+    'Fleet summary: 12,168 chassis tracked, 951 unbilled loads at $987K risk, 9,217 dormant chassis burning $92K in idle lease costs, $3M revenue gap at 7.2%'
 
   return (
     <SidebarProvider>
@@ -82,6 +94,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <main className="flex-1 bg-muted/30">{children}</main>
         </div>
       </div>
+      <AIChatPanel
+        open={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        context={contextString}
+      />
     </SidebarProvider>
   )
 }
