@@ -127,64 +127,6 @@ export default function BillingExposurePage() {
   const totalTarget = chartData.reduce((sum: number, item: any) => sum + item.target, 0)
   const gapPercent = totalTarget > 0 ? (totalGap / totalTarget) * 100 : 0
 
-  const monthlyTrend = useMemo(() => {
-    const map = new Map<string, { rated: number; invoiced: number }>()
-    for (const r of filtered) {
-      if (!r.period_month) continue
-      const cur = map.get(r.period_month) || { rated: 0, invoiced: 0 }
-      cur.rated += Number(r.total_rated) || 0
-      cur.invoiced += Number(r.total_invoiced) || 0
-      map.set(r.period_month, cur)
-    }
-    return Array.from(map.entries())
-      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-      .map(([k, v]) => ({ month: formatPeriod(k), rated: v.rated, invoiced: v.invoiced }))
-  }, [filtered])
-
-  const topCustomersByGap = useMemo(() => {
-    const map = new Map<string, { gap: number; rated: number }>()
-    for (const r of filtered) {
-      const key = r.acct_mgr || 'Unknown'
-      const cur = map.get(key) || { gap: 0, rated: 0 }
-      cur.gap += Number(r.revenue_gap) || 0
-      cur.rated += Number(r.total_rated) || 0
-      map.set(key, cur)
-    }
-    const arr = Array.from(map.entries())
-      .map(([acct_mgr, v]) => ({
-        acct_mgr,
-        gap: v.gap,
-        gap_pct: v.rated > 0 ? (v.gap / v.rated) * 100 : 0,
-      }))
-      .sort((a, b) => b.gap - a.gap)
-      .slice(0, 10)
-    const max = arr[0]?.gap || 1
-    return arr.map((x) => ({ ...x, intensity: Math.max(0.4, x.gap / max) }))
-  }, [filtered])
-
-  const gapByRegion = useMemo(() => {
-    const map = new Map<string, { gap: number; rated: number }>()
-    for (const r of filtered) {
-      const key = r.region || 'Unknown'
-      const cur = map.get(key) || { gap: 0, rated: 0 }
-      cur.gap += Number(r.revenue_gap) || 0
-      cur.rated += Number(r.total_rated) || 0
-      map.set(key, cur)
-    }
-    return Array.from(map.entries())
-      .map(([region, v]) => ({
-        region,
-        gap_pct: v.rated > 0 ? (v.gap / v.rated) * 100 : 0,
-      }))
-      .sort((a, b) => b.gap_pct - a.gap_pct)
-  }, [filtered])
-
-  const regionColor = (pct: number) => {
-    if (pct > 10) return '#ef4444'
-    if (pct >= 5) return '#f59e0b'
-    return '#10b981'
-  }
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">

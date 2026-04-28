@@ -34,7 +34,6 @@ import {
   type ProvarPortalSummary,
   type ProvarPullRun,
   type ProvarSyncLogRow,
-  type ProvarPullRun,
   type PullSummary,
 } from '@/types/provar'
 
