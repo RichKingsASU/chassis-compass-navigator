@@ -60,13 +60,13 @@ export interface ProvarPortalSummary {
 export interface PullResult {
   portal: string
   endpoint: string
-  status: string
-  rows_affected: number
-  error_message?: string
+  rows: number
+  status: 'success' | 'error'
+  error?: string
 }
 
 export interface PullSummary {
   results: PullResult[]
   total_rows: number
-  errors: number
+  errors: string[]
 }

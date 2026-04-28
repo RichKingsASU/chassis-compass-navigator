@@ -87,50 +87,27 @@ export function useProvar() {
   }, [containers, toReturn, syncLog])
 
   const triggerPull = useCallback(
-    async (portals?: ProvarPortal[]): Promise<PullSummary | null> => {
+    async (portals?: ProvarPortal[]): Promise<PullSummary> => {
       setIsPulling(true)
       try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+        const payload =
+          portals && portals.length > 0 ? { portals } : {}
 
-        if (!supabaseUrl || !anonKey) {
-          throw new Error(
-            'VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in .env.local',
-          )
-        }
-
-        const res = await fetch(
-          `${supabaseUrl}/functions/v1/provar-pull`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${anonKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(portals && portals.length > 0 ? { portals } : {}),
-          },
+        const { data, error } = await supabase.functions.invoke<PullSummary>(
+          'provar-pull',
+          { body: payload },
         )
 
-        const summary = (await res.json()) as PullSummary
-        setLastPullResult(summary)
-        await refetch()
-        return summary
-      } catch (err) {
-        const errorSummary: PullSummary = {
-          results: [
-            {
-              portal: 'all',
-              endpoint: 'all',
-              status: 'error',
-              rows_affected: 0,
-              error_message: String(err),
-            },
-          ],
-          total_rows: 0,
-          errors: 1,
+        if (error) {
+          throw new Error(error.message || 'Edge function invocation failed')
         }
-        setLastPullResult(errorSummary)
-        return errorSummary
+        if (!data) {
+          throw new Error('Edge function returned no data')
+        }
+
+        setLastPullResult(data)
+        await refetch()
+        return data
       } finally {
         setIsPulling(false)
       }

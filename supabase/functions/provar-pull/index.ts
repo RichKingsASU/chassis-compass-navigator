@@ -11,10 +11,11 @@
  *     "endpoints": ["containers-sheet", ...] // defaults to both
  *   }
  *
- * Environment:
+ * Environment (Supabase Edge Function secrets — NOT Vite env vars):
  *   PROVAR_API_KEY            — Provar API key (required)
  *   SUPABASE_URL              — Supabase project URL
  *   SUPABASE_SERVICE_ROLE_KEY — Service role key (server-side writes)
+ *   ALLOWED_ORIGIN            — optional extra origin for CORS allow-list
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -31,16 +32,28 @@ interface PullResult {
   portal: string;
   endpoint: string;
   status: "success" | "error";
-  rows_affected: number;
-  error_message?: string;
+  rows: number;
+  error?: string;
 }
 
-const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "http://localhost:5173",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  Deno.env.get("ALLOWED_ORIGIN") ?? "",
+].filter(Boolean);
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") ?? "";
+  const allowed = ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowed,
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
@@ -128,8 +141,8 @@ async function pullPortalEndpoint(
         portal,
         endpoint,
         status: "error",
-        rows_affected: 0,
-        error_message: msg,
+        rows: 0,
+        error: msg,
       };
     }
 
@@ -141,8 +154,8 @@ async function pullPortalEndpoint(
       portal,
       endpoint,
       status: "error",
-      rows_affected: 0,
-      error_message: msg,
+      rows: 0,
+      error: msg,
     };
   }
 
@@ -177,8 +190,8 @@ async function pullPortalEndpoint(
       portal,
       endpoint,
       status: "error",
-      rows_affected: 0,
-      error_message: msg,
+      rows: 0,
+      error: msg,
     };
   }
 
@@ -212,7 +225,7 @@ async function pullPortalEndpoint(
 
   if (rows.length === 0) {
     await logSync(portal, endpoint, "success", 0);
-    return { portal, endpoint, status: "success", rows_affected: 0 };
+    return { portal, endpoint, status: "success", rows: 0 };
   }
 
   // Insert in chunks of 500
@@ -231,23 +244,25 @@ async function pullPortalEndpoint(
         portal,
         endpoint,
         status: "error",
-        rows_affected: inserted,
-        error_message: msg,
+        rows: inserted,
+        error: msg,
       };
     }
     inserted += count ?? chunk.length;
   }
 
   await logSync(portal, endpoint, "success", inserted);
-  return { portal, endpoint, status: "success", rows_affected: inserted };
+  return { portal, endpoint, status: "success", rows: inserted };
 }
 
 // ══════════════════════════════════════════════════════════════
 // MAIN HANDLER
 // ══════════════════════════════════════════════════════════════
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req);
+
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: CORS_HEADERS });
+    return new Response(null, { status: 204, headers: cors });
   }
 
   if (req.method !== "POST") {
@@ -255,7 +270,7 @@ Deno.serve(async (req) => {
       JSON.stringify({ error: "Method not allowed" }),
       {
         status: 405,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        headers: { ...cors, "Content-Type": "application/json" },
       },
     );
   }
@@ -269,7 +284,7 @@ Deno.serve(async (req) => {
       }),
       {
         status: 500,
-        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+        headers: { ...cors, "Content-Type": "application/json" },
       },
     );
   }
@@ -282,22 +297,42 @@ Deno.serve(async (req) => {
     body = {};
   }
 
-  const portals: string[] =
+  const portalsToRun: string[] =
     Array.isArray(body.portals) && body.portals.length > 0
       ? body.portals.filter((p) => (ALL_PORTALS as readonly string[]).includes(p))
       : [...ALL_PORTALS];
 
-  const endpoints: string[] =
+  const endpointsToRun: string[] =
     Array.isArray(body.endpoints) && body.endpoints.length > 0
       ? body.endpoints.filter((e) =>
           (ALL_ENDPOINTS as readonly string[]).includes(e),
         )
       : [...ALL_ENDPOINTS];
 
+  if (portalsToRun.length === 0) {
+    return new Response(
+      JSON.stringify({ error: "No valid portals specified" }),
+      {
+        status: 400,
+        headers: { ...cors, "Content-Type": "application/json" },
+      },
+    );
+  }
+
+  if (endpointsToRun.length === 0) {
+    return new Response(
+      JSON.stringify({ error: "No valid endpoints specified" }),
+      {
+        status: 400,
+        headers: { ...cors, "Content-Type": "application/json" },
+      },
+    );
+  }
+
   const results: PullResult[] = [];
 
-  for (const portal of portals) {
-    for (const endpoint of endpoints) {
+  for (const portal of portalsToRun) {
+    for (const endpoint of endpointsToRun) {
       try {
         const result = await pullPortalEndpoint(portal, endpoint, apiKey);
         results.push(result);
@@ -308,21 +343,23 @@ Deno.serve(async (req) => {
           portal,
           endpoint,
           status: "error",
-          rows_affected: 0,
-          error_message: msg,
+          rows: 0,
+          error: msg,
         });
       }
     }
   }
 
-  const total_rows = results.reduce((sum, r) => sum + r.rows_affected, 0);
-  const errors = results.filter((r) => r.status === "error").length;
+  const total_rows = results.reduce((sum, r) => sum + r.rows, 0);
+  const errors = results
+    .filter((r) => r.status === "error")
+    .map((r) => `[${r.portal}/${r.endpoint}] ${r.error ?? "unknown error"}`);
 
   return new Response(
     JSON.stringify({ results, total_rows, errors }),
     {
       status: 200,
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      headers: { ...cors, "Content-Type": "application/json" },
     },
   );
 });

@@ -33,6 +33,7 @@ import {
   type ProvarPortalSummary,
   type ProvarSyncLogRow,
   type ProvarToReturnRow,
+  type PullSummary,
 } from '@/types/provar'
 
 const BASE_CONTAINER_KEYS = new Set([
@@ -314,6 +315,80 @@ function SyncLogTable({ rows }: { rows: ProvarSyncLogRow[] }) {
   )
 }
 
+function PullResultsCard({ summary }: { summary: PullSummary }) {
+  const hasResults = summary.results && summary.results.length > 0
+
+  if (!hasResults) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Last Pull Results</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-sm text-muted-foreground">
+            Pull completed but no data was returned. Check that
+            PROVAR_API_KEY is set in Supabase Edge Function secrets.
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Last Pull Results</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="border rounded-md overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Portal</TableHead>
+                <TableHead>Endpoint</TableHead>
+                <TableHead>Rows</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Error</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {summary.results.map((r, idx) => (
+                <TableRow key={`${r.portal}-${r.endpoint}-${idx}`}>
+                  <TableCell className="font-medium">{r.portal}</TableCell>
+                  <TableCell>{r.endpoint}</TableCell>
+                  <TableCell>{r.rows}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={r.status} />
+                  </TableCell>
+                  <TableCell className="text-xs max-w-md truncate text-destructive">
+                    {r.error ?? '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="text-sm">
+          <span className="font-semibold">Total rows:</span>{' '}
+          {summary.total_rows}
+        </div>
+        {summary.errors && summary.errors.length > 0 ? (
+          <div className="space-y-1">
+            <div className="text-sm font-semibold text-destructive">
+              Errors ({summary.errors.length}):
+            </div>
+            <ul className="list-disc pl-5 text-xs text-destructive space-y-1">
+              {summary.errors.map((e, i) => (
+                <li key={i}>{e}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function ProvarPage() {
   const {
     containers,
@@ -322,20 +397,33 @@ export default function ProvarPage() {
     portalSummaries,
     loading,
     isPulling,
+    lastPullResult,
     triggerPull,
   } = useProvar()
   const { toast } = useToast()
   const [logOpen, setLogOpen] = useState(false)
 
   const runPull = async (portals?: ProvarPortal[]) => {
-    const result = await triggerPull(portals)
-    if (!result) return
-    const isError = result.errors > 0
-    toast({
-      title: isError ? 'Pull completed with errors' : 'Pull complete',
-      description: `Rows: ${result.total_rows} · Errors: ${result.errors}`,
-      variant: isError ? 'destructive' : 'default',
-    })
+    try {
+      const result = await triggerPull(portals)
+      const errorCount = result.errors?.length ?? 0
+      const isError = errorCount > 0
+      toast({
+        title: isError ? 'Pull completed with errors' : 'Pull complete',
+        description: `${result.total_rows} rows · ${errorCount} errors`,
+        variant: isError ? 'destructive' : 'default',
+      })
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ?? 'Unknown error'
+      toast({
+        variant: 'destructive',
+        title: 'Pull failed',
+        description: msg,
+      })
+    }
   }
 
   return (
@@ -382,6 +470,9 @@ export default function ProvarPage() {
           ))}
         </div>
       )}
+
+      {/* Last pull results */}
+      {lastPullResult ? <PullResultsCard summary={lastPullResult} /> : null}
 
       {/* Tabs per portal */}
       <Tabs defaultValue={PROVAR_PORTALS[0]} className="w-full">
