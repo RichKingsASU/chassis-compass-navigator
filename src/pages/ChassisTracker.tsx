@@ -74,7 +74,7 @@ export default function ChassisTracker() {
       setError(null)
       try {
         const { data, error: err } = await supabase
-          .from('v_chassis_gps_unified')
+          .from('v_chassis_gps_mcl')
           .select(
             'gps_source, chassis_number, landmark, address, latitude, longitude, gps_date, dormant_days, gps_status'
           )
