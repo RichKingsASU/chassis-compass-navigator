@@ -23,16 +23,10 @@ export interface ProvarContainerRow {
   portal: ProvarPortal
   container_number: string | null
   trade_type: string | null
+  status: string | null
   line: string | null
-  raw_data: Record<string, unknown>
-  snapshot_date: string
-  ingested_at: string
-}
-
-export interface ProvarToReturnRow {
-  id: string
-  portal: ProvarPortal
-  container_id: string | null
+  vessel_name: string | null
+  last_free_day: string | null
   return_date: string | null
   raw_data: Record<string, unknown>
   snapshot_date: string
@@ -52,7 +46,6 @@ export interface ProvarSyncLogRow {
 export interface ProvarPortalSummary {
   portal: ProvarPortal
   containers_count: number
-  to_return_count: number
   last_pulled: string | null
   last_status: 'success' | 'error' | 'never'
 }

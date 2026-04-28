@@ -32,18 +32,24 @@ import {
   type ProvarPortal,
   type ProvarPortalSummary,
   type ProvarSyncLogRow,
-  type ProvarToReturnRow,
   type PullSummary,
 } from '@/types/provar'
 
 const BASE_CONTAINER_KEYS = new Set([
   'Container #',
   'container_number',
-  'container_id',
-  'trade_type',
   'Trade Type',
-  'line',
+  'trade_type',
+  'Status',
+  'status',
   'Line',
+  'line',
+  'Vessel Name',
+  'vessel_name',
+  'Last Free Day',
+  'last_free_day',
+  'Return Date',
+  'return_date',
 ])
 
 function formatTimestamp(iso: string | null): string {
@@ -108,18 +114,10 @@ function PortalSummaryCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-2">
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div>
-            <div className="text-xs text-muted-foreground">Containers</div>
-            <div className="text-xl font-semibold">
-              {summary.containers_count}
-            </div>
-          </div>
-          <div>
-            <div className="text-xs text-muted-foreground">To-Return</div>
-            <div className="text-xl font-semibold">
-              {summary.to_return_count}
-            </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Containers</div>
+          <div className="text-2xl font-semibold">
+            {summary.containers_count}
           </div>
         </div>
         <div className="text-xs text-muted-foreground">
@@ -152,7 +150,6 @@ function ContainersTable({
   rows: ProvarContainerRow[]
   portal: ProvarPortal
 }) {
-  // Find extra keys across all raw_data objects beyond the mapped fields
   const extraKeys = useMemo(() => {
     const keys = new Set<string>()
     for (const row of rows) {
@@ -181,7 +178,11 @@ function ContainersTable({
           <TableRow>
             <TableHead>Container #</TableHead>
             <TableHead>Trade Type</TableHead>
+            <TableHead>Status</TableHead>
             <TableHead>Line</TableHead>
+            <TableHead>Vessel Name</TableHead>
+            <TableHead>Last Free Day</TableHead>
+            <TableHead>Return Date</TableHead>
             {extraKeys.map((k) => (
               <TableHead key={k}>{k}</TableHead>
             ))}
@@ -196,7 +197,11 @@ function ContainersTable({
                 {row.container_number ?? '—'}
               </TableCell>
               <TableCell>{row.trade_type ?? '—'}</TableCell>
+              <TableCell>{row.status ?? '—'}</TableCell>
               <TableCell>{row.line ?? '—'}</TableCell>
+              <TableCell>{row.vessel_name ?? '—'}</TableCell>
+              <TableCell>{row.last_free_day ?? '—'}</TableCell>
+              <TableCell>{row.return_date ?? '—'}</TableCell>
               {extraKeys.map((k) => {
                 const val = row.raw_data?.[k]
                 return (
@@ -209,50 +214,6 @@ function ContainersTable({
                   </TableCell>
                 )
               })}
-              <TableCell>
-                <RawDataCell raw={row.raw_data} />
-              </TableCell>
-              <TableCell>{row.snapshot_date}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  )
-}
-
-function ToReturnTable({
-  rows,
-  portal,
-}: {
-  rows: ProvarToReturnRow[]
-  portal: ProvarPortal
-}) {
-  if (rows.length === 0) {
-    return (
-      <div className="text-sm text-muted-foreground py-8 text-center border rounded-md">
-        No to-return data for {PORTAL_LABELS[portal]} today.
-      </div>
-    )
-  }
-  return (
-    <div className="border rounded-md overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Container ID</TableHead>
-            <TableHead>Return Date</TableHead>
-            <TableHead>Raw Data</TableHead>
-            <TableHead>Snapshot Date</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow key={row.id}>
-              <TableCell className="font-mono text-xs">
-                {row.container_id ?? '—'}
-              </TableCell>
-              <TableCell>{row.return_date ?? '—'}</TableCell>
               <TableCell>
                 <RawDataCell raw={row.raw_data} />
               </TableCell>
@@ -392,7 +353,6 @@ function PullResultsCard({ summary }: { summary: PullSummary }) {
 export default function ProvarPage() {
   const {
     containers,
-    toReturn,
     syncLog,
     portalSummaries,
     loading,
@@ -428,7 +388,6 @@ export default function ProvarPage() {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold flex items-center gap-2">
@@ -436,7 +395,7 @@ export default function ProvarPage() {
             Provar Terminal Integration
           </h1>
           <p className="text-muted-foreground">
-            Live container and return data from terminal portals
+            Live container data from terminal portals
           </p>
         </div>
         <Button onClick={() => runPull()} disabled={isPulling}>
@@ -451,7 +410,6 @@ export default function ProvarPage() {
         </Button>
       </div>
 
-      {/* Portal summary cards */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {PROVAR_PORTALS.map((p) => (
@@ -471,10 +429,8 @@ export default function ProvarPage() {
         </div>
       )}
 
-      {/* Last pull results */}
       {lastPullResult ? <PullResultsCard summary={lastPullResult} /> : null}
 
-      {/* Tabs per portal */}
       <Tabs defaultValue={PROVAR_PORTALS[0]} className="w-full">
         <TabsList className="w-full justify-start flex-wrap h-auto">
           {PROVAR_PORTALS.map((p) => (
@@ -487,7 +443,6 @@ export default function ProvarPage() {
           const portalContainers = containers.filter(
             (c) => c.portal === portal,
           )
-          const portalToReturn = toReturn.filter((r) => r.portal === portal)
           return (
             <TabsContent key={portal} value={portal} className="space-y-6">
               <section className="space-y-2">
@@ -503,26 +458,11 @@ export default function ProvarPage() {
                   <ContainersTable rows={portalContainers} portal={portal} />
                 )}
               </section>
-
-              <section className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold">To Return</h2>
-                  <Badge variant="secondary">
-                    {portalToReturn.length} rows
-                  </Badge>
-                </div>
-                {loading ? (
-                  <Skeleton className="h-40 w-full" />
-                ) : (
-                  <ToReturnTable rows={portalToReturn} portal={portal} />
-                )}
-              </section>
             </TabsContent>
           )
         })}
       </Tabs>
 
-      {/* Sync log */}
       <Collapsible open={logOpen} onOpenChange={setLogOpen}>
         <Card>
           <CardHeader className="pb-3">
