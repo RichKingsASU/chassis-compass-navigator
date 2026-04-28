@@ -35,3 +35,22 @@ export interface ChassisUtilizationMetric {
   customer: string | null
   lastMoveDate: string | null
 }
+
+export interface UtilizationRow {
+  chassis_number: string
+  lessor: string | null
+  chassis_type: string | null
+  utilization_status: string | null
+  region: string | null
+  total_loads: number | null
+  days_idle: number | null
+  last_activity_date: string | null
+  acct_mgr: string | null
+  first_load_date: string | null
+  on_hire_date: string | null
+  off_hire_date: string | null
+  contract_end_date: string | null
+  total_revenue: number | null
+  chassis_status?: string | null
+  notes?: string | null
+}
