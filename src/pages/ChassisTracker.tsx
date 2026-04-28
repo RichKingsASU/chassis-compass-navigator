@@ -21,6 +21,9 @@ interface ChassisGps {
   gps_date: string | null
   dormant_days: number | null
   gps_status: string | null
+  lessor: string | null
+  reporting_category: string | null
+  lease_rate_per_day: number | null
 }
 
 type ColorRGB = [number, number, number]
@@ -76,7 +79,7 @@ export default function ChassisTracker() {
         const { data, error: err } = await supabase
           .from('v_chassis_gps_mcl')
           .select(
-            'gps_source, chassis_number, landmark, address, latitude, longitude, gps_date, dormant_days, gps_status'
+            'gps_source, chassis_number, landmark, address, latitude, longitude, gps_date, dormant_days, gps_status, lessor, reporting_category, lease_rate_per_day'
           )
           .not('latitude', 'is', null)
 
@@ -153,6 +156,11 @@ export default function ChassisTracker() {
     if (!object) return null
     const color = colorFor(object.gps_source)
     const dormant = object.dormant_days
+    const rate = object.lease_rate_per_day
+    const rateStr =
+      rate != null && !Number.isNaN(Number(rate))
+        ? `$${Number(rate).toFixed(2)}`
+        : null
     return {
       html: `
         <div style="font-family: ui-sans-serif, system-ui, sans-serif; min-width: 240px;">
@@ -162,6 +170,9 @@ export default function ChassisTracker() {
           <div style="display:inline-block; padding: 2px 8px; border-radius: 9999px; background: ${rgbCss(color, 0.18)}; color: ${rgbCss(color)}; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; margin-bottom: 8px;">
             ${object.gps_source ?? 'UNKNOWN'}
           </div>
+          ${object.lessor ? `<div style="font-size: 12px; margin-bottom: 2px;"><strong>Lessor:</strong> ${object.lessor}</div>` : ''}
+          ${object.reporting_category ? `<div style="font-size: 12px; margin-bottom: 2px;"><strong>Reporting Category:</strong> ${object.reporting_category}</div>` : ''}
+          ${rateStr ? `<div style="font-size: 12px; margin-bottom: 2px;"><strong>Lease Rate / Day:</strong> ${rateStr}</div>` : ''}
           ${object.landmark ? `<div style="font-size: 12px; margin-bottom: 2px;"><strong>Landmark:</strong> ${object.landmark}</div>` : ''}
           <div style="font-size: 12px; margin-bottom: 2px;"><strong>Address:</strong> ${object.address ?? '—'}</div>
           <div style="font-size: 12px; margin-bottom: 2px;"><strong>Last Ping:</strong> ${formatPing(object.gps_date)}</div>
