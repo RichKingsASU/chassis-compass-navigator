@@ -230,7 +230,7 @@ export default function DCLIInvoiceLineDetail() {
           </h1>
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="px-3 py-0.5 font-bold uppercase tracking-wider text-[10px] bg-muted/50">
-              Audit ID: {line?.id.split('-')[0]}
+              Audit ID: {line?.id != null ? String(line.id).split('-')[0] : '—'}
             </Badge>
           </div>
         </div>
