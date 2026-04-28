@@ -1,18 +1,20 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { safeDate, safeAmount } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { NewInvoiceDialog } from '@/components/vendor/NewInvoiceDialog'
 import { VendorTabNav, type VendorTabKey } from '@/components/vendor/VendorTabNav'
-import { VendorEmptyState } from '@/components/vendor/VendorEmptyState'
 import { VendorInvoicesTab, type VendorInvoice } from '@/components/vendor/VendorInvoicesTab'
 import { VendorFinancialsTab } from '@/components/vendor/VendorFinancialsTab'
 import { VendorDocumentsTab } from '@/components/vendor/VendorDocumentsTab'
-import { useQuery } from '@tanstack/react-query'
+import { DataGrid } from '@/components/ui/DataGrid'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { useCcmActivity } from '@/features/ccm/hooks/useCcmActivity'
+import { useVendorKpis } from '@/hooks/useVendorKpis'
+import type { CcmActivityRow } from '@/features/ccm/types'
 import { 
   Building2, 
   Info, 
@@ -22,23 +24,12 @@ import {
   FileText, 
   TrendingUp, 
   DollarSign,
-  Search
+  Search,
+  Box
 } from 'lucide-react'
 
 const VENDOR_SLUG = 'ccm'
-
-interface CcmActivity {
-  id: number
-  invoice: string | null
-  invoice_category: string | null
-  invoice_date: string | null
-  due_date: string | null
-  invoice_amount: number | null
-  amount_paid: number | null
-  amount_due: number | null
-  invoice_status: string | null
-  created_at: string
-}
+const ACTIVITY_TABLE = 'ccm_activity'
 
 export default function CCMPage() {
   const [activeTab, setActiveTab] = useState<VendorTabKey>('dashboard')
@@ -46,40 +37,59 @@ export default function CCMPage() {
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0)
   const [invoices, setInvoices] = useState<VendorInvoice[]>([])
 
-  const { data: dashboardRecords = [], isLoading: dashboardLoading, isError: dashboardError } = useQuery({
-    queryKey: ['vendor_invoices', VENDOR_SLUG, invoiceRefreshKey],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vendor_invoices')
-        .select('*')
-        .eq('vendor_slug', VENDOR_SLUG)
-        .order('invoice_date', { ascending: false })
-        .limit(500)
-      if (error) throw error
-      return (data || []) as VendorInvoice[]
-    }
-  })
-
-  const { data: activityRecords = [], isLoading: activityLoading, isError: activityError } = useQuery({
-    queryKey: ['ccm_activity'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('ccm_activity')
-        .select('*')
-        .order('invoice_date', { ascending: false })
-        .limit(1000)
-      if (error) throw error
-      return (data || []) as CcmActivity[]
-    }
-  })
+  const { data: kpis, isLoading: kpisLoading } = useVendorKpis(VENDOR_SLUG, ACTIVITY_TABLE, invoiceRefreshKey)
+  const { data: activity = [], isLoading: activityLoading } = useCcmActivity()
 
   const handleInvoicesLoaded = useCallback((rows: VendorInvoice[]) => {
     setInvoices(rows)
   }, [])
 
-  const totalInvoices = dashboardRecords.length
-  const totalBilled = dashboardRecords.reduce((sum, r) => sum + (Number(r.invoice_amount) || 0), 0)
-  const openInvoices = dashboardRecords.filter(r => (r.invoice_status || '').toLowerCase() !== 'paid').length
+  const activityColumnDefs = useMemo<ColDef<CcmActivityRow>[]>(() => [
+    { 
+      headerName: 'Artifact ID', 
+      field: 'invoice', 
+      pinned: 'left', 
+      width: 160, 
+      cellClass: 'font-mono font-black text-primary' 
+    },
+    { headerName: 'Classification', field: 'invoice_category', width: 160, cellClass: 'text-[10px] font-black uppercase tracking-tighter text-muted-foreground' },
+    { headerName: 'Timeline', field: 'invoice_date', width: 140, valueFormatter: (p) => safeDate(p.value) },
+    { headerName: 'Due Date', field: 'due_date', width: 140, valueFormatter: (p) => safeDate(p.value) },
+    { 
+      headerName: 'Valuation', 
+      field: 'invoice_amount', 
+      type: 'numericColumn', 
+      width: 140, 
+      valueFormatter: (p) => safeAmount(p.value),
+      cellClass: 'font-black'
+    },
+    { 
+      headerName: 'Settled', 
+      field: 'amount_paid', 
+      type: 'numericColumn', 
+      width: 140, 
+      valueFormatter: (p) => safeAmount(p.value),
+      cellClass: 'font-bold text-emerald-600'
+    },
+    { 
+      headerName: 'Balance', 
+      field: 'amount_due', 
+      type: 'numericColumn', 
+      width: 140, 
+      valueFormatter: (p) => safeAmount(p.value),
+      cellClass: 'font-bold text-amber-600'
+    },
+    { 
+      headerName: 'Status', 
+      field: 'invoice_status', 
+      width: 140,
+      cellRenderer: (params: ICellRendererParams) => (
+        <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5">
+          {params.value || 'UNKNOWN'}
+        </Badge>
+      )
+    },
+  ], [])
 
   return (
     <div className="p-8 space-y-8">
@@ -98,12 +108,12 @@ export default function CCMPage() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onNewInvoice={() => setInvoiceDialogOpen(true)}
-        counts={{ invoices: invoices.length, activity: activityRecords.length }}
+        counts={{ invoices: invoices.length, activity: activity.length }}
       />
 
       {activeTab === 'dashboard' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <Card className="border-none shadow-xl bg-primary/[0.02]">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -112,7 +122,7 @@ export default function CCMPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {dashboardLoading ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-black">{totalInvoices.toLocaleString()}</p>}
+                {kpisLoading ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-black">{kpis?.totalInvoices.toLocaleString()}</p>}
               </CardContent>
             </Card>
             <Card className="border-none shadow-xl bg-emerald-500/[0.02]">
@@ -123,7 +133,7 @@ export default function CCMPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {dashboardLoading ? <Skeleton className="h-10 w-32" /> : <p className="text-4xl font-black text-emerald-600">{safeAmount(totalBilled)}</p>}
+                {kpisLoading ? <Skeleton className="h-10 w-32" /> : <p className="text-4xl font-black text-emerald-600">{safeAmount(kpis?.totalBilled)}</p>}
               </CardContent>
             </Card>
             <Card className="border-none shadow-xl bg-amber-500/[0.02]">
@@ -134,7 +144,18 @@ export default function CCMPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {dashboardLoading ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-black text-amber-600">{openInvoices.toLocaleString()}</p>}
+                {kpisLoading ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-black text-amber-600">{kpis?.openAudits.toLocaleString()}</p>}
+              </CardContent>
+            </Card>
+            <Card className="border-none shadow-xl bg-purple-500/[0.02]">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-purple-700 uppercase tracking-widest">Activity Nodes</p>
+                  <Activity size={14} className="text-purple-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {kpisLoading ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-black text-purple-600">{kpis?.activityCount.toLocaleString()}</p>}
               </CardContent>
             </Card>
           </div>
@@ -143,7 +164,7 @@ export default function CCMPage() {
             <Card className="border-none shadow-xl bg-card/50 backdrop-blur-sm">
               <CardHeader className="bg-muted/30 border-b py-4">
                 <CardTitle className="text-lg flex items-center gap-2 font-black tracking-tight uppercase">
-                  <Info size={18} className="text-primary" /> Nexus Information
+                  <Box size={18} className="text-primary" /> Nexus Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-6 space-y-6">
@@ -197,45 +218,11 @@ export default function CCMPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {activityLoading ? (
-                <div className="p-8 space-y-4">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}</div>
-              ) : activityRecords.length === 0 ? (
-                <div className="py-20 flex flex-col items-center justify-center text-center space-y-4">
-                  <Activity size={48} className="text-muted-foreground opacity-20" />
-                  <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">Zero Activity Detected</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-muted/50 border-b">
-                      <tr className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                        <TableHead className="px-6 py-4">Artifact ID</TableHead>
-                        <TableHead className="px-6 py-4">Classification</TableHead>
-                        <TableHead className="px-6 py-4">Timeline</TableHead>
-                        <TableHead className="px-6 py-4 text-right">Valuation</TableHead>
-                        <TableHead className="px-6 py-4 text-right">Settled</TableHead>
-                        <TableHead className="px-6 py-4 text-right">Balance</TableHead>
-                        <TableHead className="px-6 py-4">Status</TableHead>
-                      </tr>
-                    </TableHeader>
-                    <TableBody>
-                      {activityRecords.map(row => (
-                        <TableRow key={row.id} className="hover:bg-muted/30 transition-colors border-b last:border-0 group">
-                          <TableCell className="px-6 py-4 font-mono font-black text-xs text-primary">{row.invoice || 'N/A'}</TableCell>
-                          <TableCell className="px-6 py-4 text-[10px] font-black uppercase tracking-tighter text-muted-foreground">{row.invoice_category || '—'}</TableCell>
-                          <TableCell className="px-6 py-4 text-xs font-bold">{safeDate(row.invoice_date)}</TableCell>
-                          <TableCell className="px-6 py-4 text-right font-black text-sm">{safeAmount(row.invoice_amount)}</TableCell>
-                          <TableCell className="px-6 py-4 text-right font-bold text-emerald-600">{safeAmount(row.amount_paid)}</TableCell>
-                          <TableCell className="px-6 py-4 text-right font-bold text-amber-600">{safeAmount(row.amount_due)}</TableCell>
-                          <TableCell className="px-6 py-4">
-                            <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5">{row.invoice_status || 'UNKNOWN'}</Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+              <DataGrid<CcmActivityRow> 
+                rowData={activity} 
+                columnDefs={activityColumnDefs} 
+                loading={activityLoading} 
+              />
             </CardContent>
           </Card>
         </div>
