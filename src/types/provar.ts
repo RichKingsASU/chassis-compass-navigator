@@ -63,3 +63,38 @@ export interface PullSummary {
   total_rows: number
   errors: string[]
 }
+
+export interface ProvarPullRun {
+  id: string
+  status: 'queued' | 'running' | 'completed' | 'failed'
+  portal: string
+  date_range: string | null
+  triggered_by: string | null
+  started_at: string | null
+  completed_at: string | null
+  total_containers: number
+  processed_containers: number
+  downloaded_pdfs: number
+  downloaded_screenshots: number
+  error_count: number
+  error_message: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+  updated_at: string
+}
+
+export interface ProvarDocument {
+  id: string
+  pull_run_id: string
+  portal: string
+  container_id: string
+  document_type: 'pdf' | 'screenshot' | 'other'
+  file_path: string
+  file_name: string
+  mime_type: string | null
+  source_url: string | null
+  status: string
+  error_message: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}

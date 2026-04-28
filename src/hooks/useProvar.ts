@@ -7,6 +7,7 @@ import {
   type ProvarPortalSummary,
   type ProvarSyncLogRow,
   type PullSummary,
+  type ProvarPullRun,
 } from '@/types/provar'
 
 function todayIso(): string {
@@ -21,6 +22,8 @@ export function useProvar() {
   const [lastPullResult, setLastPullResult] = useState<PullSummary | null>(
     null,
   )
+  const [activeRunId, setActiveRunId] = useState<string | null>(null)
+  const [activeRun, setActiveRun] = useState<ProvarPullRun | null>(null)
 
   const refetch = useCallback(async () => {
     setLoading(true)
@@ -52,6 +55,32 @@ export function useProvar() {
   useEffect(() => {
     refetch()
   }, [refetch])
+
+  // Polling for active run status
+  useEffect(() => {
+    if (!activeRunId) return
+
+    const poll = async () => {
+      const { data, error } = await supabase
+        .from('provar_pull_runs')
+        .select('*')
+        .eq('id', activeRunId)
+        .single()
+
+      if (!error && data) {
+        const run = data as ProvarPullRun
+        setActiveRun(run)
+        if (run.status === 'completed' || run.status === 'failed') {
+          setActiveRunId(null)
+          refetch()
+        }
+      }
+    }
+
+    const interval = setInterval(poll, 3000)
+    poll()
+    return () => clearInterval(interval)
+  }, [activeRunId, refetch])
 
   const portalSummaries = useMemo<ProvarPortalSummary[]>(() => {
     return PROVAR_PORTALS.map((portal) => {
@@ -98,6 +127,27 @@ export function useProvar() {
     [refetch],
   )
 
+  const startAutomationPull = useCallback(
+    async (portal: string = 'all', dateRange: string = 'last_7_days') => {
+      setIsPulling(true)
+      try {
+        const { data, error } = await supabase.functions.invoke<{ run_id: string }>(
+          'start-provar-pull',
+          { body: { portal, dateRange } },
+        )
+
+        if (error) throw new Error(error.message)
+        if (!data?.run_id) throw new Error('No run ID returned')
+
+        setActiveRunId(data.run_id)
+        return data.run_id
+      } finally {
+        setIsPulling(false)
+      }
+    },
+    [],
+  )
+
   return {
     containers,
     syncLog,
@@ -105,7 +155,9 @@ export function useProvar() {
     loading,
     isPulling,
     lastPullResult,
+    activeRun,
     triggerPull,
+    startAutomationPull,
     refetch,
   }
 }

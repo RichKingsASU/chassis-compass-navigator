@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/collapsible'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/use-toast'
+import { Progress } from '@/components/ui/progress'
 import { useProvar } from '@/hooks/useProvar'
 import {
   PORTAL_LABELS,
@@ -350,6 +351,62 @@ function PullResultsCard({ summary }: { summary: PullSummary }) {
   )
 }
 
+function RunStatusPanel({ run }: { run: ProvarPullRun }) {
+  const progress = run.total_containers > 0 
+    ? Math.round((run.processed_containers / run.total_containers) * 100)
+    : 0
+
+  return (
+    <Card className="border-primary/20 bg-primary/5">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Loader2 className={`h-4 w-4 ${run.status === 'running' ? 'animate-spin' : ''}`} />
+            On-Demand Automation: {run.status.toUpperCase()}
+          </CardTitle>
+          <Badge variant={run.status === 'failed' ? 'destructive' : 'default'}>
+            {run.processed_containers} / {run.total_containers} Containers
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs font-medium">
+            <span>Overall Progress</span>
+            <span>{progress}%</span>
+          </div>
+          <Progress value={progress} className="h-2" />
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+          <div className="text-center p-2 rounded bg-background/50 border">
+            <div className="text-xs text-muted-foreground">PDFs</div>
+            <div className="text-xl font-bold">{run.downloaded_pdfs}</div>
+          </div>
+          <div className="text-center p-2 rounded bg-background/50 border">
+            <div className="text-xs text-muted-foreground">Screenshots</div>
+            <div className="text-xl font-bold">{run.downloaded_screenshots}</div>
+          </div>
+          <div className="text-center p-2 rounded bg-background/50 border">
+            <div className="text-xs text-muted-foreground">Processed</div>
+            <div className="text-xl font-bold text-primary">{run.processed_containers}</div>
+          </div>
+          <div className="text-center p-2 rounded bg-background/50 border">
+            <div className="text-xs text-muted-foreground">Errors</div>
+            <div className="text-xl font-bold text-destructive">{run.error_count}</div>
+          </div>
+        </div>
+
+        {run.error_message && (
+          <div className="p-3 rounded bg-destructive/10 text-destructive text-xs font-mono border border-destructive/20">
+            {run.error_message}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function ProvarPage() {
   const {
     containers,
@@ -358,21 +415,33 @@ export default function ProvarPage() {
     loading,
     isPulling,
     lastPullResult,
+    activeRun,
     triggerPull,
+    startAutomationPull,
   } = useProvar()
   const { toast } = useToast()
   const [logOpen, setLogOpen] = useState(false)
 
   const runPull = async (portals?: ProvarPortal[]) => {
     try {
-      const result = await triggerPull(portals)
-      const errorCount = result.errors?.length ?? 0
-      const isError = errorCount > 0
-      toast({
-        title: isError ? 'Pull completed with errors' : 'Pull complete',
-        description: `${result.total_rows} rows · ${errorCount} errors`,
-        variant: isError ? 'destructive' : 'default',
-      })
+      if (!portals || portals.length === 0) {
+        // Use new automation for "Pull All"
+        await startAutomationPull()
+        toast({
+          title: 'Automation started',
+          description: 'The background worker is now logging into Provar.',
+        })
+      } else {
+        // Use legacy API for individual portals
+        const result = await triggerPull(portals)
+        const errorCount = result.errors?.length ?? 0
+        const isError = errorCount > 0
+        toast({
+          title: isError ? 'Pull completed with errors' : 'Pull complete',
+          description: `${result.total_rows} rows · ${errorCount} errors`,
+          variant: isError ? 'destructive' : 'default',
+        })
+      }
     } catch (err: unknown) {
       const msg =
         err instanceof Error
@@ -409,6 +478,8 @@ export default function ProvarPage() {
           )}
         </Button>
       </div>
+
+      {activeRun && <RunStatusPanel run={activeRun} />}
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
