@@ -33,8 +33,10 @@ import {
   type ProvarPortal,
   type ProvarPortalSummary,
   type ProvarSyncLogRow,
+  type ProvarPullRun,
   type PullSummary,
 } from '@/types/provar'
+
 
 const BASE_CONTAINER_KEYS = new Set([
   'Container #',

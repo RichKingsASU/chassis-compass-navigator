@@ -40,44 +40,46 @@ interface NavigationItem {
 const navItems: NavigationItem[] = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
   {
-    title: 'Chassis Management',
+    title: 'Operations',
+    path: '/unbilled-loads',
+    icon: Database,
+    subItems: [
+      { title: 'Unbilled Loads', path: '/unbilled-loads' },
+      { title: 'Active Loads', path: '/active-loads' },
+      { title: 'Terminal Events', path: '/terminal-events' },
+      { title: 'Mercury Gate', path: '/tms/mercury-gate' },
+      { title: 'Port Pro', path: '/tms/port-pro' },
+    ],
+  },
+  {
+    title: 'Analytics',
+    path: '/utilization',
+    icon: BarChart3,
+    subItems: [
+      { title: 'Chassis Utilization', path: '/utilization' },
+      { title: 'Revenue Gap', path: '/billing-exposure' },
+      { title: 'Per Diem Recon', path: '/perdiem' },
+    ],
+  },
+
+  {
+    title: 'Fleet Management',
     path: '/chassis',
     icon: Truck,
     subItems: [
       { title: 'Overview', path: '/chassis' },
       { title: 'Chassis Locator', path: '/chassis/locator' },
+      { title: 'GPS Providers', path: '/gps' },
     ],
   },
-  {
-    title: 'TMS Data',
-    path: '/tms',
-    icon: Database,
-    subItems: [
-      { title: 'Mercury Gate', path: '/tms/mercury-gate' },
-      { title: 'Port Pro', path: '/tms/port-pro' },
-    ],
-  },
-  { title: 'Utilization', path: '/utilization', icon: BarChart3 },
   {
     title: 'Yard Management',
     path: '/yard',
     icon: Warehouse,
     subItems: [
+      { title: 'Overview', path: '/yard' },
       { title: 'PIER S', path: '/yards/pola' },
       { title: 'JED YARD', path: '/yards/jedyard' },
-    ],
-  },
-  {
-    title: 'GPS Providers',
-    path: '/gps',
-    icon: MapPin,
-    subItems: [
-      { title: 'Overview', path: '/gps' },
-      { title: 'Samsara', path: '/gps/samsara' },
-      { title: 'BlackBerry Radar', path: '/gps/blackberry' },
-      { title: 'Fleetview', path: '/gps/fleetview' },
-      { title: 'Fleetlocate', path: '/gps/fleetlocate' },
-      { title: 'Anytrek', path: '/gps/anytrek' },
     ],
   },
   {
@@ -94,17 +96,6 @@ const navItems: NavigationItem[] = [
       { title: 'WCCP', path: '/vendors/wccp' },
     ],
   },
-  {
-    title: 'Finance',
-    path: '/unbilled-loads',
-    icon: DollarSign,
-    subItems: [
-      { title: 'Unbilled Loads', path: '/unbilled-loads' },
-      { title: 'Per Diem Recon', path: '/perdiem' },
-      { title: 'Billing Exposure', path: '/billing-exposure' },
-      { title: 'Terminal Events', path: '/terminal-events' },
-    ],
-  },
   { title: 'Provar', path: '/provar', icon: Plug },
   {
     title: 'Settings',
@@ -116,6 +107,7 @@ const navItems: NavigationItem[] = [
     ],
   },
 ]
+
 
 export default function SidebarNavigation() {
   const location = useLocation()
