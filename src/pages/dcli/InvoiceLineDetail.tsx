@@ -1,6 +1,13 @@
-import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, AlertCircle, Loader2, CheckCircle2, XCircle } from 'lucide-react'
+import {
+  ArrowLeft,
+  AlertCircle,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,6 +27,7 @@ import type {
   DcliInternalLineItem,
   DcliLineItemStatus,
   DcliTmsMatchSnapshot,
+  DcliValidationStatus,
 } from '@/features/dcli/types'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -86,6 +94,58 @@ function MatchScoreBadge({ score }: { score: number | null }) {
   )
 }
 
+function MatchConfidenceBadge({ confidence }: { confidence: number | null }) {
+  if (confidence == null) return null
+  const pct = confidence <= 1 ? Math.round(confidence * 100) : Math.round(confidence)
+  if (pct >= 100) {
+    return (
+      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-100 font-bold">
+        100% Match
+      </Badge>
+    )
+  }
+  if (pct > 0) {
+    return (
+      <Badge className="bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-100 font-bold">
+        Fuzzy Match ({pct}%)
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="destructive" className="font-bold">
+      No Match
+    </Badge>
+  )
+}
+
+const VALIDATION_BADGE: Record<DcliValidationStatus, { cls: string; label: string }> = {
+  pass: {
+    cls: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    label: 'Pass',
+  },
+  fail: {
+    cls: 'bg-red-100 text-red-800 border-red-300',
+    label: 'Fail',
+  },
+  warn: {
+    cls: 'bg-amber-100 text-amber-800 border-amber-300',
+    label: 'Warn',
+  },
+  skipped: {
+    cls: 'bg-gray-100 text-gray-700 border-gray-300',
+    label: 'Skipped',
+  },
+}
+
+function ValidationBadge({ status }: { status: DcliValidationStatus }) {
+  const { cls, label } = VALIDATION_BADGE[status]
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${cls}`}>
+      {label}
+    </span>
+  )
+}
+
 function compareStrings(a: string | null | undefined, b: string | null | undefined): boolean {
   if (!a || !b) return false
   return a.trim().toUpperCase() === b.trim().toUpperCase()
@@ -109,6 +169,12 @@ function compareDates(
   const db = new Date(b)
   if (Number.isNaN(da.getTime()) || Number.isNaN(db.getTime())) return false
   return Math.abs(da.getTime() - db.getTime()) < 86400000
+}
+
+interface ValidationFinding {
+  message?: string | null
+  day_variance?: number | null
+  [key: string]: unknown
 }
 
 export default function DCLIInvoiceLineDetail() {
@@ -152,6 +218,41 @@ export default function DCLIInvoiceLineDetail() {
       toast.success(`Status updated to ${status}`)
     },
     onError: (error: Error) => toast.error(`Status update failed: ${error.message}`)
+  })
+
+  const matchingMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('match_dcli_line_items', {
+        p_invoice_id: String(invoiceNumber),
+      })
+      if (error) throw new Error(error.message)
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dcli_internal_line_item', lineId] })
+      toast.success('Activity matching complete')
+    },
+    onError: (error: Error) => toast.error(`Matching failed: ${error.message}`),
+  })
+
+  const validationMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc('validate_dcli_line_items', {
+        p_invoice_id: String(invoiceNumber),
+      })
+      if (error) throw new Error(error.message)
+      return data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['dcli_internal_line_item', lineId] })
+      const r = data as { pass?: number; fail?: number; warn?: number } | null
+      toast.success(
+        r
+          ? `Validation complete — ${r.pass ?? 0} pass · ${r.fail ?? 0} fail · ${r.warn ?? 0} warn`
+          : 'Validation complete'
+      )
+    },
+    onError: (error: Error) => toast.error(`Validation failed: ${error.message}`),
   })
 
   const backToInvoice = () => {
@@ -212,27 +313,77 @@ export default function DCLIInvoiceLineDetail() {
         : null
     : null
 
+  const matchType = (tms && typeof tms.match_type === 'string' ? tms.match_type : null) as
+    | 'activity'
+    | 'tms'
+    | 'none'
+    | string
+    | null
+  const matchConfidence =
+    tms && typeof tms.match_confidence === 'number'
+      ? (tms.match_confidence as number)
+      : tms && typeof tms.match_score === 'number'
+        ? (tms.match_score as number)
+        : null
+  const matchSource = tms && typeof tms.match_source === 'string' ? (tms.match_source as string) : null
+  const tmsTotal = tms && typeof tms.total === 'number' ? (tms.total as number) : null
+
+  const validationStatus = line.validation_status ?? null
+  const validationFindingsRaw = (line as { validation_findings?: unknown }).validation_findings
+  const validationFindings: ValidationFinding[] = Array.isArray(validationFindingsRaw)
+    ? (validationFindingsRaw as ValidationFinding[])
+    : []
+
+  const hasMatch = tms != null && matchType !== 'none'
+  const matchingPending = matchingMutation.isPending
+  const validationPending = validationMutation.isPending
+
   return (
     <div className="p-8 space-y-8">
       {/* Header section */}
-      <div className="space-y-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={backToInvoice}
-          className="gap-2 -ml-2 text-muted-foreground"
-        >
-          <ArrowLeft size={14} /> Invoice {invoiceNumber || '—'}
-        </Button>
-        <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Line Detail: <span className="font-mono text-primary">{line?.chassis ?? '—'}</span>
-          </h1>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="px-3 py-0.5 font-bold uppercase tracking-wider text-[10px] bg-muted/50">
-              Audit ID: {line?.id != null ? String(line.id).split('-')[0] : '—'}
-            </Badge>
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div className="space-y-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={backToInvoice}
+            className="gap-2 -ml-2 text-muted-foreground"
+          >
+            <ArrowLeft size={14} /> Invoice {invoiceNumber || '—'}
+          </Button>
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold tracking-tight">
+              Line Detail: <span className="font-mono text-primary">{line?.chassis ?? '—'}</span>
+            </h1>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="px-3 py-0.5 font-bold uppercase tracking-wider text-[10px] bg-muted/50">
+                Audit ID: {line?.id != null ? String(line.id).split('-')[0] : '—'}
+              </Badge>
+            </div>
           </div>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => matchingMutation.mutate()}
+            disabled={matchingPending || validationPending}
+            className="gap-2 font-semibold"
+          >
+            {matchingPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            {matchingPending ? 'Matching...' : 'Run Activity Matching'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => validationMutation.mutate()}
+            disabled={matchingPending || validationPending}
+            className="gap-2 font-semibold"
+          >
+            {validationPending ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+            {validationPending ? 'Validating...' : 'Run Validation'}
+          </Button>
         </div>
       </div>
 
@@ -261,8 +412,8 @@ export default function DCLIInvoiceLineDetail() {
                   <Field label="Destination" value={line?.return_location} />
                 </div>
                 <div className="col-span-2 border-t pt-8">
-                  <Field 
-                    label="Service Order Matching" 
+                  <Field
+                    label="Service Order Matching"
                     value={
                       line?.so_num ? (
                         <span className="font-mono text-primary font-bold">{line.so_num}</span>
@@ -271,7 +422,7 @@ export default function DCLIInvoiceLineDetail() {
                           <AlertCircle size={10} /> Unmatched - Run sync diagnostic
                         </span>
                       )
-                    } 
+                    }
                   />
                 </div>
               </div>
@@ -321,19 +472,26 @@ export default function DCLIInvoiceLineDetail() {
 
         <Card className="shadow-sm border-primary/10">
           <CardHeader className="border-b bg-primary/5">
-            <CardTitle className="text-base uppercase tracking-widest font-bold text-primary flex items-center justify-between">
-              TMS Correlation Audit
+            <CardTitle className="text-base uppercase tracking-widest font-bold text-primary flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                TMS Correlation Audit
+                {hasMatch && matchType && (
+                  <Badge variant="secondary" className="px-2 py-0.5 text-[10px] uppercase tracking-wider">
+                    {matchType}
+                  </Badge>
+                )}
+              </span>
               <MatchScoreBadge score={matchScore} />
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-8 space-y-8">
-            {!tms && !loading ? (
+            {!hasMatch ? (
               <div className="p-12 flex flex-col items-center text-center space-y-4 bg-muted/20 rounded-xl border-2 border-dashed">
                 <AlertCircle size={32} className="text-muted-foreground" />
                 <div className="space-y-1">
                   <p className="font-bold">Missing Activity Match</p>
                   <p className="text-sm text-muted-foreground max-w-[280px]">
-                    No corresponding activity record found in TMS. Run the global matching engine to correlate data.
+                    No match found. Click Run Activity Matching to search.
                   </p>
                 </div>
               </div>
@@ -351,7 +509,7 @@ export default function DCLIInvoiceLineDetail() {
                     </thead>
                     <tbody className="divide-y font-medium">
                       <tr>
-                        <td className="p-3 text-muted-foreground">Chassis ID</td>
+                        <td className="p-3 text-muted-foreground">Chassis</td>
                         <td className="p-3 font-mono">{line?.chassis ?? '—'}</td>
                         <td className="p-3 font-mono text-muted-foreground">{tms?.chassis ?? '—'}</td>
                         <td className="p-3 text-center">
@@ -359,7 +517,7 @@ export default function DCLIInvoiceLineDetail() {
                         </td>
                       </tr>
                       <tr className="bg-muted/5">
-                        <td className="p-3 text-muted-foreground">Start Date</td>
+                        <td className="p-3 text-muted-foreground">Date Out</td>
                         <td className="p-3 font-mono">{formatShortDate(line?.date_out) || '—'}</td>
                         <td className="p-3 font-mono text-muted-foreground">{formatShortDate(tms?.date_out) || '—'}</td>
                         <td className="p-3 text-center">
@@ -367,7 +525,7 @@ export default function DCLIInvoiceLineDetail() {
                         </td>
                       </tr>
                       <tr>
-                        <td className="p-3 text-muted-foreground">End Date</td>
+                        <td className="p-3 text-muted-foreground">Date In</td>
                         <td className="p-3 font-mono">{formatShortDate(line?.date_in) || '—'}</td>
                         <td className="p-3 font-mono text-muted-foreground">{formatShortDate(tms?.date_in) || '—'}</td>
                         <td className="p-3 text-center">
@@ -375,7 +533,7 @@ export default function DCLIInvoiceLineDetail() {
                         </td>
                       </tr>
                       <tr className="bg-muted/5">
-                        <td className="p-3 text-muted-foreground">Duration</td>
+                        <td className="p-3 text-muted-foreground">Days</td>
                         <td className="p-3 font-mono">{line?.bill_days ?? '—'}</td>
                         <td className="p-3 font-mono text-muted-foreground">{tmsDays ?? '—'}</td>
                         <td className="p-3 text-center">
@@ -383,18 +541,35 @@ export default function DCLIInvoiceLineDetail() {
                         </td>
                       </tr>
                       <tr>
-                        <td className="p-3 text-muted-foreground">Unit Rate</td>
+                        <td className="p-3 text-muted-foreground">Rate</td>
                         <td className="p-3 font-mono">{line?.rate != null ? formatUSD(line.rate) : '—'}</td>
                         <td className="p-3 font-mono text-muted-foreground">{typeof tms?.rate === 'number' ? formatUSD(tms.rate) : '—'}</td>
                         <td className="p-3 text-center">
                           <MatchIcon matched={typeof tms?.rate === 'number' && typeof line?.rate === 'number' ? compareNumbers(line.rate, tms.rate) : null} />
                         </td>
                       </tr>
+                      <tr className="bg-muted/5">
+                        <td className="p-3 text-muted-foreground">Total</td>
+                        <td className="p-3 font-mono">{line?.total != null ? formatUSD(line.total) : '—'}</td>
+                        <td className="p-3 font-mono text-muted-foreground">{tmsTotal != null ? formatUSD(tmsTotal) : '—'}</td>
+                        <td className="p-3 text-center">
+                          <MatchIcon matched={tmsTotal != null && typeof line?.total === 'number' ? compareNumbers(line.total, tmsTotal) : null} />
+                        </td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
 
-                <div className="grid grid-cols-2 gap-8 pt-4">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <MatchConfidenceBadge confidence={matchConfidence} />
+                  {matchSource && (
+                    <Badge variant="outline" className="px-2 py-0.5 text-[10px] uppercase tracking-wider font-mono">
+                      Source: {matchSource}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-8 pt-2">
                   <div className="p-4 bg-muted/30 rounded-lg space-y-1">
                     <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Temporal Drift</p>
                     <p className={`text-xl font-black font-mono ${dayVariance && dayVariance !== 0 ? 'text-red-600' : 'text-emerald-600'}`}>
@@ -409,6 +584,27 @@ export default function DCLIInvoiceLineDetail() {
                   </div>
                 </div>
               </>
+            )}
+
+            {validationStatus && (
+              <div className="border-t pt-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Validation Result</p>
+                  <ValidationBadge status={validationStatus} />
+                </div>
+                {validationFindings.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {validationFindings.map((finding, idx) => (
+                      <li key={idx} className="text-xs text-muted-foreground flex flex-col gap-0.5 pl-3 border-l-2 border-muted">
+                        {finding.message && <span className="text-foreground">{finding.message}</span>}
+                        {typeof finding.day_variance === 'number' && (
+                          <span className="font-mono">Day variance: {finding.day_variance} days</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
