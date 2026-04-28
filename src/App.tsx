@@ -29,6 +29,7 @@ const NotFound = lazy(() => import('@/pages/NotFound'))
 // Root level features
 const ChassisValidation = lazy(() => import('@/pages/ChassisValidation'))
 const ChassisUtilization = lazy(() => import('@/pages/ChassisUtilization'))
+const ChassisTracker = lazy(() => import('@/pages/ChassisTracker'))
 const UnbilledLoadsPage = lazy(() => import('@/features/unbilled-loads/UnbilledLoadsPage'))
 const PerDiemPage = lazy(() => import('@/features/perdiem/PerDiemPage'))
 const BillingExposurePage = lazy(() => import('@/features/billing-exposure/BillingExposurePage'))
@@ -77,6 +78,7 @@ export default function App() {
                   {/* Root level features */}
                   <Route path="/validation" element={<ProtectedPage><ChassisValidation /></ProtectedPage>} />
                   <Route path="/utilization" element={<ProtectedPage><ChassisUtilization /></ProtectedPage>} />
+                  <Route path="/chassis-tracker" element={<ProtectedPage><ChassisTracker /></ProtectedPage>} />
                   
                   <Route path="/active-loads" element={<ProtectedPage><ActiveLoads /></ProtectedPage>} />
                   <Route path="/unbilled-loads" element={<ProtectedPage><UnbilledLoadsPage /></ProtectedPage>} />

@@ -22,6 +22,7 @@ import {
   FileCheck,
   Settings,
   MapPin,
+  MapPinned,
   Database,
   ChevronRight,
   Warehouse,
@@ -58,6 +59,7 @@ const navItems: NavigationItem[] = [
     ],
   },
   { title: 'Utilization', path: '/utilization', icon: BarChart3 },
+  { title: 'Chassis Tracker', path: '/chassis-tracker', icon: MapPinned },
   {
     title: 'Yard Management',
     path: '/yard',
