@@ -9,6 +9,9 @@ const LongTermChassis = lazy(() => import('@/pages/LongTermChassis'));
 const ShortTermChassis = lazy(() => import('@/pages/ShortTermChassis'));
 const ChassisDetail = lazy(() => import('@/pages/ChassisDetail'));
 const ChassisLocator = lazy(() => import('@/pages/ChassisLocator'));
+const FleetOverview = lazy(() => import('@/pages/FleetOverview'));
+const EquipmentBoard = lazy(() => import('@/pages/EquipmentBoard'));
+const RepairsAndCosts = lazy(() => import('@/pages/RepairsAndCosts'));
 
 // Loading Fallback
 function LoadingFallback() {
@@ -28,6 +31,9 @@ export default function ChassisRoutes() {
         <Route path="long-term" element={<ProtectedPage><LongTermChassis /></ProtectedPage>} />
         <Route path="short-term" element={<ProtectedPage><ShortTermChassis /></ProtectedPage>} />
         <Route path="locator" element={<ProtectedPage><ChassisLocator /></ProtectedPage>} />
+        <Route path="fleet-overview" element={<ProtectedPage><FleetOverview /></ProtectedPage>} />
+        <Route path="equipment-board" element={<ProtectedPage><EquipmentBoard /></ProtectedPage>} />
+        <Route path="repairs" element={<ProtectedPage><RepairsAndCosts /></ProtectedPage>} />
         {/* Put :id last to avoid matching static routes like 'overview' */}
         <Route path=":id" element={<ProtectedPage><ChassisDetail /></ProtectedPage>} />
       </Routes>
