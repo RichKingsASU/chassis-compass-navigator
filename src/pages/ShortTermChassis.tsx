@@ -50,7 +50,7 @@ export default function ShortTermChassis() {
       try {
         // Recent/active loads — ordered by most recent pickup
         const { data: result, error: fetchErr, count } = await supabase
-          .from('mg_tms')
+          .from('mg_data')
           .select('*', { count: 'exact' })
           .order('pickup_actual_date', { ascending: false })
           .limit(2000)

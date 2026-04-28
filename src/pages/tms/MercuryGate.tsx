@@ -79,7 +79,7 @@ export default function MercuryGate() {
 
   const buildQuery = useCallback(() => {
     let q = supabase
-      .from('mg_tms')
+      .from('mg_data')
       .select('*', { count: 'exact' })
       .order('create_date', { ascending: false })
 
@@ -135,7 +135,7 @@ export default function MercuryGate() {
     queryKey: ['mg_tms_stats'],
     queryFn: async () => {
       const { data } = await supabase
-        .from('mg_tms')
+        .from('mg_data')
         .select('customer_rate_amount, margin_rate, chassis_number, customer_name')
         .neq('zero_rev', 'Y')
         .not('status', 'in', '("Cancelled","Void","Rejected")')

@@ -14,33 +14,47 @@ interface GpsRow { name: string; value: number }
 
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
+interface ChassisMasterRow { chassis_number: string | null; gps_provider: string | null }
+
+const safeCount = async (table: 'dcli_activity' | 'ccm_activity' | 'scspa_activity'): Promise<number> => {
+  try {
+    const { count } = await supabase.from(table).select('id', { count: 'exact', head: true })
+    return count ?? 0
+  } catch {
+    return 0
+  }
+}
+
 const fetchDashboardData = async () => {
   // Fetch all parallel data to prevent waterfall
   const [
     { data: chassisData },
     { count: actCount },
-    ...vendorResults
+    dcliCount,
+    ccmCount,
+    scspaCount,
   ] = await Promise.all([
     supabase.from('chassis_master').select('chassis_number, gps_provider'),
     supabase.from('mg_data').select('id', { count: 'exact', head: true }),
-    supabase.from('dcli_activity').select('id', { count: 'exact', head: true }).catch(() => ({ count: 0 })),
-    supabase.from('ccm_activity').select('id', { count: 'exact', head: true }).catch(() => ({ count: 0 })),
-    supabase.from('scspa_activity').select('id', { count: 'exact', head: true }).catch(() => ({ count: 0 }))
+    safeCount('dcli_activity'),
+    safeCount('ccm_activity'),
+    safeCount('scspa_activity'),
   ]);
 
-  const total = chassisData?.length || 0;
-  const withGps = (chassisData || []).filter(r => r.gps_provider != null && r.gps_provider !== '').length;
-  
+  const chassisRows = (chassisData ?? []) as ChassisMasterRow[];
+  const total = chassisRows.length;
+  const withGps = chassisRows.filter((r) => r.gps_provider != null && r.gps_provider !== '').length;
+
   const vendorData: VendorRow[] = [
-    { vendor: 'DCLI', count: vendorResults[0]?.count || 0 },
-    { vendor: 'CCM', count: vendorResults[1]?.count || 0 },
-    { vendor: 'SCSPA', count: vendorResults[2]?.count || 0 },
+    { vendor: 'DCLI', count: dcliCount },
+    { vendor: 'CCM', count: ccmCount },
+    { vendor: 'SCSPA', count: scspaCount },
   ];
 
   const gpsProviders = ['Samsara', 'BlackBerry', 'Fleetview', 'Fleetlocate', 'Anytrek'];
-  const gpsData: GpsRow[] = gpsProviders.map(provider => ({
+  const gpsData: GpsRow[] = gpsProviders.map((provider) => ({
     name: provider,
-    value: (chassisData || []).filter(r => r.gps_provider?.toLowerCase().includes(provider.toLowerCase())).length,
+    value: chassisRows.filter((r) => r.gps_provider?.toLowerCase().includes(provider.toLowerCase())).length,
   }));
 
   return {

@@ -39,7 +39,7 @@ export default function ActiveLoads() {
     queryKey: ['mg_tms_active_loads'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('mg_tms')
+        .from('mg_data')
         .select('id, ld_num, chassis_number, container_number, customer_name, carrier_name, status, pickup_actual_date, delivery_actual_date, cust_rate_charge, unbilledflag, acct_mg_name')
         .not('status', 'in', '("Cancelled","Void","Rejected")')
         .order('pickup_actual_date', { ascending: false })
@@ -76,7 +76,7 @@ export default function ActiveLoads() {
         <p className="text-muted-foreground mt-2">Current loads from Mercury Gate TMS — excludes cancelled and void</p>
       </div>
 
-      <DataFreshnessBar tableName="mg_tms" />
+      <DataFreshnessBar tableName="mg_data" />
 
       {error && (
         <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/30">

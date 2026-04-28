@@ -103,14 +103,14 @@ export default function ChassisDetailDrawer({
         const [activeRes, historyRes, dcliRes, yardRes] = await Promise.all([
           // Active load - most recent
           supabase
-            .from('mg_tms')
+            .from('mg_data')
             .select('*')
             .ilike('chassis_number', `%${trimmed}%`)
             .order('created_date', { ascending: false })
             .limit(1),
           // Load history
           supabase
-            .from('mg_tms')
+            .from('mg_data')
             .select(
               'ld_num, so_num, status, customer_name, pickup_loc_name, delivery_loc_name, pickup_actual_date, delivery_actual_date, cust_rate_charge, container_number, mbl, created_date'
             )

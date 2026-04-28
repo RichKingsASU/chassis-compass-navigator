@@ -45,7 +45,7 @@ export default function ChassisOverview() {
     queryKey: ['mg_tms_chassis_overview'],
     queryFn: async () => {
       const { data, count, error } = await supabase
-        .from('mg_tms')
+        .from('mg_data')
         .select('*', { count: 'exact' })
         .order('create_date', { ascending: false })
         .limit(2000)

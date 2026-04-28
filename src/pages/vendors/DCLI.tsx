@@ -4,6 +4,9 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { NewInvoiceDialog } from '@/components/vendor/NewInvoiceDialog'
 import type { VendorInvoice } from '@/components/vendor/VendorInvoicesTab'
 import { VendorFinancialsTab } from '@/components/vendor/VendorFinancialsTab'
@@ -197,6 +200,36 @@ export default function DCLIPage() {
     invoicesGridApiRef.current = e.api
     if (invoiceSearch) e.api.setGridOption('quickFilterText', invoiceSearch)
   }
+
+  const activityColumnDefs = useMemo<ColDef<DcliActivityRow>[]>(() => [
+    { headerName: 'Chassis', field: 'chassis', pinned: 'left', width: 140, cellClass: 'font-mono' },
+    { headerName: 'Reservation', field: 'reservation', width: 160, cellClass: 'font-mono' },
+    { headerName: 'Container', field: 'container', width: 140, cellClass: 'font-mono' },
+    { headerName: 'Date Out', field: 'date_out', width: 130, valueFormatter: dateFormatter },
+    { headerName: 'Date In', field: 'date_in', width: 130, valueFormatter: dateFormatter },
+    { headerName: 'Days', field: 'days_out', type: 'numericColumn', width: 90 },
+    { headerName: 'Pick Up', field: 'pick_up_location', width: 200 },
+    { headerName: 'Location In', field: 'location_in', width: 200 },
+    { headerName: 'Pool Contract', field: 'pool_contract', width: 130 },
+    { headerName: 'SS SCAC', field: 'ss_scac', width: 100 },
+    { headerName: 'Asset Type', field: 'asset_type', width: 120 },
+    { headerName: 'Market', field: 'market', width: 120 },
+    {
+      headerName: 'Request Status',
+      field: 'request_status',
+      width: 150,
+      editable: true,
+      cellEditor: 'agSelectCellEditor',
+      cellEditorParams: { values: ['', 'APPROVED', 'PENDING', 'REJECTED'] },
+    },
+    {
+      headerName: 'Remarks',
+      field: 'remarks',
+      width: 260,
+      editable: true,
+      cellEditor: 'agLargeTextCellEditor',
+    },
+  ], [])
 
   const handleActivityCellChanged = async (event: CellValueChangedEvent<DcliActivityRow>) => {
     const field = event.colDef.field
