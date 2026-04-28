@@ -73,6 +73,8 @@ const navItems: NavigationItem[] = [
       { title: 'Chassis Tracker', path: '/chassis-tracker' },
       { title: 'Repair & Costs', path: '/chassis/repairs' },
       { title: 'Chassis Locator', path: '/chassis/locator' },
+      { title: 'Fleet Map 🗺', path: '/gps/fleet-map' },
+      { title: 'GPS Analytics 📊', path: '/gps/analytics' },
       { title: 'GPS Providers', path: '/gps' },
     ],
   },

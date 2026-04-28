@@ -4,6 +4,8 @@ import { ProtectedPage } from '@/components/auth/ProtectedPage';
 
 // GPS Provider pages
 const GpsOverview = lazy(() => import('@/pages/GpsOverview'));
+const GpsFleetMap = lazy(() => import('@/pages/gps/GpsFleetMap'));
+const GpsAnalytics = lazy(() => import('@/pages/gps/GpsAnalytics'));
 const Samsara = lazy(() => import('@/pages/gps/Samsara'));
 const BlackBerry = lazy(() => import('@/pages/gps/BlackBerry'));
 const Fleetview = lazy(() => import('@/pages/gps/Fleetview'));
@@ -24,6 +26,8 @@ export default function GpsRoutes() {
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
         <Route path="/" element={<ProtectedPage><GpsOverview /></ProtectedPage>} />
+        <Route path="fleet-map" element={<ProtectedPage><GpsFleetMap /></ProtectedPage>} />
+        <Route path="analytics" element={<ProtectedPage><GpsAnalytics /></ProtectedPage>} />
         <Route path="samsara" element={<ProtectedPage><Samsara /></ProtectedPage>} />
         <Route path="blackberry" element={<ProtectedPage><BlackBerry /></ProtectedPage>} />
         <Route path="fleetview" element={<ProtectedPage><Fleetview /></ProtectedPage>} />
