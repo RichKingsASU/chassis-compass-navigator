@@ -6,7 +6,6 @@ import {
   type ProvarPortal,
   type ProvarPortalSummary,
   type ProvarSyncLogRow,
-  type ProvarToReturnRow,
   type PullSummary,
 } from '@/types/provar'
 
@@ -16,7 +15,6 @@ function todayIso(): string {
 
 export function useProvar() {
   const [containers, setContainers] = useState<ProvarContainerRow[]>([])
-  const [toReturn, setToReturn] = useState<ProvarToReturnRow[]>([])
   const [syncLog, setSyncLog] = useState<ProvarSyncLogRow[]>([])
   const [loading, setLoading] = useState(true)
   const [isPulling, setIsPulling] = useState(false)
@@ -28,14 +26,9 @@ export function useProvar() {
     setLoading(true)
     const today = todayIso()
 
-    const [containersRes, toReturnRes, logRes] = await Promise.all([
+    const [containersRes, logRes] = await Promise.all([
       supabase
         .from('provar_containers_sheet')
-        .select('*')
-        .eq('snapshot_date', today)
-        .order('ingested_at', { ascending: false }),
-      supabase
-        .from('provar_to_return')
         .select('*')
         .eq('snapshot_date', today)
         .order('ingested_at', { ascending: false }),
@@ -49,9 +42,6 @@ export function useProvar() {
     if (!containersRes.error) {
       setContainers((containersRes.data ?? []) as ProvarContainerRow[])
     }
-    if (!toReturnRes.error) {
-      setToReturn((toReturnRes.data ?? []) as ProvarToReturnRow[])
-    }
     if (!logRes.error) {
       setSyncLog((logRes.data ?? []) as ProvarSyncLogRow[])
     }
@@ -63,28 +53,21 @@ export function useProvar() {
     refetch()
   }, [refetch])
 
-  // Build per-portal summary from log + today's counts
   const portalSummaries = useMemo<ProvarPortalSummary[]>(() => {
     return PROVAR_PORTALS.map((portal) => {
       const containers_count = containers.filter(
         (c) => c.portal === portal,
       ).length
-      const to_return_count = toReturn.filter(
-        (r) => r.portal === portal,
-      ).length
-
-      // Latest log entry for this portal, regardless of endpoint
       const latestLog = syncLog.find((l) => l.portal === portal)
 
       return {
         portal,
         containers_count,
-        to_return_count,
         last_pulled: latestLog?.ran_at ?? null,
         last_status: (latestLog?.status as 'success' | 'error') ?? 'never',
       }
     })
-  }, [containers, toReturn, syncLog])
+  }, [containers, syncLog])
 
   const triggerPull = useCallback(
     async (portals?: ProvarPortal[]): Promise<PullSummary> => {
@@ -117,7 +100,6 @@ export function useProvar() {
 
   return {
     containers,
-    toReturn,
     syncLog,
     portalSummaries,
     loading,
