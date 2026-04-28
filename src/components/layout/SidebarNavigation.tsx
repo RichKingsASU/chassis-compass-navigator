@@ -28,6 +28,7 @@ import {
   BarChart3,
   DollarSign,
   Plug,
+  Sparkles,
 } from 'lucide-react'
 
 interface NavigationItem {
@@ -191,6 +192,17 @@ export default function SidebarNavigation() {
             )
           })}
         </SidebarMenu>
+        <div className="mt-auto pt-4 border-t">
+          <button
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('ccn:open-ai-chat'))
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors"
+          >
+            <Sparkles size={16} />
+            Ask AI about your fleet
+          </button>
+        </div>
       </SidebarGroupContent>
     </SidebarGroup>
   )
