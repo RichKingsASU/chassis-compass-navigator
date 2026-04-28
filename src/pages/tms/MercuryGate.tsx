@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { safeDate, safeAmount } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import DataFreshnessBar from '@/components/DataFreshnessBar'
+import { useQuery } from '@tanstack/react-query'
 
 interface MGRecord {
   id: number
@@ -65,10 +66,6 @@ function StatusBadge({ status }: { status: string | null }) {
 }
 
 export default function MercuryGate() {
-  const [records, setRecords] = useState<MGRecord[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(0)
   const [selectedRecord, setSelectedRecord] = useState<MGRecord | null>(null)
 
@@ -79,14 +76,6 @@ export default function MercuryGate() {
   const [dateFrom, setDateFrom]         = useState('')
   const [dateTo, setDateTo]             = useState('')
   const [zeroRevFilter, setZeroRevFilter] = useState(false)
-
-  // Summary stats (from full dataset, not just current page)
-  const [stats, setStats] = useState({
-    totalRevenue: 0,
-    totalMargin: 0,
-    uniqueChassis: 0,
-    uniqueCustomers: 0,
-  })
 
   const buildQuery = useCallback(() => {
     let q = supabase
@@ -123,54 +112,47 @@ export default function MercuryGate() {
     return q
   }, [search, customerFilter, statusFilter, dateFrom, dateTo, zeroRevFilter])
 
-  // Load page of data
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      setError(null)
-      try {
-        const { data, error: err, count } = await buildQuery()
-          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
-        if (err) throw err
-        setRecords((data as MGRecord[]) || [])
-        setTotalCount(count || 0)
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'Failed to load TMS data')
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [page, buildQuery])
-
   // Reset to page 0 when filters change
-  useEffect(() => { setPage(0) }, [search, customerFilter, statusFilter, dateFrom, dateTo, zeroRevFilter])
+  const handleFilterChange = () => {
+    setPage(0)
+  }
 
-  // Load summary stats separately (limited query for performance)
-  useEffect(() => {
-    async function loadStats() {
-      try {
-        const { data } = await supabase
-          .from('mg_tms')
-          .select('customer_rate_amount, margin_rate, chassis_number, customer_name')
-          .neq('zero_rev', 'Y')
-          .not('status', 'in', '("Cancelled","Void","Rejected")')
-          .limit(10000)
-
-        const rows = (data || []) as MGRecord[]
-        setStats({
-          totalRevenue:    rows.reduce((s, r) => s + (r.customer_rate_amount || 0), 0),
-          totalMargin:     rows.reduce((s, r) => s + (r.margin_rate || 0), 0),
-          uniqueChassis:   new Set(rows.map(r => r.chassis_number?.trim()).filter(Boolean)).size,
-          uniqueCustomers: new Set(rows.map(r => r.customer_name).filter(Boolean)).size,
-        })
-      } catch {
-        // stats are supplemental — fail silently
-      }
+  const { data: pageData, isLoading: loading, error: errorObj } = useQuery({
+    queryKey: ['mg_tms_page', page, search, customerFilter, statusFilter, dateFrom, dateTo, zeroRevFilter],
+    queryFn: async () => {
+      const { data, error, count } = await buildQuery()
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+      if (error) throw error
+      return { records: (data as MGRecord[]) || [], count: count || 0 }
     }
-    loadStats()
-  }, [])
+  })
 
+  const records = pageData?.records || []
+  const totalCount = pageData?.count || 0
+  const error = errorObj?.message || null
+
+  const { data: stats } = useQuery({
+    queryKey: ['mg_tms_stats'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('mg_tms')
+        .select('customer_rate_amount, margin_rate, chassis_number, customer_name')
+        .neq('zero_rev', 'Y')
+        .not('status', 'in', '("Cancelled","Void","Rejected")')
+        .limit(10000)
+
+      const rows = (data || []) as MGRecord[]
+      return {
+        totalRevenue:    rows.reduce((s, r) => s + (r.customer_rate_amount || 0), 0),
+        totalMargin:     rows.reduce((s, r) => s + (r.margin_rate || 0), 0),
+        uniqueChassis:   new Set(rows.map(r => r.chassis_number?.trim()).filter(Boolean)).size,
+        uniqueCustomers: new Set(rows.map(r => r.customer_name).filter(Boolean)).size,
+      }
+    },
+    staleTime: 5 * 60 * 1000 // cache stats for 5 minutes
+  })
+
+  const displayStats = stats || { totalRevenue: 0, totalMargin: 0, uniqueChassis: 0, uniqueCustomers: 0 }
   const totalPages = Math.ceil(totalCount / PAGE_SIZE)
 
   function clearFilters() {
@@ -184,11 +166,13 @@ export default function MercuryGate() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Mercury Gate TMS</h1>
-        <p className="text-muted-foreground">MercuryGate Transportation Management System — {totalCount.toLocaleString()} records</p>
-        <DataFreshnessBar tableName="mg_data" label="MG TMS" />
+        <p className="text-muted-foreground mt-2">MercuryGate Transportation Management System — {totalCount.toLocaleString()} records</p>
+        <div className="mt-4">
+          <DataFreshnessBar tableName="mg_data" label="MG TMS" />
+        </div>
       </div>
 
       {error && (
@@ -198,7 +182,7 @@ export default function MercuryGate() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Records</CardTitle></CardHeader>
           <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{totalCount.toLocaleString()}</p>}</CardContent>
@@ -213,40 +197,40 @@ export default function MercuryGate() {
               </Tooltip>
             </CardTitle>
           </CardHeader>
-          <CardContent><p className="text-3xl font-bold">{safeAmount(stats.totalRevenue)}</p></CardContent>
+          <CardContent><p className="text-3xl font-bold">{safeAmount(displayStats.totalRevenue)}</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Unique Chassis</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{stats.uniqueChassis.toLocaleString()}</p></CardContent>
+          <CardContent><p className="text-3xl font-bold">{displayStats.uniqueChassis.toLocaleString()}</p></CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Unique Customers</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{stats.uniqueCustomers.toLocaleString()}</p></CardContent>
+          <CardContent><p className="text-3xl font-bold">{displayStats.uniqueCustomers.toLocaleString()}</p></CardContent>
         </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <input
               type="text"
               placeholder="Search LD#, chassis, container, carrier, MBL..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); handleFilterChange() }}
               className="px-3 py-2 border rounded-md text-sm col-span-1 md:col-span-2"
             />
             <input
               type="text"
               placeholder="Filter by customer name..."
               value={customerFilter}
-              onChange={e => setCustomerFilter(e.target.value)}
+              onChange={e => { setCustomerFilter(e.target.value); handleFilterChange() }}
               className="px-3 py-2 border rounded-md text-sm"
             />
             <select
               value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border rounded-md text-sm"
+              onChange={e => { setStatusFilter(e.target.value); handleFilterChange() }}
+              className="px-3 py-2 border rounded-md text-sm bg-background"
             >
               <option value="all">All Statuses</option>
               <option value="Pending">Pending</option>
@@ -256,14 +240,14 @@ export default function MercuryGate() {
               <option value="Void">Void</option>
             </select>
             <div className="flex gap-2">
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); handleFilterChange() }}
                 className="flex-1 px-3 py-2 border rounded-md text-sm" title="Create date from" />
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); handleFilterChange() }}
                 className="flex-1 px-3 py-2 border rounded-md text-sm" title="Create date to" />
             </div>
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={zeroRevFilter} onChange={e => setZeroRevFilter(e.target.checked)} className="rounded" />
+                <input type="checkbox" checked={zeroRevFilter} onChange={e => { setZeroRevFilter(e.target.checked); handleFilterChange() }} className="rounded" />
                 Exclude zero revenue
               </label>
               <Button variant="outline" size="sm" onClick={clearFilters}>Clear</Button>
@@ -274,9 +258,9 @@ export default function MercuryGate() {
 
       {/* Table */}
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="pt-6">
           {loading ? (
-            <div className="space-y-2">{[...Array(8)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+            <div className="space-y-4">{[...Array(8)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -336,7 +320,7 @@ export default function MercuryGate() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 text-sm">
+            <div className="flex items-center justify-between mt-6 text-sm">
               <p className="text-muted-foreground">
                 Page {page + 1} of {totalPages} ({totalCount.toLocaleString()} total)
               </p>
@@ -361,7 +345,7 @@ export default function MercuryGate() {
             </SheetDescription>
           </SheetHeader>
           {selectedRecord && (
-            <div className="mt-6 space-y-6">
+            <div className="mt-8 space-y-6">
               {/* Identity */}
               <Section title="Load Info">
                 <DField label="Load #"       value={selectedRecord.ld_num} />
@@ -423,8 +407,8 @@ export default function MercuryGate() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 border-b pb-1">{title}</h3>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">{children}</dl>
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 border-b pb-1">{title}</h3>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">{children}</dl>
     </div>
   )
 }
@@ -432,7 +416,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function DField({ label, value }: { label: string; value?: string | number | null }) {
   return (
     <div>
-      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dt className="text-muted-foreground text-xs mb-1">{label}</dt>
       <dd className="font-medium truncate" title={String(value || '')}>{value || '—'}</dd>
     </div>
   )

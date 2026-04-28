@@ -1,145 +1,178 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency } from '@/utils/dateUtils'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import DataFreshnessBar from '@/components/DataFreshnessBar'
+import { Analytics } from '@/utils/analytics'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface VendorRow { vendor: string; count: number }
 interface GpsRow { name: string; value: number }
 
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
+const fetchDashboardData = async () => {
+  // Fetch all parallel data to prevent waterfall
+  const [
+    { data: chassisData },
+    { count: actCount },
+    ...vendorResults
+  ] = await Promise.all([
+    supabase.from('chassis_master').select('chassis_number, gps_provider'),
+    supabase.from('mg_data').select('id', { count: 'exact', head: true }),
+    supabase.from('dcli_activity').select('id', { count: 'exact', head: true }).catch(() => ({ count: 0 })),
+    supabase.from('ccm_activity').select('id', { count: 'exact', head: true }).catch(() => ({ count: 0 })),
+    supabase.from('scspa_activity').select('id', { count: 'exact', head: true }).catch(() => ({ count: 0 }))
+  ]);
+
+  const total = chassisData?.length || 0;
+  const withGps = (chassisData || []).filter(r => r.gps_provider != null && r.gps_provider !== '').length;
+  
+  const vendorData: VendorRow[] = [
+    { vendor: 'DCLI', count: vendorResults[0]?.count || 0 },
+    { vendor: 'CCM', count: vendorResults[1]?.count || 0 },
+    { vendor: 'SCSPA', count: vendorResults[2]?.count || 0 },
+  ];
+
+  const gpsProviders = ['Samsara', 'BlackBerry', 'Fleetview', 'Fleetlocate', 'Anytrek'];
+  const gpsData: GpsRow[] = gpsProviders.map(provider => ({
+    name: provider,
+    value: (chassisData || []).filter(r => r.gps_provider?.toLowerCase().includes(provider.toLowerCase())).length,
+  }));
+
+  return {
+    chassisCount: total,
+    gpsCoverage: total > 0 ? Math.round((withGps / total) * 100) : 0,
+    recentActivityCount: actCount || 0,
+    vendorData,
+    gpsData
+  };
+};
+
 export default function Dashboard() {
-  const [loading, setLoading] = useState(true)
-  const [chassisCount, setChassisCount] = useState(0)
-  const [gpsCoverage, setGpsCoverage] = useState(0)
-  const [recentActivityCount, setRecentActivityCount] = useState(0)
-  const [vendorData, setVendorData] = useState<VendorRow[]>([])
-  const [gpsData, setGpsData] = useState<GpsRow[]>([])
+  // 1. Data Fetching Phase (React Query)
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['dashboard-metrics'],
+    queryFn: fetchDashboardData,
+    staleTime: 1000 * 60 * 5 // 5 minutes cache
+  });
 
+  // 2. Analytics Tracking
   useEffect(() => {
-    async function load() {
-      setLoading(true)
-      try {
-        const { data: chassisData } = await supabase
-          .from('chassis_master')
-          .select('chassis_number, gps_provider')
-        const total = chassisData?.length || 0
-        setChassisCount(total)
-        const ltCount = total
-        const stCount = 0
-        setChassisCount(total)
+    Analytics.track('dashboard_loaded', {
+      cached: !!data
+    });
+  }, [data]);
 
-        const withGps = (chassisData || []).filter(r => r.gps_provider != null && r.gps_provider !== '').length
-        setGpsCoverage(total > 0 ? Math.round((withGps / total) * 100) : 0)
+  if (isError) {
+    // Analytics error tracking handled implicitly by error boundary or manual track
+    Analytics.track('validation_error', { source: 'dashboard_fetch' });
+    return <div className="p-8 text-destructive font-bold">Error loading dashboard data. Please refresh.</div>;
+  }
 
-        // Recent activity from mg_data
-        const { count: actCount } = await supabase
-          .from('mg_data')
-          .select('id', { count: 'exact', head: true })
-        setRecentActivityCount(actCount || 0)
-
-        // Vendor record counts
-        const vendors: VendorRow[] = []
-        for (const { table, label } of [
-          { table: 'dcli_activity', label: 'DCLI' },
-          { table: 'ccm_activity', label: 'CCM' },
-          { table: 'scspa_activity', label: 'SCSPA' },
-        ] as const) {
-          try {
-            const { count } = await supabase.from(table).select('id', { count: 'exact', head: true })
-            vendors.push({ vendor: label, count: count || 0 })
-          } catch {
-            vendors.push({ vendor: label, count: 0 })
-          }
-        }
-        setVendorData(vendors)
-
-        // GPS provider distribution
-        const gpsProviders = ['Samsara', 'BlackBerry', 'Fleetview', 'Fleetlocate', 'Anytrek']
-        const gpsResults: GpsRow[] = gpsProviders.map(provider => ({
-          name: provider,
-          value: (chassisData || []).filter(r => r.gps_provider?.toLowerCase().includes(provider.toLowerCase())).length,
-        }))
-        setGpsData(gpsResults)
-      } catch {
-        // dashboard shows empty state
-      } finally {
-        setLoading(false)
-      }
-    }
-    load()
-  }, [])
-
+  // Strict 8px grid system applied via standard Tailwind classes (p-8 = 32px, space-y-8 = 32px, gap-8 = 32px)
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+    <div className="p-8 space-y-8 max-w-7xl mx-auto">
+      <div className="flex flex-col space-y-2 mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Chassis Compass Navigator — Fleet Overview</p>
-        <DataFreshnessBar tableName="mg_data" label="TMS Data" />
+        <div className="pt-4">
+          <DataFreshnessBar tableName="mg_data" label="TMS Data" />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Chassis</CardTitle></CardHeader>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Chassis</CardTitle>
+          </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{loading ? '...' : chassisCount.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">Active fleet units</p>
+            {isLoading ? <Skeleton className="h-10 w-24 rounded" /> : (
+              <p className="text-4xl font-bold tracking-tight">{data?.chassisCount.toLocaleString()}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">Active fleet units</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+        
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               GPS Coverage
               <Tooltip>
-                <TooltipTrigger asChild><span className="text-xs cursor-help">(?)</span></TooltipTrigger>
+                <TooltipTrigger asChild>
+                  <span className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[10px] cursor-help">?</span>
+                </TooltipTrigger>
                 <TooltipContent>Long-term chassis with a GPS provider assigned</TooltipContent>
               </Tooltip>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{loading ? '...' : `${gpsCoverage}%`}</p>
+            {isLoading ? <Skeleton className="h-10 w-24 rounded" /> : (
+              <p className="text-4xl font-bold tracking-tight">{`${data?.gpsCoverage}%`}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">Visibility tracked</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">TMS Records</CardTitle></CardHeader>
+        
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">TMS Records</CardTitle>
+          </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{loading ? '...' : recentActivityCount.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">Total MG loads</p>
+            {isLoading ? <Skeleton className="h-10 w-24 rounded" /> : (
+              <p className="text-4xl font-bold tracking-tight">{data?.recentActivityCount.toLocaleString()}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">Total MG loads recorded</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle>Vendor Record Counts</CardTitle></CardHeader>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-6">
+            <CardTitle className="text-lg">Vendor Record Counts</CardTitle>
+          </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={vendorData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="vendor" />
-                <YAxis />
-                <RechartsTooltip />
-                <Bar dataKey="count" fill="#3b82f6" name="Records" />
-              </BarChart>
-            </ResponsiveContainer>
+            {isLoading ? <Skeleton className="h-[240px] w-full rounded-md" /> : (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={data?.vendorData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="vendor" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={8} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dx={-8} />
+                  <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                  <Bar dataKey="count" fill="#3b82f6" name="Records" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>GPS Provider Distribution</CardTitle></CardHeader>
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-6">
+            <CardTitle className="text-lg">GPS Provider Distribution</CardTitle>
+          </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie data={gpsData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(props: { name?: string; percent?: number }) => `${props.name ?? ''} ${((props.percent ?? 0) * 100).toFixed(0)}%`}>
-                  {gpsData.map((_, index) => <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
-                </Pie>
-                <Legend />
-                <RechartsTooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {isLoading ? <Skeleton className="h-[240px] w-full rounded-md" /> : (
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie 
+                    data={data?.gpsData} 
+                    dataKey="value" 
+                    nameKey="name" 
+                    cx="50%" cy="50%" 
+                    innerRadius={60} 
+                    outerRadius={80} 
+                    paddingAngle={2}
+                  >
+                    {data?.gpsData?.map((_, index) => <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                  <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>

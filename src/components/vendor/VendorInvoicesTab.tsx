@@ -1,11 +1,24 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Card } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
+import { useQuery } from '@tanstack/react-query'
+import { 
+  FileText, 
+  ArrowUpDown, 
+  Plus, 
+  AlertCircle, 
+  Calendar, 
+  DollarSign, 
+  Tag, 
+  ExternalLink,
+  Search
+} from 'lucide-react'
 import { safeDate } from '@/lib/formatters'
+import { formatCurrency } from '@/utils/dateUtils'
 
 export interface VendorInvoice {
   id: number
@@ -20,22 +33,6 @@ export interface VendorInvoice {
   created_at: string
 }
 
-type SortKey = 'invoice_date' | 'invoice_amount' | 'invoice_status'
-
-function statusBadgeClass(status: string | null): string {
-  switch ((status || '').toLowerCase()) {
-    case 'pending': return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
-    case 'approved': return 'bg-green-100 text-green-800 hover:bg-green-100'
-    case 'disputed': return 'bg-red-100 text-red-800 hover:bg-red-100'
-    case 'paid': return 'bg-blue-100 text-blue-800 hover:bg-blue-100'
-    default: return 'bg-gray-100 text-gray-800 hover:bg-gray-100'
-  }
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
-}
-
 export interface VendorInvoicesTabProps {
   vendorSlug: string
   refreshKey?: number
@@ -43,100 +40,137 @@ export interface VendorInvoicesTabProps {
   onDataLoaded?: (invoices: VendorInvoice[]) => void
 }
 
-export function VendorInvoicesTab({ vendorSlug, refreshKey = 0, onNewInvoice, onDataLoaded }: VendorInvoicesTabProps) {
-  const [invoices, setInvoices] = useState<VendorInvoice[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [sortKey, setSortKey] = useState<SortKey>('invoice_date')
-  const [sortAsc, setSortAsc] = useState(false)
+const statusVariants: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-800 border-amber-200',
+  approved: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  disputed: 'bg-destructive/10 text-destructive border-destructive/20',
+  paid: 'bg-blue-100 text-blue-800 border-blue-200',
+}
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const { data, error: fetchErr } = await supabase
+export function VendorInvoicesTab({ vendorSlug, refreshKey = 0, onNewInvoice, onDataLoaded }: VendorInvoicesTabProps) {
+  const { data: invoices = [], isLoading, error } = useQuery({
+    queryKey: ['vendor_invoices', vendorSlug, refreshKey],
+    queryFn: async () => {
+      const { data, error } = await supabase
         .from('vendor_invoices')
         .select('*')
         .eq('vendor_slug', vendorSlug.toLowerCase())
         .order('invoice_date', { ascending: false })
-      if (fetchErr) throw fetchErr
+      if (error) throw error
       const rows = (data || []) as VendorInvoice[]
-      setInvoices(rows)
       onDataLoaded?.(rows)
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load invoices')
-    } finally {
-      setLoading(false)
-    }
-  }, [vendorSlug, onDataLoaded])
-
-  useEffect(() => { load() }, [load, refreshKey])
-
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) setSortAsc(!sortAsc)
-    else { setSortKey(key); setSortAsc(false) }
-  }
-
-  const sorted = [...invoices].sort((a, b) => {
-    const dir = sortAsc ? 1 : -1
-    if (sortKey === 'invoice_amount') return (a.invoice_amount - b.invoice_amount) * dir
-    if (sortKey === 'invoice_status') return (a.invoice_status || '').localeCompare(b.invoice_status || '') * dir
-    return (a.invoice_date || '').localeCompare(b.invoice_date || '') * dir
+      return rows
+    },
   })
 
-  if (loading) {
-    return <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-  }
-
   if (error) {
-    return <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>
-  }
-
-  if (invoices.length === 0) {
     return (
-      <Card className="p-8 text-center space-y-3">
-        <p className="text-muted-foreground">No invoices found. Click + New Invoice to add one.</p>
-        <Button onClick={onNewInvoice}>+ New Invoice</Button>
-      </Card>
+      <div className="flex items-center gap-3 p-6 bg-destructive/10 text-destructive border-2 border-destructive/20 rounded-2xl">
+        <AlertCircle size={20} />
+        <p className="font-bold text-sm uppercase tracking-widest">Logic Failure: {error instanceof Error ? error.message : 'Database sync error'}</p>
+      </div>
     )
   }
 
   return (
-    <Card>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Invoice #</TableHead>
-            <TableHead className="cursor-pointer" onClick={() => toggleSort('invoice_date')}>
-              Invoice Date {sortKey === 'invoice_date' ? (sortAsc ? '↑' : '↓') : ''}
-            </TableHead>
-            <TableHead>Due Date</TableHead>
-            <TableHead className="cursor-pointer text-right" onClick={() => toggleSort('invoice_amount')}>
-              Amount {sortKey === 'invoice_amount' ? (sortAsc ? '↑' : '↓') : ''}
-            </TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead className="cursor-pointer" onClick={() => toggleSort('invoice_status')}>
-              Status {sortKey === 'invoice_status' ? (sortAsc ? '↑' : '↓') : ''}
-            </TableHead>
-            <TableHead>Notes</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sorted.map(inv => (
-            <TableRow key={inv.id}>
-              <TableCell className="font-mono text-sm">{inv.invoice_number}</TableCell>
-              <TableCell className="text-sm">{safeDate(inv.invoice_date)}</TableCell>
-              <TableCell className="text-sm">{safeDate(inv.due_date)}</TableCell>
-              <TableCell className="text-sm text-right">{formatCurrency(inv.invoice_amount)}</TableCell>
-              <TableCell className="text-sm">{inv.invoice_category || '—'}</TableCell>
-              <TableCell>
-                <Badge className={statusBadgeClass(inv.invoice_status)}>{inv.invoice_status || 'Pending'}</Badge>
-              </TableCell>
-              <TableCell className="text-sm max-w-xs truncate" title={inv.notes || ''}>{inv.notes || '—'}</TableCell>
-            </TableRow>
+    <div className="space-y-8">
+      {isLoading ? (
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-2xl" />
           ))}
-        </TableBody>
-      </Table>
-    </Card>
+        </div>
+      ) : invoices.length === 0 ? (
+        <Card className="border-none shadow-xl bg-muted/20">
+          <CardContent className="flex flex-col items-center justify-center py-20 text-center space-y-6">
+            <div className="p-6 bg-background rounded-full shadow-inner opacity-20">
+              <FileText size={48} />
+            </div>
+            <div className="space-y-2">
+              <p className="text-lg font-black tracking-tight">Zero Artifacts Detected</p>
+              <p className="text-sm text-muted-foreground max-w-[300px]">No invoice data has been synchronized for the {vendorSlug.toUpperCase()} node.</p>
+            </div>
+            <Button size="lg" className="gap-2 font-black shadow-xl shadow-primary/20" onClick={onNewInvoice}>
+              <Plus size={18} strokeWidth={3} />
+              Initialize Onboarding
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-none shadow-xl overflow-hidden">
+          <CardHeader className="bg-muted/30 border-b py-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText size={18} className="text-primary" /> Invoice Ledger
+              </CardTitle>
+              <Badge variant="outline" className="bg-background text-[10px] font-black uppercase tracking-widest px-3 py-1">
+                {invoices.length} RECORDS
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-muted/50 border-b">
+                  <tr className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                    <TableHead className="px-6 py-4">Reference ID</TableHead>
+                    <TableHead className="px-6 py-4">
+                      <div className="flex items-center gap-1">
+                        <Calendar size={12} /> Timeline
+                      </div>
+                    </TableHead>
+                    <TableHead className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <DollarSign size={12} /> Valuation
+                      </div>
+                    </TableHead>
+                    <TableHead className="px-6 py-4">
+                      <div className="flex items-center gap-1">
+                        <Tag size={12} /> Category
+                      </div>
+                    </TableHead>
+                    <TableHead className="px-6 py-4">Workflow Status</TableHead>
+                    <TableHead className="px-6 py-4 text-right">Actions</TableHead>
+                  </tr>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map(inv => (
+                    <TableRow key={inv.id} className="hover:bg-muted/30 transition-colors border-b last:border-0 group">
+                      <TableCell className="px-6 py-4 font-mono font-black text-xs text-primary group-hover:underline cursor-pointer">
+                        {inv.invoice_number}
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-xs font-bold">{safeDate(inv.invoice_date)}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">Due: {safeDate(inv.due_date)}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right font-black text-sm">
+                        {formatCurrency(inv.invoice_amount)}
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <Badge variant="outline" className="text-[9px] font-black uppercase tracking-tighter">
+                          {inv.invoice_category || 'UNCLASSIFIED'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <Badge className={`font-black text-[9px] uppercase tracking-widest px-2.5 py-0.5 border shadow-sm ${statusVariants[(inv.invoice_status || 'pending').toLowerCase()] || 'bg-gray-100 text-gray-800'}`}>
+                          {inv.invoice_status || 'PENDING'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary rounded-lg transition-all" title="Review Invoice">
+                          <ExternalLink size={14} strokeWidth={3} />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   )
 }

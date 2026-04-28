@@ -10,7 +10,23 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { CheckCircle2, ArrowLeft, Upload, FileSpreadsheet, FileText, AlertCircle, X } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { 
+  CheckCircle2, 
+  ArrowLeft, 
+  Upload, 
+  FileSpreadsheet, 
+  FileText, 
+  AlertCircle, 
+  X,
+  Loader2,
+  ChevronRight,
+  ChevronLeft,
+  Search,
+  Database
+} from 'lucide-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 type Step = 'upload' | 'header' | 'review' | 'confirm'
 
@@ -48,10 +64,10 @@ export interface SimpleInvoiceWizardProps {
 }
 
 const STEPS: { key: Step; label: string }[] = [
-  { key: 'upload', label: 'Upload Files' },
-  { key: 'header', label: 'Invoice Info' },
-  { key: 'review', label: 'Review Data' },
-  { key: 'confirm', label: 'Confirm' },
+  { key: 'upload', label: 'Files' },
+  { key: 'header', label: 'Details' },
+  { key: 'review', label: 'Verify' },
+  { key: 'confirm', label: 'Done' },
 ]
 
 const EMPTY_FORM: HeaderForm = {
@@ -82,7 +98,6 @@ function formatDisplayDate(v: unknown): string {
   return new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-// Best-effort autofill from common header column names across vendors.
 function autoFillHeader(rows: Record<string, unknown>[]): Partial<HeaderForm> {
   if (!rows.length) return {}
   const r = rows[0]
@@ -106,6 +121,7 @@ export default function SimpleInvoiceWizard({
   insertLineItems,
 }: SimpleInvoiceWizardProps) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep] = useState<Step>('upload')
@@ -113,8 +129,6 @@ export default function SimpleInvoiceWizard({
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof HeaderForm, string>>>({})
   const [fileEntries, setFileEntries] = useState<FileEntryState[]>([])
   const [isDragging, setIsDragging] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState<string | null>(null)
   const [createdId, setCreatedId] = useState<string | null>(null)
   const [dupWarning, setDupWarning] = useState<string | null>(null)
   const [checkingDup, setCheckingDup] = useState(false)
@@ -129,7 +143,7 @@ export default function SimpleInvoiceWizard({
     const e: Partial<Record<keyof HeaderForm, string>> = {}
     if (!form.invoice_number.trim()) e.invoice_number = 'Required'
     if (!form.invoice_date) e.invoice_date = 'Required'
-    if (!form.total_amount || isNaN(parseFloat(form.total_amount))) e.total_amount = 'Enter a valid number'
+    if (!form.total_amount || isNaN(parseFloat(form.total_amount))) e.total_amount = 'Invalid amount'
     setFormErrors(e)
     return Object.keys(e).length === 0
   }
@@ -146,7 +160,7 @@ export default function SimpleInvoiceWizard({
         .limit(1)
       if (data && data.length > 0) {
         const date = new Date(data[0].created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-        setDupWarning(`Invoice ${invoiceNumber} already exists (uploaded ${date}). Submitting will create a duplicate.`)
+        setDupWarning(`Invoice ${invoiceNumber} already exists (uploaded ${date}).`)
       }
     } finally {
       setCheckingDup(false)
@@ -195,56 +209,26 @@ export default function SimpleInvoiceWizard({
     setFileEntries(prev => prev.filter(e => e.file.name !== name))
   }
 
-  function onDragOver(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(true)
-  }
-  function onDragLeave(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    setIsDragging(false)
-  }
-  function onDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
-    addFiles(Array.from(e.dataTransfer.files))
-  }
-  function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    addFiles(Array.from(e.target.files ?? []))
-    e.target.value = ''
-  }
-
-  async function handleSubmit() {
-    if (!validateHeader()) return
-    if (!fileEntries.length) {
-      setSubmitError('Please upload at least one file')
-      return
-    }
-    setSubmitting(true)
-    setSubmitError(null)
-    try {
+  const submitMutation = useMutation({
+    mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       const userEmail = user?.email ?? null
 
-      // Hard duplicate block before writing anything
+      // Duplicate check
       const { data: dupCheck } = await supabase
         .from(invoiceTable)
         .select('id')
         .eq(invoiceNumberColumn, form.invoice_number.trim())
         .limit(1)
-      if (dupCheck && dupCheck.length > 0) {
-        throw new Error(`Invoice ${form.invoice_number} already exists. Use a different invoice number.`)
-      }
+      if (dupCheck && dupCheck.length > 0) throw new Error(`Invoice ${form.invoice_number} already exists.`)
 
-      // Upload all files
       const uploaded: SaveContext['uploaded'] = []
       for (const entry of fileEntries) {
         const ext = entry.file.name.split('.').pop()?.toLowerCase() ?? 'bin'
         const safeName = entry.file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
         const safeInv = form.invoice_number.replace(/[^a-zA-Z0-9_-]/g, '_')
         const path = `${vendorPath}/${Date.now()}_${safeInv}_${safeName}`
-        const { error: upErr } = await supabase.storage.from(storageBucket).upload(path, entry.file, { upsert: false })
+        const { error: upErr } = await supabase.storage.from(storageBucket).upload(path, entry.file)
         if (upErr) throw new Error(`Upload failed for ${entry.file.name}: ${upErr.message}`)
         uploaded.push({ entry, path, ext })
       }
@@ -258,131 +242,117 @@ export default function SimpleInvoiceWizard({
 
       const invoiceId = await insertHeader(ctx)
       if (insertLineItems) await insertLineItems(invoiceId, ctx)
-
-      setCreatedId(invoiceId)
+      return invoiceId
+    },
+    onSuccess: (id) => {
+      setCreatedId(id)
       setStep('confirm')
-    } catch (err: unknown) {
-      setSubmitError(err instanceof Error ? err.message : 'Submission failed')
-    } finally {
-      setSubmitting(false)
+      queryClient.invalidateQueries({ queryKey: [invoiceTable] })
+      toast.success(`${vendorName} invoice synchronized successfully`)
+    },
+    onError: (error: Error) => {
+      toast.error(error.message)
     }
-  }
+  })
 
   const stepIdx = STEPS.findIndex(s => s.key === step)
   const totalRows = fileEntries.reduce((sum, e) => sum + e.rows.length, 0)
   const anyParsing = fileEntries.some(e => e.parsing)
-  const anyErrors = fileEntries.some(e => !!e.error)
   const hasFiles = fileEntries.length > 0
   const hubPath = `/vendors/${vendorPath}`
-  const trackerPath = `/vendors/${vendorPath}/invoices`
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => navigate(hubPath)}
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft size={14} /> Back to {vendorName}
-        </button>
-        <span className="text-muted-foreground">/</span>
-        <h1 className="text-xl font-semibold">New Invoice</h1>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(trackerPath)}
-          className="ml-auto text-muted-foreground"
-        >
-          Cancel
-        </Button>
-      </div>
-
-      <div className="flex items-center">
-        {STEPS.map((s, i) => {
-          const done = i < stepIdx
-          const current = i === stepIdx
-          return (
-            <div key={s.key} className="flex items-center">
-              <div className="flex flex-col items-center gap-1 min-w-[80px]">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-all ${done ? 'bg-primary border-primary text-primary-foreground' : current ? 'bg-background border-primary text-primary' : 'bg-muted border-muted-foreground/30 text-muted-foreground'}`}>
-                  {done ? <CheckCircle2 size={16} /> : i + 1}
+    <div className="p-8 space-y-8 max-w-6xl mx-auto">
+      {/* Header section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate(hubPath)}
+            className="gap-2 -ml-2 text-muted-foreground"
+          >
+            <ArrowLeft size={14} /> Back to {vendorName}
+          </Button>
+          <h1 className="text-3xl font-bold tracking-tight">Onboard {vendorName} Invoice</h1>
+        </div>
+        
+        {/* Progress Stepper */}
+        <div className="flex items-center bg-muted/30 p-2 rounded-full border">
+          {STEPS.map((s, i) => {
+            const done = i < stepIdx; const current = i === stepIdx
+            return (
+              <div key={s.key} className="flex items-center">
+                <div className="flex items-center gap-2 px-4 py-1.5 rounded-full transition-all">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 ${done ? 'bg-primary border-primary text-primary-foreground' : current ? 'bg-background border-primary text-primary' : 'bg-muted border-muted-foreground/30 text-muted-foreground'}`}>
+                    {done ? <CheckCircle2 size={12} strokeWidth={3} /> : i + 1}
+                  </div>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest ${current ? 'text-foreground' : 'text-muted-foreground'}`}>{s.label}</span>
                 </div>
-                <span className={`text-xs text-center ${current ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{s.label}</span>
+                {i < STEPS.length - 1 && <ChevronRight size={14} className="text-muted-foreground/30" />}
               </div>
-              {i < STEPS.length - 1 && <div className={`h-px w-10 mx-1 mb-5 ${done ? 'bg-primary' : 'bg-muted-foreground/20'}`} />}
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
 
       {step === 'upload' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Upload Invoice Files</CardTitle>
-            <p className="text-sm text-muted-foreground">Add one or more files. Mix of PDF and XLSX is fine.</p>
+        <Card className="shadow-xl">
+          <CardHeader className="bg-muted/5 border-b py-6">
+            <CardTitle>Resource Ingestion</CardTitle>
+            <p className="text-sm text-muted-foreground">Ingest PDF summaries and data reports for {vendorName} processing.</p>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="pt-8 space-y-8">
             <div
-              onDragOver={onDragOver}
-              onDragLeave={onDragLeave}
-              onDrop={onDrop}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }} 
+              onDragLeave={() => setIsDragging(false)} 
+              onDrop={(e) => { e.preventDefault(); setIsDragging(false); addFiles(Array.from(e.dataTransfer.files)) }}
               onClick={() => fileInputRef.current?.click()}
-              className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-xl p-10 cursor-pointer transition-colors ${isDragging ? 'border-primary bg-primary/5' : 'border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30'}`}
+              className={`flex flex-col items-center justify-center gap-4 border-2 border-dashed rounded-2xl p-16 cursor-pointer transition-all duration-300 ${isDragging ? 'border-primary bg-primary/5 scale-[0.99]' : 'border-muted-foreground/20 hover:border-primary/40 hover:bg-muted/30'}`}
             >
               {anyParsing ? (
-                <>
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                  <p className="text-sm text-muted-foreground">Parsing files…</p>
-                </>
+                <div className="flex flex-col items-center gap-4 text-primary">
+                  <Loader2 size={40} className="animate-spin" strokeWidth={3} />
+                  <p className="font-bold uppercase tracking-widest text-xs">Analyzing Data Patterns...</p>
+                </div>
               ) : (
                 <>
-                  <div className="p-4 bg-muted rounded-full"><Upload size={28} className="text-muted-foreground" /></div>
-                  <div className="text-center">
-                    <p className="font-medium">{isDragging ? 'Drop files here' : 'Drag & drop or click to upload'}</p>
-                    <p className="text-sm text-muted-foreground mt-1">Supports .xlsx, .xls, .pdf — multiple files allowed</p>
+                  <div className="p-6 bg-primary/10 rounded-3xl text-primary animate-pulse">
+                    <Upload size={32} strokeWidth={3} />
+                  </div>
+                  <div className="text-center space-y-2">
+                    <p className="text-lg font-black">{isDragging ? 'Release to Process' : 'Drop Source Files'}</p>
+                    <p className="text-sm text-muted-foreground max-w-[300px]">Supports Excel extracts or PDF invoices for this vendor.</p>
                   </div>
                 </>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls,.pdf"
-                multiple
-                className="hidden"
-                onChange={onInputChange}
-              />
+              <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.pdf" multiple className="hidden" onChange={(e) => addFiles(Array.from(e.target.files ?? []))} />
             </div>
 
             {hasFiles && (
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {fileEntries.map(entry => (
-                  <div
-                    key={entry.file.name}
-                    className={`flex items-center justify-between p-3 rounded-lg border text-sm ${entry.error ? 'border-destructive/40 bg-destructive/5' : 'border-border bg-muted/30'}`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      {entry.parsing
-                        ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary flex-shrink-0" />
-                        : entry.isPdf
-                          ? <FileText size={16} className="text-muted-foreground flex-shrink-0" />
-                          : <FileSpreadsheet size={16} className="text-muted-foreground flex-shrink-0" />}
-                      <span className="truncate font-medium">{entry.file.name}</span>
-                      <span className="text-muted-foreground flex-shrink-0 text-xs">({(entry.file.size / 1024).toFixed(1)} KB)</span>
+                  <div key={entry.file.name} className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all ${entry.error ? 'border-destructive/30 bg-destructive/5' : 'border-muted/50 bg-background'}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 bg-muted rounded-lg">
+                        {entry.isPdf ? <FileText size={18} /> : <FileSpreadsheet size={18} className="text-emerald-600" />}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate font-bold text-sm">{entry.file.name}</span>
+                        <span className="text-[10px] text-muted-foreground font-black uppercase tracking-tighter">{(entry.file.size / 1024).toFixed(1)} KB</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                      {entry.error && <span className="text-destructive text-xs">{entry.error}</span>}
-                      {!entry.parsing && !entry.isPdf && entry.rows.length > 0 && (
-                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{entry.rows.length} rows</span>
+                    <div className="flex items-center gap-4">
+                      {entry.error ? (
+                        <Badge variant="destructive" className="text-[10px]">{entry.error}</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="font-bold text-[10px] bg-primary/5 text-primary border-primary/20">
+                          {entry.isPdf ? 'DOC' : `${entry.rows.length} ROWS`}
+                        </Badge>
                       )}
-                      {entry.isPdf && !entry.parsing && (
-                        <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">PDF</span>
-                      )}
-                      <button
-                        onClick={e => { e.stopPropagation(); removeFile(entry.file.name) }}
-                        className="text-muted-foreground hover:text-destructive p-1"
-                      >
-                        <X size={14} />
-                      </button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={(e) => { e.stopPropagation(); removeFile(entry.file.name) }}>
+                        <X size={16} />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -390,9 +360,9 @@ export default function SimpleInvoiceWizard({
             )}
 
             {hasFiles && !anyParsing && (
-              <div className="flex justify-end pt-2">
-                <Button onClick={() => setStep('header')} disabled={anyErrors}>
-                  Continue to Invoice Info →
+              <div className="flex justify-end pt-4 border-t">
+                <Button size="lg" className="gap-2 font-black" onClick={() => setStep('header')} disabled={fileEntries.some(e => !!e.error)}>
+                  Configure Metadata <ChevronRight size={18} strokeWidth={3} />
                 </Button>
               </div>
             )}
@@ -401,191 +371,136 @@ export default function SimpleInvoiceWizard({
       )}
 
       {step === 'header' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Invoice Information</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {fileEntries.length} file{fileEntries.length > 1 ? 's' : ''} ready · {totalRows} line items detected
-            </p>
+        <Card className="shadow-xl">
+          <CardHeader className="bg-muted/5 border-b py-6">
+            <CardTitle>Audit Metadata</CardTitle>
+            <p className="text-sm text-muted-foreground">Define the core invoice parameters for {vendorName} tracking.</p>
           </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Invoice Number <span className="text-destructive">*</span></Label>
+          <CardContent className="pt-8 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Invoice Reference #</Label>
                 <div className="relative">
-                  <Input
-                    placeholder="e.g. 1509151"
-                    value={form.invoice_number}
+                  <Input placeholder="Reference ID" value={form.invoice_number} 
+                    className={`h-12 text-lg font-black font-mono border-2 ${formErrors.invoice_number ? 'border-destructive' : ''}`}
                     onChange={e => setField('invoice_number', e.target.value)}
-                    onBlur={e => checkDuplicate(e.target.value)}
-                  />
-                  {checkingDup && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin rounded-full h-3 w-3 border-b-2 border-primary" />
-                  )}
+                    onBlur={e => checkDuplicate(e.target.value)} />
+                  {checkingDup && <Loader2 className="absolute right-3 top-3 animate-spin text-primary" size={20} />}
                 </div>
-                {formErrors.invoice_number && <p className="text-xs text-destructive">{formErrors.invoice_number}</p>}
+                {formErrors.invoice_number && <p className="text-[10px] text-destructive font-bold uppercase">{formErrors.invoice_number}</p>}
                 {dupWarning && (
-                  <div className="flex items-start gap-1.5 text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded p-2 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-400">
-                    <AlertCircle size={12} className="mt-0.5 flex-shrink-0" />{dupWarning}
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 text-amber-800 border-2 border-amber-200 rounded-xl text-xs font-bold">
+                    <AlertCircle size={16} /> {dupWarning}
                   </div>
                 )}
               </div>
-              <div className="space-y-1.5">
-                <Label>Invoice Total ($) <span className="text-destructive">*</span></Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={form.total_amount}
-                  onChange={e => setField('total_amount', e.target.value)}
-                />
-                {formErrors.total_amount && <p className="text-xs text-destructive">{formErrors.total_amount}</p>}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total Invoiced Amount</Label>
+                <Input type="number" step="0.01" placeholder="0.00" 
+                  className={`h-12 text-lg font-black border-2 ${formErrors.total_amount ? 'border-destructive' : ''}`}
+                  value={form.total_amount} onChange={e => setField('total_amount', e.target.value)} />
+                {formErrors.total_amount && <p className="text-[10px] text-destructive font-bold uppercase">{formErrors.total_amount}</p>}
               </div>
-              <div className="space-y-1.5">
-                <Label>Invoice Date <span className="text-destructive">*</span></Label>
-                <Input
-                  type="date"
-                  value={form.invoice_date}
-                  onChange={e => setField('invoice_date', e.target.value)}
-                />
-                {formErrors.invoice_date && <p className="text-xs text-destructive">{formErrors.invoice_date}</p>}
+              <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Billing Date</Label>
+                <Input type="date" className="h-12 font-bold border-2" value={form.invoice_date} onChange={e => setField('invoice_date', e.target.value)} />
+                {formErrors.invoice_date && <p className="text-[10px] text-destructive font-bold uppercase">{formErrors.invoice_date}</p>}
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Internal Notes</Label>
-              <Textarea
-                rows={3}
-                placeholder="Optional notes for the team…"
-                value={form.notes}
-                onChange={e => setField('notes', e.target.value)}
-              />
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Administrative Notes</Label>
+              <Textarea rows={4} className="border-2 font-medium" placeholder="Internal commentary for this batch..." value={form.notes} onChange={e => setField('notes', e.target.value)} />
             </div>
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep('upload')}>← Back</Button>
-              <Button onClick={() => { if (validateHeader()) setStep('review') }}>Continue to Review →</Button>
+            <div className="flex justify-between pt-8 border-t">
+              <Button variant="outline" size="lg" className="gap-2 font-bold" onClick={() => setStep('upload')}>
+                <ChevronLeft size={18} strokeWidth={3} /> Re-upload
+              </Button>
+              <Button size="lg" className="gap-2 font-black" onClick={() => { if (validateHeader()) setStep('review') }}>
+                Review Payload <ChevronRight size={18} strokeWidth={3} />
+              </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
       {step === 'review' && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <CardTitle>Review Data</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">Files are uploaded only after you click Save.</p>
-              </div>
+        <Card className="shadow-2xl">
+          <CardHeader className="bg-primary/5 border-b py-6">
+            <div className="flex items-center justify-between">
+              <CardTitle>Data Integrity Review</CardTitle>
               <div className="flex gap-2">
-                <span className="bg-muted text-muted-foreground text-xs px-2 py-1 rounded-full">
-                  {fileEntries.length} file{fileEntries.length > 1 ? 's' : ''}
-                </span>
-                <span className="bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
-                  {totalRows} line items
-                </span>
+                <Badge variant="outline" className="bg-background font-black text-[10px]">{fileEntries.length} SOURCES</Badge>
+                <Badge className="font-black text-[10px]">{totalRows} RECORDS</Badge>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-muted/50 rounded-lg text-sm">
-              <div>
-                <p className="text-muted-foreground text-xs">Invoice #</p>
-                <p className="font-semibold">{form.invoice_number}</p>
+          <CardContent className="pt-8 space-y-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 p-6 bg-muted/30 rounded-2xl border-2 border-primary/5">
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Target Invoice</p>
+                <p className="text-xl font-black font-mono">{form.invoice_number}</p>
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">Invoice Date</p>
-                <p className="font-medium">{form.invoice_date || '—'}</p>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Invoiced Date</p>
+                <p className="text-xl font-bold">{form.invoice_date || 'N/A'}</p>
               </div>
-              <div>
-                <p className="text-muted-foreground text-xs">Files</p>
-                <p className="font-medium">{fileEntries.length}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-xs">Total</p>
-                <p className="font-semibold">{formatCurrency(parseFloat(form.total_amount) || 0)}</p>
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Total Valuation</p>
+                <p className="text-xl font-black text-primary">{formatCurrency(parseFloat(form.total_amount) || 0)}</p>
               </div>
             </div>
 
-            <Tabs defaultValue={fileEntries[0]?.file.name}>
-              <TabsList className="flex-wrap h-auto gap-1">
+            <Tabs defaultValue={fileEntries[0]?.file.name} className="space-y-4">
+              <TabsList className="bg-muted p-1 h-auto gap-1 rounded-xl">
                 {fileEntries.map(entry => (
-                  <TabsTrigger key={entry.file.name} value={entry.file.name} className="text-xs">
-                    {entry.isPdf ? <FileText size={12} className="mr-1" /> : <FileSpreadsheet size={12} className="mr-1" />}
-                    <span className="max-w-[140px] truncate">{entry.file.name}</span>
-                    {!entry.isPdf && entry.rows.length > 0 && (
-                      <span className="ml-1.5 bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded-full">{entry.rows.length}</span>
-                    )}
+                  <TabsTrigger key={entry.file.name} value={entry.file.name} className="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg data-[state=active]:bg-background">
+                    <span className="max-w-[120px] truncate">{entry.file.name}</span>
                   </TabsTrigger>
                 ))}
               </TabsList>
-              {fileEntries.map(entry => {
-                const previewCols = entry.columns.slice(0, 9)
-                return (
-                  <TabsContent key={entry.file.name} value={entry.file.name} className="mt-4">
-                    {entry.isPdf ? (
-                      <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-lg text-sm">
-                        <FileText size={20} className="text-muted-foreground flex-shrink-0" />
-                        <div>
-                          <p className="font-medium">{entry.file.name}</p>
-                          <p className="text-muted-foreground text-xs mt-0.5">PDF — stored as document attachment. No line items extracted.</p>
-                        </div>
-                      </div>
-                    ) : entry.rows.length === 0 ? (
-                      <p className="text-center py-8 text-muted-foreground text-sm">No data rows found in this file.</p>
-                    ) : (
-                      <div className="overflow-x-auto rounded-lg border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              {previewCols.map(col => (
-                                <TableHead key={col} className="whitespace-nowrap text-xs">{col}</TableHead>
+              {fileEntries.map(entry => (
+                <TabsContent key={entry.file.name} value={entry.file.name}>
+                  {entry.isPdf ? (
+                    <div className="p-12 flex flex-col items-center justify-center bg-muted/20 rounded-2xl border-2 border-dashed gap-4 text-center">
+                      <FileText size={32} className="text-muted-foreground opacity-30" />
+                      <p className="text-sm font-medium text-muted-foreground">PDF Payload — Archival only</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border-2 overflow-hidden bg-background shadow-sm max-h-[400px] overflow-y-auto">
+                      <Table>
+                        <TableHeader className="bg-muted/50 border-b sticky top-0">
+                          <tr>
+                            {entry.columns.slice(0, 6).map(col => <TableHead key={col} className="text-[10px] font-black uppercase tracking-tighter py-4">{col}</TableHead>)}
+                          </tr>
+                        </TableHeader>
+                        <TableBody>
+                          {entry.rows.slice(0, 20).map((row, i) => (
+                            <TableRow key={i} className="hover:bg-muted/10 transition-colors">
+                              {entry.columns.slice(0, 6).map(col => (
+                                <TableCell key={col} className="text-xs font-medium py-3">
+                                  {col.toLowerCase().includes('date') ? formatDisplayDate(row[col]) : String(row[col] ?? '')}
+                                </TableCell>
                               ))}
-                              {entry.columns.length > 9 && (
-                                <TableHead className="text-xs text-muted-foreground">+{entry.columns.length - 9} more</TableHead>
-                              )}
                             </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {entry.rows.slice(0, 10).map((row, i) => (
-                              <TableRow key={i}>
-                                {previewCols.map(col => (
-                                  <TableCell key={col} className="text-xs whitespace-nowrap max-w-[180px] truncate">
-                                    {col.toLowerCase().includes('date') ? formatDisplayDate(row[col]) : String(row[col] ?? '')}
-                                  </TableCell>
-                                ))}
-                                {entry.columns.length > 9 && <TableCell />}
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                        {entry.rows.length > 10 && (
-                          <div className="px-4 py-2 text-xs text-muted-foreground border-t bg-muted/20">
-                            Showing 10 of {entry.rows.length} rows
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </TabsContent>
-                )
-              })}
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </TabsContent>
+              ))}
             </Tabs>
 
-            {dupWarning && (
-              <div className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-700 dark:bg-orange-950/30 dark:border-orange-800 dark:text-orange-400">
-                <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />{dupWarning}
-              </div>
-            )}
-            {submitError && (
-              <div className="flex items-start gap-2 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-                <AlertCircle size={16} className="mt-0.5 flex-shrink-0" />{submitError}
-              </div>
-            )}
-            <div className="flex justify-between pt-2">
-              <Button variant="outline" onClick={() => setStep('header')}>← Back</Button>
-              <Button onClick={handleSubmit} disabled={submitting}>
-                {submitting
-                  ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />Uploading &amp; Saving…</>
-                  : `Save Invoice (${fileEntries.length} file${fileEntries.length > 1 ? 's' : ''}) →`}
+            <div className="flex justify-between pt-8 border-t">
+              <Button variant="outline" size="lg" className="gap-2 font-bold" onClick={() => setStep('header')}>
+                <ChevronLeft size={18} strokeWidth={3} /> Metadata
+              </Button>
+              <Button size="lg" className="gap-2 font-black shadow-xl shadow-primary/20" onClick={() => submitMutation.mutate()} disabled={submitMutation.isPending}>
+                {submitMutation.isPending ? (
+                  <><Loader2 size={18} className="animate-spin" strokeWidth={3} /> Processing...</>
+                ) : (
+                  <>Finalize Batch <CheckCircle2 size={18} strokeWidth={3} /></>
+                )}
               </Button>
             </div>
           </CardContent>
@@ -593,38 +508,22 @@ export default function SimpleInvoiceWizard({
       )}
 
       {step === 'confirm' && (
-        <Card>
-          <CardHeader><CardTitle>Invoice Saved</CardTitle></CardHeader>
-          <CardContent className="space-y-5">
-            <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl dark:bg-emerald-950/30 dark:border-emerald-800">
-              <CheckCircle2 className="text-emerald-600 mt-0.5 flex-shrink-0" size={20} />
-              <div>
-                <p className="font-semibold text-emerald-800 dark:text-emerald-300">
-                  Invoice {form.invoice_number} created successfully
-                </p>
-                <p className="text-sm text-emerald-700 dark:text-emerald-400 mt-0.5">
-                  {totalRows} line items saved · {fileEntries.length} file{fileEntries.length > 1 ? 's' : ''} uploaded
-                </p>
-              </div>
+        <Card className="shadow-2xl border-emerald-500/20 bg-emerald-500/[0.02]">
+          <CardContent className="py-20 flex flex-col items-center text-center space-y-8">
+            <div className="p-8 bg-emerald-500 rounded-full shadow-2xl shadow-emerald-500/40 text-white animate-bounce">
+              <CheckCircle2 size={64} strokeWidth={3} />
             </div>
-            <div className="flex gap-3 flex-wrap">
-              <Button onClick={() => navigate(trackerPath)}>{vendorName} Invoices</Button>
-              <Button variant="outline" onClick={() => navigate(hubPath)}>Back to {vendorName}</Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setStep('upload')
-                  setFileEntries([])
-                  setForm(EMPTY_FORM)
-                  setCreatedId(null)
-                  setDupWarning(null)
-                }}
-              >
+            <div className="space-y-4">
+              <h2 className="text-4xl font-black tracking-tighter">Synchronization Complete</h2>
+              <p className="text-lg font-bold text-emerald-800">{vendorName} Invoice {form.invoice_number} is now in the audit pipeline.</p>
+            </div>
+            <div className="flex gap-4 pt-4">
+              <Button size="lg" className="px-8 font-black bg-emerald-600 hover:bg-emerald-700 shadow-xl shadow-emerald-600/20" onClick={() => navigate(`/vendors/${vendorPath}/invoices`)}>
+                Vendor Hub
+              </Button>
+              <Button variant="ghost" size="lg" className="font-bold" onClick={() => { setStep('upload'); setFileEntries([]); setForm(EMPTY_FORM); setCreatedId(null) }}>
                 Upload Another
               </Button>
-              {createdId && (
-                <span className="text-xs text-muted-foreground self-center">ID: {createdId.slice(0, 8)}…</span>
-              )}
             </div>
           </CardContent>
         </Card>

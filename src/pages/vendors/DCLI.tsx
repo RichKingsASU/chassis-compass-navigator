@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
@@ -20,6 +20,19 @@ import { useDcliInvoices } from '@/features/dcli/hooks/useDcliInvoices'
 import { DcliDocumentsTab } from '@/features/dcli/components/DcliDocumentsTab'
 import { formatShortDate, formatUSD } from '@/features/dcli/format'
 import type { DcliInvoiceInternal, DcliActivityRow } from '@/features/dcli/types'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { 
+  ShieldCheck, 
+  TrendingUp, 
+  DollarSign, 
+  AlertCircle, 
+  Activity, 
+  FileText, 
+  Search,
+  Box,
+  Truck
+} from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 
 const VENDOR_SLUG = 'dcli'
 
@@ -34,13 +47,13 @@ function dateFormatter(params: { value: unknown }): string {
   return formatShortDate(params.value)
 }
 
-function invoiceStatusColorClass(status: string | null | undefined): string {
-  if (!status) return 'text-gray-600'
+function statusBadge(status: string | null | undefined) {
+  if (!status) return <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest opacity-30">NOT_SET</Badge>
   const s = status.trim()
-  if (s === 'Open') return 'text-amber-600 font-medium'
-  if (s === 'Closed') return 'text-gray-600 font-medium'
-  if (s === 'Credit') return 'text-blue-700 font-medium'
-  return 'text-gray-600'
+  if (s === 'Open') return <Badge className="bg-amber-100 text-amber-800 border-amber-200 font-black text-[10px] uppercase">OPEN_AUDIT</Badge>
+  if (s === 'Closed') return <Badge className="bg-gray-100 text-gray-800 border-gray-200 font-black text-[10px] uppercase tracking-widest">CLOSED</Badge>
+  if (s === 'Credit') return <Badge className="bg-blue-100 text-blue-800 border-blue-200 font-black text-[10px] uppercase tracking-widest">CREDIT</Badge>
+  return <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest">{s}</Badge>
 }
 
 const VALID_TABS: VendorTabKey[] = ['dashboard', 'invoices', 'activity', 'financials', 'documents']
@@ -51,17 +64,11 @@ function isValidTab(value: string | null): value is VendorTabKey {
 
 export default function DCLIPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [activity, setActivity] = useState<DcliActivityRow[]>([])
-  const [activityLoading, setActivityLoading] = useState(true)
-  const [activityError, setActivityError] = useState<string | null>(null)
   const initialTab = ((): VendorTabKey => {
     const queryTab = searchParams.get('tab')
     if (isValidTab(queryTab)) return queryTab
-    if (typeof window !== 'undefined') {
-      const hash = window.location.hash.replace('#', '')
-      if (isValidTab(hash)) return hash
-    }
     return 'dashboard'
   })()
   const [activeTab, setActiveTab] = useState<VendorTabKey>(initialTab)
@@ -69,135 +76,79 @@ export default function DCLIPage() {
   const [poolContractFilter, setPoolContractFilter] = useState<PoolContractFilter>('all')
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0)
-  const [invoices, setInvoices] = useState<VendorInvoice[]>([])
 
-  // Dashboard KPIs from dcli_invoice_internal
-  const [totalBilled, setTotalBilled] = useState(0)
-  const [openBalance, setOpenBalance] = useState(0)
-  const [disputedCount, setDisputedCount] = useState(0)
-  const [activityCount, setActivityCount] = useState(0)
-  const [kpiLoading, setKpiLoading] = useState(true)
+  // Fetch Activity Data
+  const { data: activity = [], isLoading: activityLoading, error: activityErrorObj } = useQuery({
+    queryKey: ['dcli_activity'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('dcli_activity')
+        .select('*')
+        .order('date_out', { ascending: false })
+        .limit(2000)
+      if (error) throw error
+      return (data ?? []) as DcliActivityRow[]
+    }
+  })
 
+  // Fetch Vendor Invoices
+  const { data: invoices = [] } = useQuery({
+    queryKey: ['vendor_invoices', VENDOR_SLUG, invoiceRefreshKey],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('vendor_invoices')
+        .select('*')
+        .eq('vendor_slug', VENDOR_SLUG)
+        .order('invoice_date', { ascending: false })
+      return (data || []) as VendorInvoice[]
+    }
+  })
+
+  // Fetch KPIs
+  const { data: kpis, isLoading: kpiLoading } = useQuery({
+    queryKey: ['dcli_kpis', invoiceRefreshKey],
+    queryFn: async () => {
+      const [amountRes, disputeRes, activityRes] = await Promise.all([
+        supabase.from('dcli_invoice_internal').select('invoice_amount, invoice_balance, portal_status'),
+        supabase.from('dcli_invoice_internal').select('dispute_status'),
+        supabase.from('dcli_activity').select('*', { count: 'exact', head: true }),
+      ])
+
+      const amountRows = (amountRes.data || []) as Array<{
+        invoice_amount: number | null
+        invoice_balance: number | null
+        portal_status: string | null
+      }>
+      const totalBilled = amountRows.reduce((s, r) => s + (r.invoice_amount ?? 0), 0)
+      const openBalance = amountRows
+        .filter((r) => r.portal_status === 'Open')
+        .reduce((s, r) => s + (r.invoice_balance ?? 0), 0)
+
+      const disputeRows = (disputeRes.data || []) as Array<{ dispute_status: string | null }>
+      const disputedCount = disputeRows.filter((r) => r.dispute_status === 'Disputed').length
+      const activityCount = activityRes.count ?? 0
+
+      return { totalBilled, openBalance, disputedCount, activityCount }
+    }
+  })
+
+  const { totalBilled = 0, openBalance = 0, disputedCount = 0, activityCount = 0 } = kpis || {}
   const { invoices: dashboardInvoices, loading: invoicesLoading } = useDcliInvoices(invoiceRefreshKey)
 
   const [invoiceSearch, setInvoiceSearch] = useState('')
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<InvoiceStatusFilter>('all')
   const invoicesGridApiRef = useRef<GridApi<DcliInvoiceInternal> | null>(null)
 
-  // Load dcli_activity rows for the Activity tab
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setActivityLoading(true)
-      setActivityError(null)
-      try {
-        const { data, error: fetchErr } = await supabase
-          .from('dcli_activity')
-          .select('*')
-          .order('date_out', { ascending: false })
-          .limit(2000)
-        if (fetchErr) throw fetchErr
-        if (!cancelled) setActivity((data ?? []) as DcliActivityRow[])
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setActivityError(err instanceof Error ? err.message : 'Failed to load activity')
-        }
-      } finally {
-        if (!cancelled) setActivityLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Load vendor_invoices for the Financials tab (shared schema across vendors)
-  useEffect(() => {
-    async function loadVendorInvoices() {
-      const { data } = await supabase
-        .from('vendor_invoices')
-        .select('*')
-        .eq('vendor_slug', VENDOR_SLUG)
-        .order('invoice_date', { ascending: false })
-      setInvoices((data || []) as VendorInvoice[])
-    }
-    loadVendorInvoices()
-  }, [invoiceRefreshKey])
-
-  // Load aggregate KPIs from dcli_invoice_internal + dcli_activity
-  useEffect(() => {
-    let cancelled = false
-    async function loadKpis() {
-      setKpiLoading(true)
-      try {
-        const [amountRes, disputeRes, activityRes] = await Promise.all([
-          supabase
-            .from('dcli_invoice_internal')
-            .select('invoice_amount, invoice_balance, portal_status'),
-          supabase.from('dcli_invoice_internal').select('dispute_status'),
-          supabase.from('dcli_activity').select('*', { count: 'exact', head: true }),
-        ])
-
-        if (cancelled) return
-
-        const amountRows = (amountRes.data || []) as Array<{
-          invoice_amount: number | null
-          invoice_balance: number | null
-          portal_status: string | null
-        }>
-        setTotalBilled(amountRows.reduce((s, r) => s + (r.invoice_amount ?? 0), 0))
-        setOpenBalance(
-          amountRows
-            .filter((r) => r.portal_status === 'Open')
-            .reduce((s, r) => s + (r.invoice_balance ?? 0), 0)
-        )
-
-        const disputeRows = (disputeRes.data || []) as Array<{ dispute_status: string | null }>
-        setDisputedCount(disputeRows.filter((r) => r.dispute_status === 'Disputed').length)
-
-        setActivityCount(activityRes.count ?? 0)
-      } catch (err: unknown) {
-        console.error('Failed to load DCLI KPIs', err)
-      } finally {
-        if (!cancelled) setKpiLoading(false)
-      }
-    }
-    loadKpis()
-    return () => {
-      cancelled = true
-    }
-  }, [invoiceRefreshKey])
-
-  // Sync activeTab when ?tab= query param changes (e.g. via Back button navigation)
   useEffect(() => {
     const queryTab = searchParams.get('tab')
-    if (isValidTab(queryTab)) {
-      setActiveTab(queryTab)
-    }
+    if (isValidTab(queryTab)) setActiveTab(queryTab)
   }, [searchParams])
-
-  // Backwards-compat: also sync activeTab with URL hash
-  useEffect(() => {
-    const applyHash = () => {
-      const hash = window.location.hash.replace('#', '')
-      if (isValidTab(hash)) {
-        setActiveTab(hash)
-      }
-    }
-    applyHash()
-    window.addEventListener('hashchange', applyHash)
-    return () => window.removeEventListener('hashchange', applyHash)
-  }, [])
 
   const handleTabChange = (value: VendorTabKey) => {
     setActiveTab(value)
     const next = new URLSearchParams(searchParams)
-    if (value === 'dashboard') {
-      next.delete('tab')
-    } else {
-      next.set('tab', value)
-    }
+    if (value === 'dashboard') next.delete('tab')
+    else next.set('tab', value)
     setSearchParams(next, { replace: true })
   }
 
@@ -211,9 +162,8 @@ export default function DCLIPage() {
       }
       if (poolContractFilter !== 'all') {
         const pc = (r.pool_contract ?? '').trim()
-        if (poolContractFilter === 'blank') {
-          if (pc) return false
-        } else if (pc !== poolContractFilter) return false
+        if (poolContractFilter === 'blank') { if (pc) return false } 
+        else if (pc !== poolContractFilter) return false
       }
       return true
     })
@@ -221,223 +171,59 @@ export default function DCLIPage() {
 
   const invoiceColumnDefs = useMemo<ColDef<DcliInvoiceInternal>[]>(
     () => [
-      {
-        headerName: 'Invoice #',
-        field: 'invoice_number',
-        width: 160,
-        cellClass: 'font-mono',
-        getQuickFilterText: (p) => p.value ?? '',
-      },
-      {
-        headerName: 'Billing Date',
-        field: 'billing_date',
-        width: 140,
-        valueFormatter: dateFormatter,
-        valueGetter: (p) => p.data?.billing_date ?? p.data?.invoice_date ?? null,
-        getQuickFilterText: () => '',
-      },
-      {
-        headerName: 'Due Date',
-        field: 'due_date',
-        width: 140,
-        valueFormatter: dateFormatter,
-        getQuickFilterText: () => '',
-      },
-      {
-        headerName: 'Invoice Type',
-        field: 'invoice_type',
-        width: 180,
-        tooltipField: 'invoice_type',
-        getQuickFilterText: (p) => p.value ?? '',
-      },
-      {
-        headerName: 'Invoice Amount',
-        field: 'invoice_amount',
-        type: 'numericColumn',
-        width: 150,
-        valueFormatter: currencyFormatter,
-        getQuickFilterText: () => '',
-      },
-      {
-        headerName: 'Balance',
-        field: 'invoice_balance',
-        type: 'numericColumn',
-        width: 140,
-        valueFormatter: currencyFormatter,
-        getQuickFilterText: () => '',
-      },
-      {
-        headerName: 'Payments',
-        field: 'total_payments',
-        type: 'numericColumn',
-        width: 140,
-        valueFormatter: currencyFormatter,
-        getQuickFilterText: () => '',
-      },
-      {
-        headerName: 'Portal Status',
-        field: 'portal_status',
-        width: 160,
-        cellRenderer: (params: ICellRendererParams<DcliInvoiceInternal, string | null>) => (
-          <span className={invoiceStatusColorClass(params.value)}>
-            {params.value || 'Not Set'}
-          </span>
-        ),
-        getQuickFilterText: (p) => p.value ?? '',
-      },
-      {
-        headerName: 'Dispute Status',
-        field: 'dispute_status',
-        width: 150,
-        cellRenderer: (params: ICellRendererParams<DcliInvoiceInternal, string | null>) => {
-          const v = params.value
-          if (v !== 'Disputed') return null
-          return (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-              Disputed
-            </span>
-          )
-        },
-        getQuickFilterText: (p) => p.value ?? '',
-      },
+      { headerName: 'Invoice #', field: 'invoice_number', width: 160, cellClass: 'font-mono font-black' },
+      { headerName: 'Billing Date', field: 'billing_date', width: 140, valueFormatter: dateFormatter, valueGetter: (p) => p.data?.billing_date ?? p.data?.invoice_date ?? null },
+      { headerName: 'Due Date', field: 'due_date', width: 140, valueFormatter: dateFormatter },
+      { headerName: 'Amount', field: 'invoice_amount', type: 'numericColumn', width: 140, valueFormatter: currencyFormatter, cellClass: 'font-black' },
+      { headerName: 'Balance', field: 'invoice_balance', type: 'numericColumn', width: 140, valueFormatter: currencyFormatter, cellClass: 'font-bold text-amber-600' },
+      { headerName: 'Status', field: 'portal_status', width: 160, cellRenderer: (params: ICellRendererParams) => statusBadge(params.value) },
       {
         headerName: 'Action',
         colId: 'actions',
         width: 100,
         sortable: false,
         filter: false,
-        resizable: false,
-        getQuickFilterText: () => '',
-        cellRenderer: (params: ICellRendererParams<DcliInvoiceInternal>) => {
-          const invoiceNumber = params.data?.invoice_number
-          if (!invoiceNumber) return null
-          return (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                navigate(`/vendors/dcli/invoices/${encodeURIComponent(invoiceNumber)}/detail`)
-              }}
-              className="px-3 py-1 text-xs border rounded hover:bg-accent"
-            >
-              View
-            </button>
-          )
-        },
+        cellRenderer: (params: ICellRendererParams<DcliInvoiceInternal>) => (
+          <Button variant="ghost" size="sm" className="h-8 px-4 font-black text-[10px] uppercase tracking-widest hover:bg-primary/10" onClick={() => navigate(`/vendors/dcli/invoices/${encodeURIComponent(params.data?.invoice_number || '')}/detail`)}>
+            Review
+          </Button>
+        )
       },
     ],
     [navigate]
   )
 
-  useEffect(() => {
-    invoicesGridApiRef.current?.setGridOption('quickFilterText', invoiceSearch)
-  }, [invoiceSearch])
-
-  useEffect(() => {
-    const api = invoicesGridApiRef.current
-    if (!api) return
-    if (invoiceStatusFilter === 'all') {
-      api.setFilterModel(null)
-    } else if (invoiceStatusFilter === 'unset') {
-      api.setFilterModel({
-        portal_status: { filterType: 'text', type: 'blank' },
-      })
-    } else {
-      api.setFilterModel({
-        portal_status: { filterType: 'text', type: 'equals', filter: invoiceStatusFilter },
-      })
-    }
-  }, [invoiceStatusFilter])
-
   const handleInvoicesGridReady = (e: GridReadyEvent<DcliInvoiceInternal>) => {
     invoicesGridApiRef.current = e.api
     if (invoiceSearch) e.api.setGridOption('quickFilterText', invoiceSearch)
-    if (invoiceStatusFilter !== 'all') {
-      if (invoiceStatusFilter === 'unset') {
-        e.api.setFilterModel({ portal_status: { filterType: 'text', type: 'blank' } })
-      } else {
-        e.api.setFilterModel({
-          portal_status: { filterType: 'text', type: 'equals', filter: invoiceStatusFilter },
-        })
-      }
-    }
   }
-
-  const invoiceStatusCounts = useMemo(
-    () => ({
-      all: dashboardInvoices.length,
-      open: dashboardInvoices.filter((i) => i.portal_status === 'Open').length,
-      closed: dashboardInvoices.filter((i) => i.portal_status === 'Closed').length,
-      credit: dashboardInvoices.filter((i) => i.portal_status === 'Credit').length,
-      unset: dashboardInvoices.filter((i) => !i.portal_status).length,
-    }),
-    [dashboardInvoices]
-  )
-
-  const activityColumnDefs = useMemo<ColDef<DcliActivityRow>[]>(
-    () => [
-      { headerName: 'Chassis', field: 'chassis', pinned: 'left', width: 140, cellClass: 'font-mono' },
-      { headerName: 'Container', field: 'container', width: 140, cellClass: 'font-mono' },
-      { headerName: 'Pool Contract', field: 'pool_contract', width: 140 },
-      { headerName: 'Haulage Type', field: 'haulage_type', width: 130 },
-      { headerName: 'Ocean Carrier SCAC', field: 'ss_scac', width: 150 },
-      { headerName: 'Reservation', field: 'reservation', width: 140 },
-      { headerName: 'Reservation Status', field: 'reservation_status', width: 160 },
-      { headerName: 'Pick Up Location', field: 'pick_up_location', width: 200 },
-      { headerName: 'Location In', field: 'location_in', width: 200 },
-      { headerName: 'Date Out', field: 'date_out', width: 130, valueFormatter: dateFormatter },
-      { headerName: 'Date In', field: 'date_in', width: 130, valueFormatter: dateFormatter },
-      { headerName: 'Days Out', field: 'days_out', type: 'numericColumn', width: 100 },
-      { headerName: 'Asset Type', field: 'asset_type', width: 130 },
-      {
-        headerName: 'Request Status',
-        field: 'request_status',
-        width: 150,
-        editable: true,
-        cellEditor: 'agSelectCellEditor',
-        cellEditorParams: { values: ['', 'APPROVED', 'PENDING', 'REJECTED'] },
-      },
-      {
-        headerName: 'Remarks',
-        field: 'remarks',
-        width: 260,
-        editable: true,
-        cellEditor: 'agLargeTextCellEditor',
-      },
-    ],
-    []
-  )
 
   const handleActivityCellChanged = async (event: CellValueChangedEvent<DcliActivityRow>) => {
     const field = event.colDef.field
-    if (!field) return
-    const rowId = event.data?.id
-    if (!rowId) return
-    const newValue = event.newValue
-    const { error: updateErr } = await supabase
-      .from('dcli_activity')
-      .update({ [field]: newValue })
-      .eq('id', rowId)
+    if (!field || !event.data?.id) return
+    const { error: updateErr } = await supabase.from('dcli_activity').update({ [field]: event.newValue }).eq('id', event.data.id)
     if (updateErr) {
-      toast.error(`Failed to save ${field}: ${updateErr.message}`)
-      if (event.node) event.node.setDataValue(field, event.oldValue)
+      toast.error(`Failed to save: ${updateErr.message}`)
+      event.node?.setDataValue(field, event.oldValue)
     } else {
-      toast.success('Saved')
+      toast.success('Synchronization successful')
+      queryClient.invalidateQueries({ queryKey: ['dcli_activity'] })
     }
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">DCLI</h1>
-        <p className="text-muted-foreground">Direct ChassisLink Inc. — Vendor Dashboard</p>
-      </div>
-
-      {activityError && (
-        <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">
-          {activityError}
+    <div className="p-8 space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="p-4 bg-primary rounded-3xl text-primary-foreground shadow-2xl shadow-primary/20">
+            <Truck size={32} strokeWidth={3} />
+          </div>
+          <div>
+            <h1 className="text-4xl font-black tracking-tighter">DCLI HUB</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Direct ChassisLink Management Node</p>
+          </div>
         </div>
-      )}
+      </div>
 
       <VendorTabNav
         vendorSlug={VENDOR_SLUG}
@@ -448,102 +234,78 @@ export default function DCLIPage() {
       />
 
       {activeTab === 'dashboard' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <Card className="border-none shadow-xl bg-primary/[0.02]">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Invoices
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Global Artifacts</p>
+                  <FileText size={14} className="text-primary" />
+                </div>
               </CardHeader>
               <CardContent>
-                {invoicesLoading ? (
-                  <Skeleton className="h-9 w-20" />
-                ) : (
-                  <p className="text-3xl font-bold">{dashboardInvoices.length.toLocaleString()}</p>
-                )}
+                {invoicesLoading ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-black">{dashboardInvoices.length.toLocaleString()}</p>}
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border-none shadow-xl bg-emerald-500/[0.02]">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Billed
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Total Valuation</p>
+                  <DollarSign size={14} className="text-emerald-600" />
+                </div>
               </CardHeader>
               <CardContent>
-                {kpiLoading ? (
-                  <Skeleton className="h-9 w-32" />
-                ) : (
-                  <p className="text-3xl font-bold">{formatUSD(totalBilled)}</p>
-                )}
+                {kpiLoading ? <Skeleton className="h-10 w-32" /> : <p className="text-4xl font-black text-emerald-600">{formatUSD(totalBilled)}</p>}
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border-none shadow-xl bg-amber-500/[0.02]">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Open Balance
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Pending Liability</p>
+                  <TrendingUp size={14} className="text-amber-600" />
+                </div>
               </CardHeader>
               <CardContent>
-                {kpiLoading ? (
-                  <Skeleton className="h-9 w-32" />
-                ) : (
-                  <p className="text-3xl font-bold">{formatUSD(openBalance)}</p>
-                )}
+                {kpiLoading ? <Skeleton className="h-10 w-32" /> : <p className="text-4xl font-black text-amber-600">{formatUSD(openBalance)}</p>}
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border-none shadow-xl bg-destructive/[0.02]">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Disputed
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-destructive uppercase tracking-widest">Dispute Count</p>
+                  <ShieldCheck size={14} className="text-destructive" />
+                </div>
               </CardHeader>
               <CardContent>
-                {kpiLoading ? (
-                  <Skeleton className="h-9 w-20" />
-                ) : (
-                  <p className="text-3xl font-bold">{disputedCount.toLocaleString()}</p>
-                )}
+                {kpiLoading ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-black text-destructive">{disputedCount.toLocaleString()}</p>}
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Contact Information</CardTitle>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <Card className="border-none shadow-xl bg-card/50 backdrop-blur-sm">
+              <CardHeader className="bg-muted/30 border-b py-4">
+                <CardTitle className="text-lg flex items-center gap-2 font-black tracking-tight uppercase"><Box size={18} className="text-primary" /> Logistics Context</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <p>
-                  <span className="font-medium">Company:</span> Direct ChassisLink Inc. (DCLI)
-                </p>
-                <p>
-                  <span className="font-medium">Website:</span>{' '}
-                  <a
-                    href="https://www.dcli.com"
-                    className="text-primary underline"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    www.dcli.com
-                  </a>
-                </p>
-                <p>
-                  <span className="font-medium">Phone:</span> 1-800-227-3254
-                </p>
+              <CardContent className="pt-6 space-y-6">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Primary Carrier SCAC</p>
+                  <p className="text-xl font-black font-mono">DCLI</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Support Protocol</p>
+                  <p className="text-xl font-bold">1-800-227-3254</p>
+                </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Important Notices</CardTitle>
+            <Card className="border-none shadow-xl bg-amber-500/[0.03]">
+              <CardHeader className="bg-amber-500/10 border-b py-4">
+                <CardTitle className="text-lg flex items-center gap-2 font-black tracking-tight uppercase text-amber-700"><AlertCircle size={18} /> Audit Policy</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <p className="text-sm font-medium text-yellow-800">Dispute Deadline</p>
-                  <p className="text-sm text-yellow-700">
-                    All disputes must be filed within 30 days of invoice date.
-                  </p>
-                </div>
+              <CardContent className="pt-6">
+                <p className="text-sm font-bold text-amber-800 leading-relaxed uppercase tracking-tight">
+                  Dispute Reconciliation must occur within a 30-day chronological window from the billing timestamp.
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -551,107 +313,90 @@ export default function DCLIPage() {
       )}
 
       {activeTab === 'invoices' && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Invoices</CardTitle>
-              <p className="text-sm text-muted-foreground">{dashboardInvoices.length} records</p>
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <Card className="border-none shadow-2xl overflow-hidden">
+            <CardHeader className="bg-muted/30 border-b py-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex items-center gap-3">
+                  <FileText size={20} className="text-primary" />
+                  <CardTitle className="text-xl font-black uppercase tracking-tight">Invoice Stream</CardTitle>
+                </div>
+                <div className="relative w-full md:w-96">
+                  <Search size={16} className="absolute left-3 top-3 text-muted-foreground" />
+                  <Input placeholder="Filter by ID, status, or type..." className="pl-10 h-11 border-2 font-bold rounded-xl" value={invoiceSearch} onChange={e => setInvoiceSearch(e.target.value)} />
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {(
-                  [
-                    { key: 'all', label: `All (${invoiceStatusCounts.all})` },
-                    { key: 'Open', label: `Open (${invoiceStatusCounts.open})` },
-                    { key: 'Closed', label: `Closed (${invoiceStatusCounts.closed})` },
-                    { key: 'Credit', label: `Credit (${invoiceStatusCounts.credit})` },
-                    { key: 'unset', label: `No Status (${invoiceStatusCounts.unset})` },
-                  ] as const
-                ).map((pill) => (
-                  <button
-                    key={pill.key}
-                    type="button"
-                    onClick={() => setInvoiceStatusFilter(pill.key)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                      invoiceStatusFilter === pill.key
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-muted text-muted-foreground border-border hover:bg-accent'
-                    }`}
-                  >
+            <CardContent className="p-0">
+              <div className="p-6 border-b bg-muted/10 flex flex-wrap gap-2">
+                {([
+                  { key: 'all', label: 'All Artifacts' },
+                  { key: 'Open', label: 'Open Audits' },
+                  { key: 'Closed', label: 'Resolved' },
+                  { key: 'Credit', label: 'Credits' },
+                  { key: 'unset', label: 'Unclassified' }
+                ] as const).map(pill => (
+                  <Button key={pill.key} variant={invoiceStatusFilter === pill.key ? 'default' : 'outline'} size="sm" className="text-[10px] font-black uppercase tracking-widest h-8 px-6 rounded-full" onClick={() => setInvoiceStatusFilter(pill.key)}>
                     {pill.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
-              <input
-                type="text"
-                placeholder="Search invoice #, type, status..."
-                value={invoiceSearch}
-                onChange={(e) => setInvoiceSearch(e.target.value)}
-                className="w-full max-w-sm px-3 py-2 border rounded-md text-sm"
-              />
-              <DataGrid<DcliInvoiceInternal>
-                rowData={dashboardInvoices}
-                columnDefs={invoiceColumnDefs}
-                loading={invoicesLoading}
-                gridProps={{
-                  onGridReady: handleInvoicesGridReady,
-                  includeHiddenColumnsInQuickFilter: true,
-                }}
-              />
+              <DataGrid<DcliInvoiceInternal> rowData={dashboardInvoices} columnDefs={invoiceColumnDefs} loading={invoicesLoading} gridProps={{ onGridReady: handleInvoicesGridReady, includeHiddenColumnsInQuickFilter: true }} />
             </CardContent>
           </Card>
         </div>
       )}
 
       {activeTab === 'activity' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">DCLI Activity</h2>
-            <p className="text-sm text-muted-foreground">{filteredActivity.length} records</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              type="text"
-              placeholder="Search chassis or reservation..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 min-w-[260px] px-3 py-2 border rounded-md text-sm"
-            />
-            <select
-              value={poolContractFilter}
-              onChange={(e) => setPoolContractFilter(e.target.value as PoolContractFilter)}
-              className="px-3 py-2 border rounded-md text-sm bg-background"
-              aria-label="Filter by pool contract"
-            >
-              <option value="all">All pool contracts</option>
-              <option value="GACP">GACP</option>
-              <option value="DCLI">DCLI</option>
-              <option value="EVER">EVER</option>
-              <option value="blank">Blank</option>
-            </select>
-          </div>
-          <DataGrid<DcliActivityRow>
-            rowData={filteredActivity}
-            columnDefs={activityColumnDefs}
-            loading={activityLoading}
-            onCellValueChanged={handleActivityCellChanged}
-          />
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <Card className="border-none shadow-2xl overflow-hidden">
+            <CardHeader className="bg-muted/30 border-b py-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex items-center gap-3">
+                  <Activity size={20} className="text-primary" />
+                  <CardTitle className="text-xl font-black uppercase tracking-tight">Tactical Operations</CardTitle>
+                </div>
+                <div className="flex gap-4">
+                  <div className="relative w-72">
+                    <Search size={16} className="absolute left-3 top-3 text-muted-foreground" />
+                    <Input placeholder="Asset/Reservation..." className="pl-10 h-11 border-2 font-bold rounded-xl" value={search} onChange={e => setSearch(e.target.value)} />
+                  </div>
+                  <Select value={poolContractFilter} onValueChange={v => setPoolContractFilter(v as PoolContractFilter)}>
+                    <SelectTrigger className="w-56 h-11 font-bold border-2 rounded-xl"><SelectValue placeholder="Contract" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="font-bold text-[10px] uppercase">All Pools</SelectItem>
+                      <SelectItem value="GACP" className="font-bold text-[10px] uppercase tracking-widest">GACP</SelectItem>
+                      <SelectItem value="DCLI" className="font-bold text-[10px] uppercase tracking-widest">DCLI</SelectItem>
+                      <SelectItem value="EVER" className="font-bold text-[10px] uppercase tracking-widest">EVER</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <DataGrid<DcliActivityRow> rowData={filteredActivity} columnDefs={activityColumnDefs} loading={activityLoading} onCellValueChanged={handleActivityCellChanged} />
+            </CardContent>
+          </Card>
         </div>
       )}
 
       {activeTab === 'financials' && (
-        <div className="space-y-4">
+        <div className="animate-in fade-in duration-500">
           <VendorFinancialsTab invoices={invoices} />
         </div>
       )}
 
-      {activeTab === 'documents' && <DcliDocumentsTab />}
+      {activeTab === 'documents' && (
+        <div className="animate-in fade-in duration-500">
+          <DcliDocumentsTab />
+        </div>
+      )}
 
       <NewInvoiceDialog
         open={invoiceDialogOpen}
         onOpenChange={setInvoiceDialogOpen}
         vendorSlug={VENDOR_SLUG}
-        onCreated={() => setInvoiceRefreshKey((k) => k + 1)}
+        onCreated={() => setInvoiceRefreshKey(k => k + 1)}
       />
     </div>
   )

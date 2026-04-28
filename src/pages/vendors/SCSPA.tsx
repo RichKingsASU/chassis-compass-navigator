@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { safeDate, safeAmount } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +10,7 @@ import { VendorInvoicesTab, type VendorInvoice } from '@/components/vendor/Vendo
 import { VendorFinancialsTab } from '@/components/vendor/VendorFinancialsTab'
 import { VendorDocumentsTab } from '@/components/vendor/VendorDocumentsTab'
 import { VendorEmptyState } from '@/components/vendor/VendorEmptyState'
+import { useQuery } from '@tanstack/react-query'
 
 const VENDOR_SLUG = 'scspa'
 
@@ -31,35 +32,26 @@ interface ScspaRecord {
 }
 
 export default function SCSPAPage() {
-  const [records, setRecords] = useState<ScspaRecord[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<VendorTabKey>('dashboard')
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0)
   const [invoices, setInvoices] = useState<VendorInvoice[]>([])
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true)
-      setError(null)
-      try {
-        const { data, error: fetchErr } = await supabase
-          .from('scspa_activity')
-          .select('*')
-          .order('date_out', { ascending: false })
-          .limit(500)
-        if (fetchErr) throw fetchErr
-        setRecords(data || [])
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load data')
-      } finally {
-        setLoading(false)
-      }
+  const { data: records = [], isLoading: loading, error: errorObj } = useQuery({
+    queryKey: ['scspa_activity'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('scspa_activity')
+        .select('*')
+        .order('date_out', { ascending: false })
+        .limit(500)
+      if (error) throw error
+      return (data || []) as ScspaRecord[]
     }
-    loadData()
-  }, [])
+  })
+
+  const error = errorObj?.message || null
 
   const handleInvoicesLoaded = useCallback((rows: VendorInvoice[]) => {
     setInvoices(rows)
@@ -79,10 +71,10 @@ export default function SCSPAPage() {
     : records
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       <div>
         <h1 className="text-3xl font-bold">SCSPA</h1>
-        <p className="text-muted-foreground">South Carolina State Ports Authority — Vendor Dashboard</p>
+        <p className="text-muted-foreground mt-2">South Carolina State Ports Authority — Vendor Dashboard</p>
       </div>
 
       {error && records.length > 0 && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
@@ -96,11 +88,11 @@ export default function SCSPAPage() {
       />
 
       {activeTab === 'dashboard' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle></CardHeader>
-              <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{totalRecords}</p>}</CardContent>
+              <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{totalRecords.toLocaleString()}</p>}</CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Amount</CardTitle></CardHeader>
@@ -128,23 +120,25 @@ export default function SCSPAPage() {
       )}
 
       {activeTab === 'invoices' && (
-        <VendorInvoicesTab
-          vendorSlug={VENDOR_SLUG}
-          refreshKey={invoiceRefreshKey}
-          onNewInvoice={() => setInvoiceDialogOpen(true)}
-          onDataLoaded={handleInvoicesLoaded}
-        />
+        <div className="space-y-8">
+          <VendorInvoicesTab
+            vendorSlug={VENDOR_SLUG}
+            refreshKey={invoiceRefreshKey}
+            onNewInvoice={() => setInvoiceDialogOpen(true)}
+            onDataLoaded={handleInvoicesLoaded}
+          />
+        </div>
       )}
 
       {activeTab === 'activity' && (
-        <div className="space-y-4">
+        <div className="space-y-8">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">SCSPA Activity</h2>
             <p className="text-sm text-muted-foreground">{filtered.length} records</p>
           </div>
           <input type="text" placeholder="Search chassis number..." value={search} onChange={e => setSearch(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" />
           {loading ? (
-            <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+            <div className="space-y-4">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
           ) : records.length === 0 ? (
             <VendorEmptyState title="Activity" />
           ) : (
@@ -186,7 +180,7 @@ export default function SCSPAPage() {
         </div>
       )}
 
-      {activeTab === 'financials' && <VendorFinancialsTab invoices={invoices} />}
+      {activeTab === 'financials' && <div className="space-y-8"><VendorFinancialsTab invoices={invoices} /></div>}
       {activeTab === 'documents' && <VendorDocumentsTab />}
 
       <NewInvoiceDialog
