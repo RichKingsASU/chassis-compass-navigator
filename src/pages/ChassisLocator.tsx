@@ -34,12 +34,23 @@ export default function ChassisLocator() {
       setLoading(true)
       try {
         const { data, error: fetchErr } = await supabase
-          .from('samsara_gps')
-          .select('*')
-          .order('created_at', { ascending: false })
+          .from('v_chassis_gps_unified')
+          .select('chassis_number, latitude, longitude, landmark, address, gps_source, gps_status, dormant_days, gps_date')
+          .not('latitude', 'is', null)
+          .not('longitude', 'is', null)
           .limit(500)
         if (fetchErr) throw fetchErr
-        const normalised = (data || []).map((d: Record<string, unknown>) => ({ ...d, timestamp: d.recorded_at })) as ChassisLocation[]
+        const normalised: ChassisLocation[] = (data || []).map((d: Record<string, unknown>, idx: number) => ({
+          id: `${d.chassis_number ?? idx}-${idx}`,
+          chassis_number: String(d.chassis_number ?? ''),
+          latitude: Number(d.latitude),
+          longitude: Number(d.longitude),
+          location_name: String(d.landmark ?? d.address ?? ''),
+          provider: String(d.gps_source ?? ''),
+          gps_provider: String(d.gps_source ?? ''),
+          timestamp: String(d.gps_date ?? ''),
+          status: String(d.gps_status ?? ''),
+        }))
         setLocations(normalised)
         setFiltered(normalised)
       } catch (err: unknown) {

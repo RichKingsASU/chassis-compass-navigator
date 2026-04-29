@@ -122,7 +122,7 @@ export default function AnytrekPage() {
                   ))}
                 </div>
               ) : records.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4">No data uploaded yet.</p>
+                <p className="text-sm text-muted-foreground py-4">No Anytrek data yet. Run the ingestion script or upload a CSV file via the Upload tab.</p>
               ) : (
                 <ul className="space-y-4">
                   {records.slice(0, 10).map(r => (
@@ -175,7 +175,7 @@ export default function AnytrekPage() {
                       {records.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center text-muted-foreground py-12">
-                            No data uploaded yet.
+                            No Anytrek data yet. Run the ingestion script or upload a CSV file via the Upload tab.
                           </TableCell>
                         </TableRow>
                       ) : (
