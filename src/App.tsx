@@ -36,6 +36,7 @@ const BillingExposurePage = lazy(() => import('@/features/billing-exposure/Billi
 const TerminalEventsPage = lazy(() => import('@/features/terminal-events/TerminalEventsPage'))
 const ProvarPage = lazy(() => import('@/pages/ProvarPage'))
 const OpportunityLost = lazy(() => import('@/pages/OpportunityLost'))
+const WarRoom = lazy(() => import('@/pages/WarRoom'))
 
 // Yards
 const YardManagementHub = lazy(() => import('@/pages/YardManagementHub'))
@@ -70,6 +71,9 @@ export default function App() {
 
                   {/* Dashboard */}
                   <Route path="/" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
+
+                  {/* War Room */}
+                  <Route path="/war-room" element={<ProtectedPage><WarRoom /></ProtectedPage>} />
 
                   {/* Modular Feature Routes */}
                   <Route path="/chassis/*" element={<ChassisRoutes />} />

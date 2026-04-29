@@ -28,6 +28,7 @@ import {
   BarChart3,
   DollarSign,
   Plug,
+  Radar,
   Sparkles,
 } from 'lucide-react'
 
@@ -40,6 +41,7 @@ interface NavigationItem {
 
 const navItems: NavigationItem[] = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { title: 'War Room', path: '/war-room', icon: Radar },
   {
     title: 'Operations',
     path: '/unbilled-loads',
