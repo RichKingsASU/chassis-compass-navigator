@@ -136,16 +136,19 @@ export default function MercuryGate() {
     queryFn: async () => {
       const { data } = await supabase
         .from('mg_data')
-        .select('customer_rate_amount, margin_rate, chassis_number, customer_name')
-        .neq('zero_rev', 'Y')
-        .not('status', 'in', '("Cancelled","Void","Rejected")')
+        .select('customer_rate_amount, margin_rate, chassis_number, customer_name, status, zero_rev')
         .limit(10000)
 
-      const rows = (data || []) as MGRecord[]
+      const excludedStatuses = new Set(['cancelled', 'void', 'rejected'])
+      const rows = ((data || []) as MGRecord[]).filter(r => {
+        if (r.zero_rev === 'Y') return false
+        if (r.status && excludedStatuses.has(String(r.status).toLowerCase())) return false
+        return true
+      })
       return {
-        totalRevenue:    rows.reduce((s, r) => s + (r.customer_rate_amount || 0), 0),
-        totalMargin:     rows.reduce((s, r) => s + (r.margin_rate || 0), 0),
-        uniqueChassis:   new Set(rows.map(r => r.chassis_number?.trim()).filter(Boolean)).size,
+        totalRevenue:    rows.reduce((s, r) => s + (Number(r.customer_rate_amount) || 0), 0),
+        totalMargin:     rows.reduce((s, r) => s + (Number(r.margin_rate) || 0), 0),
+        uniqueChassis:   new Set(rows.map(r => String(r.chassis_number ?? '').trim()).filter(Boolean)).size,
         uniqueCustomers: new Set(rows.map(r => r.customer_name).filter(Boolean)).size,
       }
     },

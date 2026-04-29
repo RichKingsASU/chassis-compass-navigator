@@ -1,5 +1,5 @@
 /// <reference types="google.maps" />
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { Component, useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from 'react'
 import { GoogleMap, useJsApiLoader } from '@react-google-maps/api'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -10,6 +10,32 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { X, Play, Pause, SkipBack } from 'lucide-react'
 // @ts-ignore
 import { ScatterplotLayer, PathLayer } from '@deck.gl/layers'
+
+class MapErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { hasError: false, error: '' }
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center space-y-2">
+            <p className="text-lg font-medium text-destructive">Map failed to load</p>
+            <p className="text-sm text-muted-foreground">{this.state.error}</p>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 interface GpsPoint {
   gps_source: string
@@ -265,21 +291,24 @@ export default function GpsFleetMap() {
     )
   }
 
-  if (!apiKey) {
+  if (!apiKeyLoading && !apiKey) {
     return (
-      <div className="flex items-center justify-center h-[calc(100vh-60px)]">
-        <div className="text-center space-y-2">
-          <div className="text-5xl">🗺️</div>
-          <p className="text-lg font-medium">No Google Maps API key</p>
-          <p className="text-sm text-muted-foreground">
-            Add one in Settings → app_settings (key: <code>google_maps_api_key</code>)
-          </p>
-        </div>
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <div className="text-5xl">🗺️</div>
+        <h2 className="text-xl font-semibold">Google Maps API Key Required</h2>
+        <p className="text-muted-foreground text-sm text-center max-w-md">
+          Add your Google Maps API key to Supabase app_settings
+          with key 'google_maps_api_key', then refresh this page.
+        </p>
+        <a href="/settings" className="text-primary underline text-sm">
+          Go to Settings →
+        </a>
       </div>
     )
   }
 
   return (
+    <MapErrorBoundary>
     <div className="flex flex-col" style={{ height: 'calc(100vh - 60px)' }}>
       {/* Control bar */}
       <div className="flex items-center justify-between px-4 py-2 border-b bg-background gap-4 flex-wrap">
@@ -495,5 +524,6 @@ export default function GpsFleetMap() {
         )}
       </div>
     </div>
+    </MapErrorBoundary>
   )
 }

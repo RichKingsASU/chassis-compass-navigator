@@ -18,6 +18,12 @@ interface GpsRow { name: string; value: number }
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
 interface ChassisMasterRow { chassis_number: string | null; gps_provider: string | null }
+interface GpsUnifiedRow {
+  gps_source: string
+  chassis_number: string
+  latitude: number | null
+  longitude: number | null
+}
 
 interface UnbilledSummary {
   total_count: number
@@ -73,12 +79,14 @@ const fetchDashboardData = async () => {
   const [
     { data: chassisData },
     { count: actCount },
+    { data: gpsUnifiedData },
     dcliCount,
     ccmCount,
     scspaCount,
   ] = await Promise.all([
     supabase.from('chassis_master').select('chassis_number, gps_provider'),
     supabase.from('mg_data').select('id', { count: 'exact', head: true }),
+    supabase.from('v_chassis_gps_unified').select('gps_source, chassis_number, latitude, longitude'),
     safeCount('dcli_activity'),
     safeCount('ccm_activity'),
     safeCount('scspa_activity'),
@@ -86,7 +94,12 @@ const fetchDashboardData = async () => {
 
   const chassisRows = (chassisData ?? []) as ChassisMasterRow[];
   const total = chassisRows.length;
-  const withGps = chassisRows.filter((r) => r.gps_provider != null && r.gps_provider !== '').length;
+  const gpsUnified = (gpsUnifiedData ?? []) as GpsUnifiedRow[];
+
+  const withCoords = gpsUnified.filter(r => r.latitude && r.longitude).length;
+  const gpsCoverage = gpsUnified.length > 0
+    ? Math.round((withCoords / gpsUnified.length) * 100)
+    : 0;
 
   const vendorData: VendorRow[] = [
     { vendor: 'DCLI', count: dcliCount },
@@ -94,15 +107,26 @@ const fetchDashboardData = async () => {
     { vendor: 'SCSPA', count: scspaCount },
   ];
 
-  const gpsProviders = ['Samsara', 'BlackBerry', 'Fleetview', 'Fleetlocate', 'Anytrek'];
-  const gpsData: GpsRow[] = gpsProviders.map((provider) => ({
-    name: provider,
-    value: chassisRows.filter((r) => r.gps_provider?.toLowerCase().includes(provider.toLowerCase())).length,
-  }));
+  const sourceLabels: Record<string, string> = {
+    'BLACKBERRY_LOG': 'BlackBerry',
+    'BLACKBERRY_TRAN': 'BlackBerry Tran',
+    'FLEETLOCATE': 'Fleetlocate',
+    'ANYTREK': 'Anytrek',
+    'SAMSARA': 'Samsara',
+    'FLEETVIEW': 'Fleetview',
+  };
+  const sourceMap = new Map<string, number>();
+  gpsUnified.forEach(r => {
+    const name = sourceLabels[r.gps_source] || r.gps_source;
+    sourceMap.set(name, (sourceMap.get(name) || 0) + 1);
+  });
+  const gpsData: GpsRow[] = Array.from(sourceMap.entries())
+    .map(([name, value]) => ({ name, value }))
+    .filter(d => d.value > 0);
 
   return {
     chassisCount: total,
-    gpsCoverage: total > 0 ? Math.round((withGps / total) * 100) : 0,
+    gpsCoverage,
     recentActivityCount: actCount || 0,
     vendorData,
     gpsData
