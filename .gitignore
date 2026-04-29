@@ -54,3 +54,6 @@ _legacy/**/dist/
 cursor_*.json
 *.bak
 *.bak.*
+
+log_stream_token.json
+mg_tms_schema.txt
