@@ -35,6 +35,7 @@ const PerDiemPage = lazy(() => import('@/features/perdiem/PerDiemPage'))
 const BillingExposurePage = lazy(() => import('@/features/billing-exposure/BillingExposurePage'))
 const TerminalEventsPage = lazy(() => import('@/features/terminal-events/TerminalEventsPage'))
 const ProvarPage = lazy(() => import('@/pages/ProvarPage'))
+const OpportunityLost = lazy(() => import('@/pages/OpportunityLost'))
 
 // Yards
 const YardManagementHub = lazy(() => import('@/pages/YardManagementHub'))
@@ -90,6 +91,7 @@ export default function App() {
                   <Route path="/billing-exposure" element={<ProtectedPage><BillingExposurePage /></ProtectedPage>} />
                   <Route path="/terminal-events" element={<ProtectedPage><TerminalEventsPage /></ProtectedPage>} />
                   <Route path="/provar" element={<ProtectedPage><ProvarPage /></ProtectedPage>} />
+                  <Route path="/analytics/opportunity-lost" element={<ProtectedPage><OpportunityLost /></ProtectedPage>} />
 
                   {/* Yards — new redesigned routes */}
                   <Route path="/yard" element={<ProtectedPage><YardDashboard /></ProtectedPage>} />
