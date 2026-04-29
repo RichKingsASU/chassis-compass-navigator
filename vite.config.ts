@@ -11,5 +11,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['mapbox-gl'],
+    include: ['react-map-gl/mapbox'],
   },
 })
