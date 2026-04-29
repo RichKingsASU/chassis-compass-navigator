@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import Map, { NavigationControl, ScaleControl, FullscreenControl } from 'react-map-gl'
+import Map, { NavigationControl, ScaleControl, FullscreenControl } from 'react-map-gl/mapbox'
 import { DeckGL } from '@deck.gl/react'
 import { ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import 'mapbox-gl/dist/mapbox-gl.css'
