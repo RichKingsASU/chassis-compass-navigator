@@ -60,6 +60,7 @@ const navItems: NavigationItem[] = [
       { title: 'Chassis Utilization', path: '/utilization' },
       { title: 'Revenue Gap', path: '/billing-exposure' },
       { title: 'Per Diem Recon', path: '/perdiem' },
+      { title: 'Opportunity Lost', path: '/analytics/opportunity-lost' },
     ],
   },
 
