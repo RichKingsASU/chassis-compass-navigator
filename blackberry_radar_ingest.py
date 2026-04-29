@@ -1,53 +1,141 @@
 """
-BlackBerry Radar GPS Data Ingestion
-====================================
-Correct auth flow:
-  1. Build JWT with jti/iss/sub/aud/iat/exp claims
-  2. POST to OAuth server to exchange for access token
-  3. Use access token as Bearer for all API calls
-  4. Auto-refresh token before expiry
-
-Run from PowerShell:
-    python blackberry_radar_ingest.py
+# =============================================================================
+# blackberry_radar_ingest.py
+# =============================================================================
+# Project      : Chassis Compass Navigator (CCN)
+# Company      : Forrest Transportation LLC  (SCAC: FRQT)
+# Author       : Richard King
+# Created      : 2026-04-20
+# Last Modified: 2026-04-29
+# Version      : 2.1.0
+#
+# Version History:
+#   1.0.0  2026-04-20  Initial release — full history pull (12 x 61-day chunks)
+#   2.0.0  2026-04-28  Switched to 59-day rolling window (single chunk per chassis)
+#                      Added .env.local credential loading
+#                      Added bb_distance_seed_progress table for full resumability
+#                      Added live progress bar (no external deps)
+#                      Fixed chunks_total/chunks_loaded in gps_sync_log
+#                      Added PEM key validation diagnostic on startup
+#   2.1.0  2026-04-29  Improved load_env: handles BOM, CRLF, quoted values
+#                      Token fetch retries up to 5x with backoff
+#                      DB keepalives enabled
+# =============================================================================
+#
+# Description:
+#   Ingests BlackBerry Radar GPS telemetry for two accounts (TRAN, LOG) into
+#   local Supabase.  Runs in two phases per account:
+#
+#   Phase 1 — Assets + Distance History (RESUMABLE)
+#     Fetches all assets, upserts to *_assets table, then pulls 59-day distance
+#     history for every repair chassis.  Progress is checkpointed per-chassis
+#     per-chunk in bb_distance_seed_progress so interrupted runs resume exactly
+#     where they left off.
+#
+#   Phase 2 — Stream Drain
+#     Drains the BlackBerry event stream in 1000-item batches, inserting into
+#     the *_gps table.  Stream token is saved to JSON after each batch but NOT
+#     acknowledged until acknowledge_tokens.py is run manually.
+#
+# Credentials:
+#   Loaded from .env.local in the same directory.  Required keys:
+#     BB_TRAN_ID   — BlackBerry app_id for TRAN account
+#     BB_TRAN_KEY  — EC private key (PEM, \n-encoded on one line)
+#     BB_LOG_ID    — BlackBerry app_id for LOG account
+#     BB_LOG_KEY   — EC private key (PEM, \n-encoded on one line)
+#
+# Run from PowerShell:
+#   $env:PYTHONIOENCODING = "utf-8"
+#   python -u blackberry_radar_ingest.py 2>&1 | Tee-Object -FilePath ".\logs\blackberry_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+# =============================================================================
 """
 
-import jwt, time, json, requests, psycopg2, psycopg2.extras, os, uuid
+import jwt, time, json, requests, psycopg2, psycopg2.extras, os, uuid, sys
 from datetime import datetime, timezone
+from pathlib import Path
+
+# ── LOAD .env ──────────────────────────────────────────────────────────────────
+
+def load_env(env_path: str = None):
+    """Load key=value pairs from .env.local into os.environ.
+
+    Handles BOM, CRLF, quoted values, and literal \\n in PEM keys.
+    """
+    path = Path(env_path or Path(__file__).parent / ".env.local")
+    if not path.exists():
+        print(f"⛔  .env.local file not found at {path}")
+        sys.exit(1)
+
+    raw = path.read_text(encoding="utf-8-sig")
+
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip()
+
+        # Strip one layer of surrounding quotes
+        if len(val) >= 2 and (
+            (val.startswith('"') and val.endswith('"')) or
+            (val.startswith("'") and val.endswith("'"))
+        ):
+            val = val[1:-1]
+
+        # Convert literal \n to real newlines (required for PEM keys)
+        val = val.replace("\\n", "\n")
+
+        os.environ.setdefault(key, val)
+
+
+def _check_pem(label: str, key: str):
+    """Print a quick diagnostic so PEM problems are immediately visible."""
+    lines = key.strip().splitlines()
+    first = lines[0].strip() if lines else "(empty)"
+    last  = lines[-1].strip() if lines else "(empty)"
+    ok    = first.startswith("-----BEGIN") and last.startswith("-----END")
+    status = "OK" if ok else "MALFORMED"
+    print(f"  PEM {label}: {status} | {len(lines)} lines | first=\'{first}\' | last=\'{last}\'")
+    if not ok:
+        print(f"  ⛔  {label} key does not look like a valid PEM — check .env.local")
+        sys.exit(1)
+
+
+load_env()
+
+def require_env(key: str) -> str:
+    val = os.environ.get(key, "").strip()
+    if not val:
+        print(f"⛔  Missing required .env key: {key}")
+        sys.exit(1)
+    return val
 
 # ── CONFIG ─────────────────────────────────────────────────────────────────────
 
-DB_URL   = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-BASE_URL = "https://api.radar.blackberry.com/1"
+DB_URL    = "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+BASE_URL  = "https://api.radar.blackberry.com/1"
 OAUTH_URL = "https://oauth2.radar.blackberry.com/1/token"
 
 ACCOUNTS = {
     "tran": {
-        "app_id":      "35dc0199-1903-4a31-a310-8a364d6c1c41",
-        "private_key": """-----BEGIN PRIVATE KEY-----
-MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgDKXvav2i7E0lqxR6
-ij9ejAcEszV1vWOnOxKzj6opAIShRANCAAQ241ZuALZvoFhmGv5scfi16IpSTD1S
-Gf5AsE7wlhHpR5SyRziuM55Gj19dSHailX4O2oDYvW9eiW8P90Mu+KFD
------END PRIVATE KEY-----""",
+        "app_id":      require_env("BB_TRAN_ID"),
+        "private_key": require_env("BB_TRAN_KEY"),
         "table":       "blackberry_tran_gps",
         "token_file":  "tran_stream_token.json",
     },
     "log": {
-        "app_id":      "e723dbdd-9cb5-46ae-953c-880feba2e50e",
-        "private_key": """-----BEGIN PRIVATE KEY-----
-MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgmmEmx6/PTr/38R31
-WdyGdCKPYT49VrOG3D2b8VGKwtmhRANCAAQQlQs2yAMlwyevZGT6hM6AM+phQD42
-7sGf1lyq9yBNLE+ZnCJ1sCWp2vxciPTZ8tzH4KxS5KEDA+BgO10GyOxO
------END PRIVATE KEY-----""",
+        "app_id":      require_env("BB_LOG_ID"),
+        "private_key": require_env("BB_LOG_KEY"),
         "table":       "blackberry_log_gps",
         "token_file":  "log_stream_token.json",
     },
 }
 
-# History window — API allows max 61-day chunks, earliest ~Apr 14 2024
-# We query in 61-day chunks from activation date through today
-HISTORY_START_MS  = 1713218400000   # Apr 14 2024 (device activation floor)
-HISTORY_END_MS    = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
-CHUNK_MS          = 61 * 24 * 60 * 60 * 1000   # 61 days in ms
+# History window — pull only the last 59 days (fits in a single API chunk)
+HISTORY_START_MS = int((datetime.now(tz=timezone.utc).timestamp() - 59 * 24 * 60 * 60) * 1000)
+HISTORY_END_MS   = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+CHUNK_MS         = 59 * 24 * 60 * 60 * 1000   # 59 days → single chunk per chassis
 
 REPAIR_CHASSIS = {
     # --- Original ---
@@ -143,8 +231,21 @@ REPAIR_CHASSIS = {
     'MCCZ641207','MCCZ641208',
 
     'MCHZ300007','MCHZ300014','MCHZ300171','MCHZ300173','MCHZ300219','MCHZ300223',
-    'MCHZ400241','MCHZ400576','MCHZ401647'
+    'MCHZ400241','MCHZ400576','MCHZ401647',
 }
+
+
+# ── PROGRESS BAR (no external deps) ───────────────────────────────────────────
+
+def print_progress(current: int, total: int, prefix: str = "", width: int = 35):
+    """Overwrite the current terminal line with a live progress bar."""
+    filled = int(width * current / total) if total else 0
+    bar    = "#" * filled + "." * (width - filled)
+    pct    = int(100 * current / total) if total else 0
+    line   = f"  [{bar}] {current}/{total} ({pct}%)  {prefix}"
+    sys.stdout.write(f"\r{line}")
+    sys.stdout.flush()
+
 
 # ── OAUTH AUTH FLOW ────────────────────────────────────────────────────────────
 
@@ -152,8 +253,8 @@ class RadarAuth:
     """Handles JWT creation, OAuth token exchange, and auto-refresh."""
 
     def __init__(self, app_id: str, private_key: str):
-        self.app_id      = app_id
-        self.private_key = private_key
+        self.app_id        = app_id
+        self.private_key   = private_key
         self._access_token = None
         self._token_expiry = 0
 
@@ -170,33 +271,44 @@ class RadarAuth:
         return jwt.encode(payload, self.private_key, algorithm="ES256")
 
     def get_access_token(self) -> str:
-        """Return cached token or fetch a new one if expired."""
+        """Return cached token or fetch a new one if expired/missing."""
         if self._access_token and time.time() < self._token_expiry - 30:
             return self._access_token
 
         client_jwt = self._make_client_jwt()
+        resp = None
+        for attempt in range(5):
+            try:
+                resp = requests.post(
+                    OAUTH_URL,
+                    json={
+                        "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                        "assertion":  client_jwt,
+                        "scope":      "assets:read assets:stream",
+                    },
+                    headers={"Content-Type": "application/json"},
+                    timeout=15,
+                )
+                break
+            except requests.RequestException as e:
+                print(f"\n  Network error (token fetch attempt {attempt+1}/5): {e}")
+                if attempt < 4:
+                    time.sleep(10 * (attempt + 1))
+                else:
+                    raise
 
-        resp = requests.post(
-            OAUTH_URL,
-            json={
-                "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-                "assertion":  client_jwt,
-                "scope":      "assets:read assets:stream",
-            },
-            headers={"Content-Type": "application/json"},
-            timeout=15,
-        )
-
-        if resp.status_code != 200:
+        if resp is None or resp.status_code != 200:
             raise RuntimeError(
-                f"OAuth token exchange failed: {resp.status_code} {resp.text[:300]}"
+                f"OAuth token exchange failed: "
+                f"{resp.status_code if resp else 'no response'} "
+                f"{resp.text[:300] if resp else ''}"
             )
 
-        data = resp.json()
+        data               = resp.json()
         self._access_token = data["access_token"]
-        expires_in = data.get("expires_in", 300)
+        expires_in         = data.get("expires_in", 300)
         self._token_expiry = time.time() + expires_in
-        print(f"  ✅ Access token obtained (expires in {expires_in}s)")
+        print(f"\n  ✅ Access token obtained (expires in {expires_in}s)")
         return self._access_token
 
     def headers(self) -> dict:
@@ -209,9 +321,10 @@ class RadarAuth:
 
 # ── TABLE DDL ──────────────────────────────────────────────────────────────────
 
-def setup_tables(conn, table):
-    tbl = table.replace("blackberry_","").replace("_gps","")
+def setup_tables(conn, table: str):
+    tbl = table.replace("blackberry_", "").replace("_gps", "")
     stmts = [
+        # Assets
         f"""CREATE TABLE IF NOT EXISTS {table}_assets (
             id                 bigserial PRIMARY KEY,
             asset_uuid         text UNIQUE,
@@ -225,6 +338,8 @@ def setup_tables(conn, table):
             loaded_at          timestamptz DEFAULT now()
         )""",
         f"CREATE INDEX IF NOT EXISTS idx_{tbl}_assets_id ON {table}_assets(identifier)",
+
+        # Distance history
         f"""CREATE TABLE IF NOT EXISTS {table}_distance (
             id                 bigserial PRIMARY KEY,
             asset_uuid         text,
@@ -241,6 +356,23 @@ def setup_tables(conn, table):
             loaded_at          timestamptz DEFAULT now()
         )""",
         f"CREATE INDEX IF NOT EXISTS idx_{tbl}_dist_id ON {table}_distance(identifier)",
+
+        # Seed progress tracker — shared across both accounts, enables full resumability
+        """CREATE TABLE IF NOT EXISTS bb_distance_seed_progress (
+            id               bigserial PRIMARY KEY,
+            account          text NOT NULL,
+            identifier       text NOT NULL,
+            window_start_ms  bigint NOT NULL,
+            window_end_ms    bigint NOT NULL,
+            status           text NOT NULL DEFAULT 'pending',
+            drive_distance_m bigint,
+            completed_at     timestamptz,
+            UNIQUE(account, identifier, window_start_ms)
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_bb_seed_prog "
+        "ON bb_distance_seed_progress(account, identifier, status)",
+
+        # GPS events
         f"""CREATE TABLE IF NOT EXISTS {table} (
             id                bigserial PRIMARY KEY,
             device_id         text,
@@ -264,7 +396,8 @@ def setup_tables(conn, table):
         )""",
         f"CREATE INDEX IF NOT EXISTS idx_{tbl}_chassis  ON {table}(chassis_number)",
         f"CREATE INDEX IF NOT EXISTS idx_{tbl}_ts       ON {table}(recorded_on)",
-        f"CREATE INDEX IF NOT EXISTS idx_{tbl}_repair   ON {table}(is_repair_chassis, recorded_on) WHERE is_repair_chassis = true",
+        f"CREATE INDEX IF NOT EXISTS idx_{tbl}_repair   ON {table}(is_repair_chassis, recorded_on) "
+        f"WHERE is_repair_chassis = true",
         f"CREATE INDEX IF NOT EXISTS idx_{tbl}_geofence ON {table}(geofence_name, recorded_on)",
     ]
     with conn.cursor() as cur:
@@ -277,7 +410,6 @@ def setup_tables(conn, table):
 # ── SYNC LOG ──────────────────────────────────────────────────────────────────
 
 def log_sync_start(conn, provider: str) -> int:
-    """Insert a 'running' record and return its ID."""
     with conn.cursor() as cur:
         cur.execute("""
             INSERT INTO gps_sync_log (provider, status, started_at)
@@ -333,49 +465,89 @@ def api_get(auth: RadarAuth, path: str, params: dict = None):
                 timeout=30,
             )
         except requests.RequestException as e:
-            print(f"    Network error: {e}"); time.sleep(5); continue
+            print(f"\n    Network error: {e}")
+            time.sleep(5)
+            continue
 
         if r.status_code == 429:
             wait = int(r.headers.get("Retry-After", r.headers.get("X-RateLimit-Reset", 5)))
-            print(f"    Rate limited — waiting {wait}s..."); time.sleep(wait); continue
+            print(f"\n    Rate limited — waiting {wait}s...")
+            time.sleep(wait)
+            continue
         if r.status_code == 401:
-            print(f"    401: {r.text[:200]}")
-            # Force token refresh on next call
+            print(f"\n    401: {r.text[:200]}")
             auth._token_expiry = 0
             continue
         if r.status_code == 404:
             return None
         if r.status_code != 200:
-            print(f"    HTTP {r.status_code}: {r.text[:200]}"); return None
+            print(f"\n    HTTP {r.status_code}: {r.text[:200]}")
+            return None
 
         time.sleep(int(r.headers.get("X-RateLimit-Reset", 1)))
         return r.json()
     return None
 
 
-# ── PHASE 1: ASSETS + DISTANCE ─────────────────────────────────────────────────
+# ── PHASE 1 HELPERS: SEED PROGRESS ────────────────────────────────────────────
 
-def phase1(account_name, config, conn, auth):
+def seed_progress_load(conn, account: str, identifier: str, chunks: list) -> set:
+    """
+    Ensure a progress row exists for every chunk, then return the set of
+    window_start_ms values already marked 'done'.
+    """
+    with conn.cursor() as cur:
+        psycopg2.extras.execute_values(cur, """
+            INSERT INTO bb_distance_seed_progress
+                (account, identifier, window_start_ms, window_end_ms, status)
+            VALUES %s
+            ON CONFLICT (account, identifier, window_start_ms) DO NOTHING
+        """, [(account, identifier, s, e, 'pending') for s, e in chunks])
+        conn.commit()
+
+        cur.execute("""
+            SELECT window_start_ms FROM bb_distance_seed_progress
+            WHERE account = %s AND identifier = %s AND status = 'done'
+        """, (account, identifier))
+        return {row[0] for row in cur.fetchall()}
+
+
+def seed_progress_mark_done(conn, account: str, identifier: str,
+                             window_start_ms: int, drive_distance_m):
+    with conn.cursor() as cur:
+        cur.execute("""
+            UPDATE bb_distance_seed_progress
+            SET status = 'done', drive_distance_m = %s, completed_at = now()
+            WHERE account = %s AND identifier = %s AND window_start_ms = %s
+        """, (drive_distance_m, account, identifier, window_start_ms))
+    conn.commit()
+
+
+# ── PHASE 1: ASSETS + DISTANCE (RESUMABLE) ────────────────────────────────────
+
+def phase1(account_name: str, config: dict, conn, auth: RadarAuth) -> dict:
     print(f"\n── Phase 1: Assets + Distance History [{account_name.upper()}] ──")
     table = config["table"]
 
+    # Fetch all assets
     data = api_get(auth, "/assets", {"size": 10000, "from": 0})
     if data is None:
-        print("  Could not fetch assets."); return {}
+        print("  Could not fetch assets.")
+        return {}
 
-    assets = data if isinstance(data, list) else data.get("items", [])
-    print(f"  Total assets in account: {len(assets)}")
-
-    uuid_map    = {}
+    assets       = data if isinstance(data, list) else data.get("items", [])
     repair_found = []
+    uuid_map     = {}
 
     for a in assets:
         identifier = (a.get("identifier") or "").strip().replace(" ", "")
-        uuid       = a.get("asset_id") or a.get("id")
-        if not uuid: continue
-        is_repair  = identifier in REPAIR_CHASSIS
-        if is_repair: repair_found.append(identifier)
-        uuid_map[identifier] = uuid
+        asset_uuid = a.get("asset_id") or a.get("id")
+        if not asset_uuid:
+            continue
+        is_repair = identifier in REPAIR_CHASSIS
+        if is_repair:
+            repair_found.append(identifier)
+        uuid_map[identifier] = asset_uuid
 
         with conn.cursor() as cur:
             cur.execute(f"""
@@ -384,44 +556,82 @@ def phase1(account_name, config, conn, auth):
                      initial_distance_m, is_repair_chassis, raw)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (asset_uuid) DO UPDATE SET
-                    identifier=EXCLUDED.identifier, loaded_at=now()
-            """, (uuid, identifier, a.get("type"), a.get("asset_class"),
-                  json.dumps(a.get("sensors",[])), a.get("initial_distance"),
+                    identifier = EXCLUDED.identifier,
+                    loaded_at  = now()
+            """, (asset_uuid, identifier, a.get("type"), a.get("asset_class"),
+                  json.dumps(a.get("sensors", [])), a.get("initial_distance"),
                   is_repair, json.dumps(a)))
         conn.commit()
 
-    print(f"  Repair chassis in this account: {len(repair_found)}")
-    if repair_found: print(f"  {sorted(repair_found)}")
+    print(f"  Total assets in account : {len(assets)}")
+    print(f"  Repair chassis found    : {len(repair_found)}")
     config['_repair_found_count'] = len(repair_found)
     config['_assets_found_count'] = len(assets)
 
-    # Build 61-day chunks from activation floor to today
+    if not repair_found:
+        return uuid_map
+
+    # Build chunk list (single 59-day chunk with current config)
     chunks = []
     s = HISTORY_START_MS
     while s < HISTORY_END_MS:
         e = min(s + CHUNK_MS, HISTORY_END_MS)
         chunks.append((s, e))
         s = e
-    print(f"\n  Pulling distance history in {len(chunks)} x 61-day chunks...")
+    total_chunks = len(chunks)
+    print(f"  Chunk window            : {total_chunks} x up-to-59-day chunk(s)")
 
     def ms_to_dt(ms):
-        return datetime.fromtimestamp(ms/1000, tz=timezone.utc) if ms else None
+        return datetime.fromtimestamp(ms / 1000, tz=timezone.utc) if ms else None
 
+    # Pre-flight: which chassis still need work?
+    needs_work = []
     for identifier in sorted(repair_found):
-        uuid = uuid_map[identifier]
-        total_drive_m = 0
-        chunks_loaded = 0
+        done = seed_progress_load(conn, account_name, identifier, chunks)
+        if len(done) < total_chunks:
+            needs_work.append(identifier)
 
-        for chunk_start, chunk_end in chunks:
-            dist = api_get(auth, f"/assets/{uuid}/distance", {
-                "gte": chunk_start, "lte": chunk_end,
+    already_complete = len(repair_found) - len(needs_work)
+    print(f"  Already complete        : {already_complete} chassis (skipping)")
+    print(f"  Need seeding            : {len(needs_work)} chassis")
+
+    if not needs_work:
+        print("  Nothing to do — all repair chassis have full distance history.")
+        config['_chunks_total']  = len(repair_found) * total_chunks
+        config['_chunks_loaded'] = len(repair_found) * total_chunks
+        return uuid_map
+
+    # Seed loop with live progress bar
+    print()
+    total_chunks_loaded = already_complete * total_chunks
+
+    for chassis_idx, identifier in enumerate(sorted(needs_work), start=1):
+        asset_uuid = uuid_map.get(identifier)
+        if not asset_uuid:
+            print(f"\n  WARNING: no UUID for {identifier}, skipping.")
+            continue
+
+        done_set       = seed_progress_load(conn, account_name, identifier, chunks)
+        pending_chunks = [(s, e) for s, e in chunks if s not in done_set]
+        total_drive_m  = 0
+
+        for chunk_idx, (chunk_start, chunk_end) in enumerate(pending_chunks, start=1):
+            prefix = (f"chassis {chassis_idx}/{len(needs_work)}  "
+                      f"chunk {chunk_idx}/{len(pending_chunks)}  [{identifier}]")
+            print_progress(chassis_idx - 1, len(needs_work), prefix)
+
+            dist = api_get(auth, f"/assets/{asset_uuid}/distance", {
+                "gte": chunk_start,
+                "lte": chunk_end,
             })
-            if not dist:
+
+            if dist is None:
+                print(f"\n  WARNING: no data for {identifier} "
+                      f"chunk {chunk_start}-{chunk_end}. Will retry next run.")
                 continue
 
-            drive_m = dist.get("drive_distance") or 0
+            drive_m        = dist.get("drive_distance") or 0
             total_drive_m += drive_m
-            chunks_loaded += 1
 
             with conn.cursor() as cur:
                 cur.execute(f"""
@@ -430,7 +640,7 @@ def phase1(account_name, config, conn, auth):
                          drive_distance_m, changed_on, record_start, record_end,
                          window_start_ms, window_end_ms, is_repair_chassis)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                """, (uuid, identifier,
+                """, (asset_uuid, identifier,
                       dist.get("initial_distance"), dist.get("total_distance"),
                       drive_m,
                       ms_to_dt(dist.get("changed_on")),
@@ -439,25 +649,35 @@ def phase1(account_name, config, conn, auth):
                       chunk_start, chunk_end, True))
             conn.commit()
 
-        total_drive_mi = round(total_drive_m / 1609.34, 1)
-        print(f"  {identifier}: {total_drive_mi} mi total | {chunks_loaded}/{len(chunks)} chunks")
+            seed_progress_mark_done(conn, account_name, identifier, chunk_start, drive_m)
+            total_chunks_loaded += 1
 
+        total_drive_mi = round(total_drive_m / 1609.34, 1)
+        print(f"\n  ✔ {identifier}: {total_drive_mi} mi  "
+              f"({len(pending_chunks)}/{total_chunks} chunks seeded this run)")
+
+    # Final completed bar
+    print_progress(len(needs_work), len(needs_work), "complete")
+    print()
+
+    config['_chunks_total']  = len(repair_found) * total_chunks
+    config['_chunks_loaded'] = total_chunks_loaded
     return uuid_map
 
 
 # ── PHASE 2: STREAM DRAIN ──────────────────────────────────────────────────────
 
-def parse_item(item):
+def parse_item(item: dict) -> dict:
     v       = item.get("values", {})
-    chassis = ((v.get("asset",{}).get("params",{}).get("identifier")
-                or v.get("identifier") or "").strip().replace(" ","")) or None
+    chassis = ((v.get("asset", {}).get("params", {}).get("identifier")
+                or v.get("identifier") or "").strip().replace(" ", "")) or None
     geo     = v.get("geo_location", {})
     fences  = v.get("geofences", [])
     ms      = item.get("recorded_on", 0)
     return {
         "device_id":         item.get("device_id"),
         "event_type":        item.get("id"),
-        "recorded_on":       datetime.fromtimestamp(ms/1000, tz=timezone.utc) if ms else None,
+        "recorded_on":       datetime.fromtimestamp(ms / 1000, tz=timezone.utc) if ms else None,
         "recorded_on_ms":    ms,
         "chassis_number":    chassis,
         "lat":               geo.get("lat"),
@@ -474,7 +694,7 @@ def parse_item(item):
     }
 
 
-def phase2(account_name, config, conn, auth):
+def phase2(account_name: str, config: dict, conn, auth: RadarAuth):
     print(f"\n── Phase 2: Stream Drain [{account_name.upper()}] ──")
     table      = config["table"]
     token_file = config["token_file"]
@@ -493,29 +713,35 @@ def phase2(account_name, config, conn, auth):
                 timeout=30,
             )
         except requests.RequestException as e:
-            print(f"  Network error: {e}"); break
+            print(f"  Network error: {e}")
+            break
 
         if r.status_code == 429:
             wait = int(r.headers.get("Retry-After", r.headers.get("X-RateLimit-Reset", 5)))
-            print(f"  Rate limited — {wait}s..."); time.sleep(wait); continue
+            print(f"  Rate limited — {wait}s...")
+            time.sleep(wait)
+            continue
         if r.status_code == 401:
             print(f"  401: {r.text[:200]}")
-            auth._token_expiry = 0; continue
+            auth._token_expiry = 0
+            continue
         if r.status_code != 200:
-            print(f"  HTTP {r.status_code}: {r.text[:200]}"); break
+            print(f"  HTTP {r.status_code}: {r.text[:200]}")
+            break
 
-        data    = r.json()
-        items   = data.get("items", [])
-        token   = data.get("token")
+        data  = r.json()
+        items = data.get("items", [])
+        token = data.get("token")
 
         if not items:
-            print(f"  Stream empty — backlog fully consumed."); break
+            print("  Stream empty — backlog fully consumed.")
+            break
 
         parsed = [parse_item(i) for i in items]
-        cols   = ["device_id","event_type","recorded_on","recorded_on_ms",
-                  "chassis_number","lat","lon","geofence_id","geofence_name",
-                  "velocity","battery_state","container_mounted","event_subtype",
-                  "fence_id","is_repair_chassis","raw_values"]
+        cols   = ["device_id", "event_type", "recorded_on", "recorded_on_ms",
+                  "chassis_number", "lat", "lon", "geofence_id", "geofence_name",
+                  "velocity", "battery_state", "container_mounted", "event_subtype",
+                  "fence_id", "is_repair_chassis", "raw_values"]
         rows = [tuple(p[c] for c in cols) for p in parsed]
 
         with conn.cursor() as cur:
@@ -537,15 +763,16 @@ def phase2(account_name, config, conn, auth):
 
         if batch_num % 10 == 0 or len(items) < 20:
             print(f"  Batch {batch_num:04d} | {len(items):4d} items | "
-                  f"{total_inserted:6d} inserted | repair seen: {len(repair_seen)}")
+                  f"{total_inserted:7d} inserted | repair seen: {len(repair_seen)}")
 
         time.sleep(int(r.headers.get("X-RateLimit-Reset", 5)))
 
     print(f"\n  Done [{account_name.upper()}]: {batch_num} batches | "
           f"{total_items} items | {total_inserted} inserted")
     print(f"  Repair chassis in stream: {len(repair_seen)}")
-    if repair_seen: print(f"  {sorted(repair_seen)}")
-    print(f"  ⚠️  Stream NOT acknowledged. Run acknowledge_tokens.py when confirmed.")
+    if repair_seen:
+        print(f"  {sorted(repair_seen)}")
+    print("  ⚠️  Stream NOT acknowledged. Run acknowledge_tokens.py when confirmed.")
     config['_rows_inserted'] = total_inserted
 
 
@@ -553,17 +780,26 @@ def phase2(account_name, config, conn, auth):
 
 def main():
     print("BlackBerry Radar GPS Ingestion")
+    print(f"  GAP_FILL_PHASE1: True (resumable via bb_distance_seed_progress)")
+    print(f"  SKIP_PHASE2:     False")
     print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    for name, cfg in ACCOUNTS.items():
-        if "PASTE" in cfg["private_key"]:
-            print(f"\n⛔  {name.upper()} private key not set."); return
+    # Validate PEM keys loaded from .env.local before attempting any API calls
+    _check_pem("BB_TRAN_KEY", ACCOUNTS["tran"]["private_key"])
+    _check_pem("BB_LOG_KEY",  ACCOUNTS["log"]["private_key"])
 
     try:
-        conn = psycopg2.connect(DB_URL)
-        print("Database connected.")
+        conn = psycopg2.connect(
+            DB_URL,
+            keepalives=1,
+            keepalives_idle=60,
+            keepalives_interval=10,
+            keepalives_count=5,
+        )
+        print("Database connected (with keepalives).")
     except Exception as e:
-        print(f"DB connection failed: {e}"); return
+        print(f"DB connection failed: {e}")
+        return
 
     for name, config in ACCOUNTS.items():
         print(f"\n{'='*60}\nACCOUNT: {name.upper()}\n{'='*60}")
@@ -579,17 +815,20 @@ def main():
                 assets_found  = config.get('_assets_found_count', 0),
                 repair_found  = config.get('_repair_found_count', 0),
                 rows_inserted = config.get('_rows_inserted', 0),
-                chunks_total  = 12,
-                chunks_loaded = config.get('_repair_found_count', 0) * 12,
+                chunks_total  = config.get('_chunks_total', 0),
+                chunks_loaded = config.get('_chunks_loaded', 0),
             )
         except KeyboardInterrupt:
-            print(f"\nInterrupted during {name} — progress saved.")
-            if sync_id > 0: log_sync_failed(conn, sync_id, "Interrupted by user")
+            print(f"\nInterrupted during {name} — progress saved to bb_distance_seed_progress.")
+            if sync_id > 0:
+                log_sync_failed(conn, sync_id, "Interrupted by user")
             break
         except Exception as e:
             import traceback
-            print(f"Error in {name}: {e}"); traceback.print_exc()
-            if sync_id > 0: log_sync_failed(conn, sync_id, str(e))
+            print(f"Error in {name}: {e}")
+            traceback.print_exc()
+            if sync_id > 0:
+                log_sync_failed(conn, sync_id, str(e))
 
     conn.close()
     print(f"\nFinished: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
