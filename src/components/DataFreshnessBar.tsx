@@ -18,12 +18,17 @@ export default function DataFreshnessBar({ tableName, label }: DataFreshnessBarP
     )
   }
 
+  const isFallback = (entry as { fallback?: boolean }).fallback === true
   const hoursAgo = (Date.now() - entry.refreshedAt.getTime()) / 3_600_000
-  const colorClass = hoursAgo < 24 ? 'text-green-600' : hoursAgo < 72 ? 'text-yellow-600' : 'text-red-500'
+  const baseColor = hoursAgo < 24 ? 'text-green-600' : hoursAgo < 72 ? 'text-yellow-600' : 'text-red-500'
+  const colorClass = isFallback ? 'text-amber-600' : baseColor
+  const prefix = isFallback
+    ? `${label || tableName} — Last data:`
+    : `${label || tableName} last updated:`
 
   return (
     <p className={`text-xs ${colorClass}`}>
-      {label || tableName} last updated: {formatDistanceToNow(entry.refreshedAt, { addSuffix: true })}
+      {prefix} {formatDistanceToNow(entry.refreshedAt, { addSuffix: true })}
     </p>
   )
 }

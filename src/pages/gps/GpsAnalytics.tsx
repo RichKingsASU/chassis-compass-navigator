@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Component, useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +10,32 @@ import {
   PieChart, Pie, Cell, Legend,
   AreaChart, Area,
 } from 'recharts'
+
+class MapErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { hasError: false, error: '' }
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center space-y-2">
+            <p className="text-lg font-medium text-destructive">Page failed to load</p>
+            <p className="text-sm text-muted-foreground">{this.state.error}</p>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 interface UnifiedRow {
   gps_source: string
@@ -92,24 +118,33 @@ export default function GpsAnalytics() {
   })
 
   const totalTracked = unified.length
-  const movingCount = useMemo(() => unified.filter(r => r.gps_status === 'Moving').length, [unified])
-  const dormant7Plus = useMemo(() => unified.filter(r => (Number(r.dormant_days) || 0) >= 7).length, [unified])
+  const movingCount = useMemo(() => {
+    if (!unified || unified.length === 0) return 0
+    return unified.filter(r => r.gps_status === 'Moving').length
+  }, [unified])
+  const dormant7Plus = useMemo(() => {
+    if (!unified || unified.length === 0) return 0
+    return unified.filter(r => (Number(r.dormant_days) || 0) >= 7).length
+  }, [unified])
   const avgDormant = useMemo(() => {
+    if (!unified || unified.length === 0) return 0
     const dormants = unified.filter(r => (Number(r.dormant_days) || 0) >= 1)
     if (dormants.length === 0) return 0
     const sum = dormants.reduce((s, r) => s + (Number(r.dormant_days) || 0), 0)
     return sum / dormants.length
   }, [unified])
 
-  const dormancyDistribution = useMemo(() =>
-    DORMANCY_BUCKETS.map(b => ({
+  const dormancyDistribution = useMemo(() => {
+    if (!unified || unified.length === 0) return []
+    return DORMANCY_BUCKETS.map(b => ({
       label: b.label,
       count: unified.filter(r => b.test(Number(r.dormant_days) || 0)).length,
       color: b.color,
     }))
-  , [unified])
+  }, [unified])
 
   const sourceCoverage = useMemo(() => {
+    if (!unified || unified.length === 0) return []
     const counts: Record<string, number> = {}
     unified.forEach(r => {
       counts[r.gps_source] = (counts[r.gps_source] || 0) + 1
@@ -120,6 +155,7 @@ export default function GpsAnalytics() {
   }, [unified])
 
   const monthlyActivity = useMemo(() => {
+    if (!unified || unified.length === 0) return []
     const counts: Record<string, number> = {}
     unified.forEach(r => {
       if (!r.gps_date) return
@@ -135,6 +171,7 @@ export default function GpsAnalytics() {
   }, [unified])
 
   const topDormant = useMemo(() => {
+    if (!mcl || mcl.length === 0) return []
     return [...mcl]
       .filter(r => Number(r.dormant_days) > 0)
       .sort((a, b) => (Number(b.dormant_days) || 0) - (Number(a.dormant_days) || 0))
@@ -142,6 +179,7 @@ export default function GpsAnalytics() {
   }, [mcl])
 
   const topLocations = useMemo(() => {
+    if (!unified || unified.length === 0) return []
     const counts: Record<string, number> = {}
     unified.forEach(r => {
       if (!r.landmark) return
@@ -154,6 +192,7 @@ export default function GpsAnalytics() {
   }, [unified])
 
   const filteredLandmarks = useMemo(() => {
+    if (!landmarks || landmarks.length === 0) return []
     if (!landmarkSearch) return landmarks
     const q = landmarkSearch.toLowerCase()
     return landmarks.filter(l => l.name.toLowerCase().includes(q))
@@ -162,6 +201,7 @@ export default function GpsAnalytics() {
   const loading = unifiedLoading || mclLoading
 
   return (
+    <MapErrorBoundary>
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">GPS Analytics</h1>
@@ -365,5 +405,6 @@ export default function GpsAnalytics() {
         </CardContent>
       </Card>
     </div>
+    </MapErrorBoundary>
   )
 }

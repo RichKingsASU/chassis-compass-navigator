@@ -53,10 +53,24 @@ export default function TerminalEventsPage() {
           .select('*')
           .order('EventDate', { ascending: false })
           .limit(500)
-        if (fetchErr) throw fetchErr
+        if (fetchErr) {
+          const msg = fetchErr.message || ''
+          const isMissing = msg.includes('42P01') || msg.includes('does not exist')
+          if (isMissing) {
+            setEvents([])
+            return
+          }
+          throw fetchErr
+        }
         setEvents((data || []) as PierSEvent[])
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load terminal events')
+        const msg = err instanceof Error ? err.message : 'Failed to load terminal events'
+        const isMissing = msg.includes('42P01') || msg.includes('does not exist')
+        if (isMissing) {
+          setEvents([])
+          return
+        }
+        setError(msg)
       } finally {
         setLoading(false)
       }
@@ -100,11 +114,9 @@ export default function TerminalEventsPage() {
               Loading terminal events...
             </div>
           ) : error ? (
-            <QueryEmptyState
-              reason="query_error"
-              errorMessage={`${error} — run scripts/parse_pier_s_events.py first`}
-              entityName="terminal events"
-            />
+            <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md text-sm">
+              Unexpected error: {error}
+            </div>
           ) : events.length === 0 ? (
             <QueryEmptyState reason="no_data" entityName="Pier S terminal events" />
           ) : filtered.length === 0 ? (
