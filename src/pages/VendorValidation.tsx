@@ -1,19 +1,10 @@
-import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-
-interface VendorSummary {
-  name: string
-  code: string
-  table: string
-  route: string
-  description: string
-  totalRecords: number
-  loading: boolean
-}
+import { Skeleton } from '@/components/ui/skeleton'
+import { useQuery } from '@tanstack/react-query'
 
 const VENDORS = [
   { name: 'DCLI', code: 'DCLI', table: 'dcli_activity', route: '/vendors/dcli', description: 'Direct ChassisLink Inc.' },
@@ -25,36 +16,32 @@ const VENDORS = [
 ]
 
 export default function VendorValidation() {
-  const [vendors, setVendors] = useState<VendorSummary[]>(
-    VENDORS.map(v => ({ ...v, totalRecords: 0, loading: true }))
-  )
-
-  useEffect(() => {
-    async function loadVendorData() {
+  const { data: vendors = VENDORS.map(v => ({ ...v, totalRecords: 0 })), isLoading } = useQuery({
+    queryKey: ['vendor_validation_overview'],
+    queryFn: async () => {
       const results = await Promise.all(
         VENDORS.map(async (vendor) => {
           try {
             const { count, error } = await supabase.from(vendor.table).select('id', { count: 'exact', head: true })
-            if (error) return { ...vendor, totalRecords: 0, loading: false }
-            return { ...vendor, totalRecords: count || 0, loading: false }
+            if (error) return { ...vendor, totalRecords: 0 }
+            return { ...vendor, totalRecords: count || 0 }
           } catch {
-            return { ...vendor, totalRecords: 0, loading: false }
+            return { ...vendor, totalRecords: 0 }
           }
         })
       )
-      setVendors(results)
+      return results
     }
-    loadVendorData()
-  }, [])
+  })
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Vendor Validation</h1>
-        <p className="text-muted-foreground">Overview of all chassis vendor accounts</p>
+        <p className="text-muted-foreground mt-2">Overview of all chassis vendor accounts</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {vendors.map((vendor) => (
           <Card key={vendor.code} className="hover:shadow-md transition-shadow">
             <CardHeader>
@@ -65,11 +52,11 @@ export default function VendorValidation() {
               <p className="text-sm text-muted-foreground">{vendor.description}</p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {vendor.loading ? (
-                <p className="text-muted-foreground text-sm">Loading...</p>
+              {isLoading ? (
+                <Skeleton className="h-16 w-full rounded" />
               ) : (
                 <div className="p-3 bg-muted rounded text-center">
-                  <p className="text-2xl font-bold">{vendor.totalRecords}</p>
+                  <p className="text-2xl font-bold">{vendor.totalRecords.toLocaleString()}</p>
                   <p className="text-xs text-muted-foreground">Activity Records</p>
                 </div>
               )}

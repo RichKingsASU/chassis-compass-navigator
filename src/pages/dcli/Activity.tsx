@@ -1,10 +1,25 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { 
+  Search, 
+  Filter, 
+  ArrowUpDown, 
+  ArrowUp, 
+  ArrowDown, 
+  Calendar,
+  Layers,
+  MapPin,
+  Activity as ActivityIcon,
+  AlertCircle
+} from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -12,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useQuery } from '@tanstack/react-query'
 
 interface DcliActivityRow {
   id: number
@@ -35,9 +51,6 @@ type SortDirection = 'asc' | 'desc'
 const PAGE_SIZE = 50
 
 export default function DCLIActivity() {
-  const [allRows, setAllRows] = useState<DcliActivityRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [marketFilter, setMarketFilter] = useState<string>('all')
   const [assetTypeFilter, setAssetTypeFilter] = useState<string>('all')
@@ -47,26 +60,17 @@ export default function DCLIActivity() {
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
   const [page, setPage] = useState(0)
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      setError(null)
-      try {
-        const { data, error: fetchErr } = await supabase
-          .from('dcli_activity')
-          .select('*')
-          .order('date_out', { ascending: false })
-
-        if (fetchErr) throw fetchErr
-        setAllRows(data || [])
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load activity')
-      } finally {
-        setLoading(false)
-      }
+  const { data: allRows = [], isLoading, error } = useQuery({
+    queryKey: ['dcli_activity'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('dcli_activity')
+        .select('*')
+        .order('date_out', { ascending: false })
+      if (error) throw error
+      return data as DcliActivityRow[]
     }
-    load()
-  }, [])
+  })
 
   const markets = useMemo(() => {
     const set = new Set<string>()
@@ -134,7 +138,7 @@ export default function DCLIActivity() {
     return { total: filtered.length, uniqueChassis, avgDays, over7 }
   }, [filtered])
 
-  function toggleSort(col: SortColumn) {
+  const toggleSort = (col: SortColumn) => {
     if (sortCol === col) {
       setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     } else {
@@ -144,179 +148,228 @@ export default function DCLIActivity() {
     setPage(0)
   }
 
-  function sortIndicator(col: SortColumn) {
-    if (sortCol !== col) return ''
-    return sortDir === 'asc' ? ' ↑' : ' ↓'
+  const SortIcon = ({ col }: { col: SortColumn }) => {
+    if (sortCol !== col) return <ArrowUpDown size={12} className="ml-1 opacity-50" />
+    return sortDir === 'asc' ? <ArrowUp size={12} className="ml-1 text-primary" /> : <ArrowDown size={12} className="ml-1 text-primary" />
   }
 
-  function daysClass(days: number | null): string {
+  const daysClass = (days: number | null): string => {
     if (days == null) return ''
-    if (days > 30) return 'text-red-600 font-semibold'
-    if (days > 7) return 'text-orange-500 font-semibold'
-    return ''
+    if (days > 30) return 'text-red-600 font-black'
+    if (days > 7) return 'text-orange-500 font-bold'
+    return 'font-medium'
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">DCLI Activity</h1>
-        <p className="text-muted-foreground">
-          Chassis activity from dcli_activity
-        </p>
-      </div>
-
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
-
-      {/* Stats strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-sm text-muted-foreground">Total Records</p>
-            <p className="text-2xl font-bold">{stats.total.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-sm text-muted-foreground">Unique Chassis</p>
-            <p className="text-2xl font-bold">{stats.uniqueChassis.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-sm text-muted-foreground">Avg Days Out</p>
-            <p className="text-2xl font-bold">{stats.avgDays.toFixed(1)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-4">
-            <p className="text-sm text-muted-foreground">&gt; 7 Days Out</p>
-            <p className="text-2xl font-bold">{stats.over7.toLocaleString()}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="flex-1 min-w-[200px] max-w-sm">
-          <label className="text-sm font-medium mb-1 block">Search</label>
-          <Input
-            placeholder="Chassis, container, reservation, location..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(0) }}
-          />
+    <div className="p-8 space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">DCLI Activity Stream</h1>
+          <p className="text-muted-foreground mt-1">Raw chassis utilization and movement logs from the primary source</p>
         </div>
-        <div className="w-48">
-          <label className="text-sm font-medium mb-1 block">Market</label>
-          <Select value={marketFilter} onValueChange={v => { setMarketFilter(v); setPage(0) }}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Markets" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Markets</SelectItem>
-              {markets.map(m => (
-                <SelectItem key={m} value={m}>{m}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="w-48">
-          <label className="text-sm font-medium mb-1 block">Asset Type</label>
-          <Select value={assetTypeFilter} onValueChange={v => { setAssetTypeFilter(v); setPage(0) }}>
-            <SelectTrigger>
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              {assetTypes.map(t => (
-                <SelectItem key={t} value={t}>{t}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="w-40">
-          <label className="text-sm font-medium mb-1 block">Date Out From</label>
-          <Input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(0) }} />
-        </div>
-        <div className="w-40">
-          <label className="text-sm font-medium mb-1 block">Date Out To</label>
-          <Input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(0) }} />
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="h-8 px-4 font-bold uppercase tracking-widest text-[10px] bg-muted/50">
+            {stats.total.toLocaleString()} Records
+          </Badge>
         </div>
       </div>
 
-      {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Activity Log — {filtered.length.toLocaleString()} records</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="text-muted-foreground py-8 text-center">Loading activity...</p>
-          ) : pageRows.length === 0 ? (
-            <p className="text-muted-foreground py-8 text-center">No matching records found.</p>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Chassis</TableHead>
-                      <TableHead>Container</TableHead>
-                      <TableHead>Reservation #</TableHead>
-                      <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('date_out')}>
-                        Date Out{sortIndicator('date_out')}
-                      </TableHead>
-                      <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('date_in')}>
-                        Date In{sortIndicator('date_in')}
-                      </TableHead>
-                      <TableHead className="cursor-pointer select-none text-right" onClick={() => toggleSort('days_out')}>
-                        Days{sortIndicator('days_out')}
-                      </TableHead>
-                      <TableHead>Asset Type</TableHead>
-                      <TableHead>Market</TableHead>
-                      <TableHead>Pick Up Location</TableHead>
-                      <TableHead>Return Location</TableHead>
-                      <TableHead>Carrier SCAC</TableHead>
-                      <TableHead>Pool</TableHead>
+      {error && (
+        <div className="flex items-center gap-3 p-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-xl">
+          <AlertCircle size={20} />
+          <p className="font-medium">{error instanceof Error ? error.message : 'Synchronization error'}</p>
+        </div>
+      )}
+
+      {/* Metrics Strip */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <Card className="border-none shadow-sm bg-muted/30">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Total Events</p>
+              <ActivityIcon size={14} className="text-muted-foreground" />
+            </div>
+            {isLoading ? <Skeleton className="h-8 w-24" /> : <p className="text-2xl font-black">{stats.total.toLocaleString()}</p>}
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-muted/30">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Unique Assets</p>
+              <Layers size={14} className="text-muted-foreground" />
+            </div>
+            {isLoading ? <Skeleton className="h-8 w-24" /> : <p className="text-2xl font-black">{stats.uniqueChassis.toLocaleString()}</p>}
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-muted/30">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Cycle Velocity</p>
+              <Calendar size={14} className="text-muted-foreground" />
+            </div>
+            {isLoading ? <Skeleton className="h-8 w-24" /> : <p className="text-2xl font-black">{stats.avgDays.toFixed(1)} Days</p>}
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm bg-muted/30">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Over 7-Day Cycle</p>
+              <AlertCircle size={14} className="text-orange-500" />
+            </div>
+            {isLoading ? <Skeleton className="h-8 w-24" /> : <p className="text-2xl font-black text-orange-600">{stats.over7.toLocaleString()}</p>}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filter Architecture */}
+      <Card className="border-none shadow-md">
+        <CardContent className="p-6">
+          <div className="flex flex-wrap items-end gap-6">
+            <div className="flex-1 min-w-[300px]">
+              <Label className="text-[10px] font-black uppercase tracking-widest mb-2 block">Universal Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Chassis, container, reservation, or terminal..."
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setPage(0) }}
+                  className="pl-10 h-10 bg-muted/20"
+                />
+              </div>
+            </div>
+            <div className="w-48">
+              <Label className="text-[10px] font-black uppercase tracking-widest mb-2 block">Market Segment</Label>
+              <Select value={marketFilter} onValueChange={v => { setMarketFilter(v); setPage(0) }}>
+                <SelectTrigger className="h-10 border-2">
+                  <SelectValue placeholder="All Markets" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Markets</SelectItem>
+                  {markets.map(m => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-48">
+              <Label className="text-[10px] font-black uppercase tracking-widest mb-2 block">Asset Configuration</Label>
+              <Select value={assetTypeFilter} onValueChange={v => { setAssetTypeFilter(v); setPage(0) }}>
+                <SelectTrigger className="h-10 border-2">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {assetTypes.map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-40">
+              <Label className="text-[10px] font-black uppercase tracking-widest mb-2 block">Date Range From</Label>
+              <Input type="date" className="h-10 border-2" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(0) }} />
+            </div>
+            <div className="w-40">
+              <Label className="text-[10px] font-black uppercase tracking-widest mb-2 block">Date Range To</Label>
+              <Input type="date" className="h-10 border-2" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(0) }} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Main Stream Table */}
+      <Card className="border-none shadow-xl overflow-hidden">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/50 border-b">
+                <tr className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                  <TableHead className="px-6 py-4">Asset ID</TableHead>
+                  <TableHead className="px-6 py-4">Reference</TableHead>
+                  <TableHead className="px-6 py-4">Reservation</TableHead>
+                  <TableHead className="px-6 py-4 cursor-pointer hover:text-primary transition-colors" onClick={() => toggleSort('date_out')}>
+                    <div className="flex items-center">Intermodal Out <SortIcon col="date_out" /></div>
+                  </TableHead>
+                  <TableHead className="px-6 py-4 cursor-pointer hover:text-primary transition-colors" onClick={() => toggleSort('date_in')}>
+                    <div className="flex items-center">Intermodal In <SortIcon col="date_in" /></div>
+                  </TableHead>
+                  <TableHead className="px-6 py-4 cursor-pointer hover:text-primary transition-colors text-right" onClick={() => toggleSort('days_out')}>
+                    <div className="flex items-center justify-end">Cycle <SortIcon col="days_out" /></div>
+                  </TableHead>
+                  <TableHead className="px-6 py-4">Config</TableHead>
+                  <TableHead className="px-6 py-4">Market</TableHead>
+                  <TableHead className="px-6 py-4"><div className="flex items-center gap-1"><MapPin size={10} /> Route Path</div></TableHead>
+                  <TableHead className="px-6 py-4 text-right">Entity</TableHead>
+                </tr>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  [...Array(10)].map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell colSpan={10} className="px-6 py-4"><Skeleton className="h-6 w-full" /></TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pageRows.map(row => (
-                      <TableRow key={row.id}>
-                        <TableCell className="font-medium">{row.chassis ?? '—'}</TableCell>
-                        <TableCell>{row.container ?? '—'}</TableCell>
-                        <TableCell>{row.reservation_number ?? '—'}</TableCell>
-                        <TableCell>{formatDate(row.date_out)}</TableCell>
-                        <TableCell>{formatDate(row.date_in)}</TableCell>
-                        <TableCell className={`text-right ${daysClass(row.days_out)}`}>
-                          {row.days_out ?? '—'}
-                        </TableCell>
-                        <TableCell>{row.asset_type ?? '—'}</TableCell>
-                        <TableCell>{row.market ?? '—'}</TableCell>
-                        <TableCell>{row.pick_up_location ?? '—'}</TableCell>
-                        <TableCell>{row.location_in ?? '—'}</TableCell>
-                        <TableCell>{row.motor_carrier_scac ?? '—'}</TableCell>
-                        <TableCell>{row.pool_contract ?? '—'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                  ))
+                ) : pageRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={10} className="px-6 py-20 text-center text-muted-foreground italic">
+                      <div className="flex flex-col items-center gap-2">
+                        <Filter size={32} strokeWidth={1} />
+                        <p>No activity records match your current criteria.</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  pageRows.map(row => (
+                    <TableRow key={row.id} className="hover:bg-muted/30 transition-colors border-b last:border-0">
+                      <TableCell className="px-6 py-4 font-mono font-black text-xs">{row.chassis ?? '—'}</TableCell>
+                      <TableCell className="px-6 py-4 font-mono text-[11px] text-muted-foreground">{row.container ?? '—'}</TableCell>
+                      <TableCell className="px-6 py-4 text-[11px] font-bold text-muted-foreground">{row.reservation_number ?? '—'}</TableCell>
+                      <TableCell className="px-6 py-4 text-xs font-semibold">{formatDate(row.date_out)}</TableCell>
+                      <TableCell className="px-6 py-4 text-xs font-semibold">{formatDate(row.date_in)}</TableCell>
+                      <TableCell className={`px-6 py-4 text-right text-xs ${daysClass(row.days_out)}`}>
+                        {row.days_out ? `${row.days_out}d` : '—'}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-[10px] font-bold uppercase text-muted-foreground">{row.asset_type ?? '—'}</TableCell>
+                      <TableCell className="px-6 py-4 text-[10px] font-black uppercase tracking-tighter text-primary/80">{row.market ?? '—'}</TableCell>
+                      <TableCell className="px-6 py-4 text-[11px]">
+                        <div className="flex flex-col">
+                          <span className="font-semibold">{row.pick_up_location || '—'}</span>
+                          <span className="text-muted-foreground text-[10px] uppercase font-bold">{row.location_in || '—'}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right text-[10px] font-black text-muted-foreground uppercase">{row.motor_carrier_scac ?? '—'}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-              <div className="flex items-center justify-between mt-4">
-                <p className="text-sm text-muted-foreground">
-                  Page {page + 1} of {totalPages}
-                </p>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
-                    Previous
-                  </Button>
-                  <Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => setPage(p => p + 1)}>
-                    Next
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
+          <div className="flex items-center justify-between p-6 bg-muted/10 border-t">
+            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+              Page {page + 1} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={page === 0} 
+                onClick={() => setPage(p => p - 1)}
+                className="h-8 border-2 font-bold px-4"
+              >
+                Previous
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                disabled={page + 1 >= totalPages} 
+                onClick={() => setPage(p => p + 1)}
+                className="h-8 border-2 font-bold px-4"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

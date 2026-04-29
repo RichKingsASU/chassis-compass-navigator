@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDate, formatCurrency } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import ChassisTable, { type ColumnDef } from '@/components/chassis/ChassisTable'
 import ChassisDetailDrawer from '@/components/chassis/ChassisDetailDrawer'
+import { useQuery } from '@tanstack/react-query'
 
 const COLUMNS: ColumnDef[] = [
   { key: 'chassis_number', label: 'Chassis #', visible: true, width: 140, format: (v) => <span className="font-mono font-medium">{String(v ?? '')}</span> },
@@ -35,37 +36,28 @@ const COLUMNS: ColumnDef[] = [
 ]
 
 export default function ChassisOverview() {
-  const [data, setData] = useState<Record<string, unknown>[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [totalCount, setTotalCount] = useState(0)
-
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedChassis, setSelectedChassis] = useState<string | null>(null)
   const [selectedRow, setSelectedRow] = useState<Record<string, unknown> | undefined>()
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      try {
-        const { data: result, error: fetchErr, count } = await supabase
-          .from('mg_tms')
-          .select('*', { count: 'exact' })
-          .order('create_date', { ascending: false })
-          .limit(2000)
+  const { data: response, isLoading: loading, error: fetchError } = useQuery({
+    queryKey: ['mg_tms_chassis_overview'],
+    queryFn: async () => {
+      const { data, count, error } = await supabase
+        .from('mg_data')
+        .select('*', { count: 'exact' })
+        .order('create_date', { ascending: false })
+        .limit(2000)
 
-        if (fetchErr) throw fetchErr
-        setData(result || [])
-        setTotalCount(count || 0)
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load chassis data')
-      } finally {
-        setLoading(false)
-      }
+      if (error) throw error
+      return { data: data || [], count: count || 0 }
     }
-    load()
-  }, [])
+  })
+
+  const data = response?.data || []
+  const totalCount = response?.count || 0
+  const error = fetchError ? (fetchError as Error).message : null
 
   function handleViewRow(row: Record<string, unknown>) {
     const cn = String(row.chassis_number ?? '').trim()
@@ -83,39 +75,39 @@ export default function ChassisOverview() {
   }).length
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Chassis Overview</h1>
-        <p className="text-muted-foreground">All chassis with MercuryGate TMS data</p>
+        <p className="text-muted-foreground mt-2">All chassis with MercuryGate TMS data</p>
       </div>
 
-      {error && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      {error && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Records</CardTitle></CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-8 w-20" /> : <p className="text-3xl font-bold">{totalCount.toLocaleString()}</p>}
+            {loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{totalCount.toLocaleString()}</p>}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Unique Chassis</CardTitle></CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-8 w-20" /> : <p className="text-3xl font-bold text-blue-600">{uniqueChassis}</p>}
+            {loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold text-blue-600">{uniqueChassis}</p>}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Active Loads</CardTitle></CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-8 w-20" /> : <p className="text-3xl font-bold text-green-600">{activeLoads}</p>}
+            {loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold text-green-600">{activeLoads}</p>}
           </CardContent>
         </Card>
       </div>
 
       {/* Table */}
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="pt-6">
           <ChassisTable
             data={data}
             columns={COLUMNS}

@@ -1,149 +1,374 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency } from '@/utils/dateUtils'
+import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
 import DataFreshnessBar from '@/components/DataFreshnessBar'
+import { Analytics } from '@/utils/analytics'
+import { Skeleton } from '@/components/ui/skeleton'
+import { safeAmount } from '@/lib/formatters'
+import { TrendingDown, AlertCircle, Timer } from 'lucide-react'
 
 interface VendorRow { vendor: string; count: number }
 interface GpsRow { name: string; value: number }
 
 const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
+interface ChassisMasterRow { chassis_number: string | null; gps_provider: string | null }
+
+interface UnbilledSummary {
+  total_count: number
+  total_at_risk: number
+  avg_days_since_drop: number
+  invoice_zero_count: number
+  no_chassis_count: number
+}
+
+interface GapSummary {
+  total_gap: number
+  gap_pct: number
+  total_loads: number
+  unbilled_loads: number
+  total_rated: number
+  total_invoiced: number
+  by_region: { region: string; total_gap: number; gap_pct: number }[]
+}
+
+interface DormantTopRow {
+  chassis_number: string
+  lessor: string
+  region: string
+  days_idle: number
+  idle_lease_cost: number
+  lease_rate_per_day: number
+  last_activity_date: string
+  total_revenue: number
+}
+
+interface DormantSummary {
+  dormant_count: number
+  idle_count: number
+  active_count: number
+  total_chassis: number
+  total_idle_lease_cost: number
+  total_dormant_lease_cost: number
+  avg_days_idle_dormant: number
+  top_dormant: DormantTopRow[]
+}
+
+const safeCount = async (table: 'dcli_activity' | 'ccm_activity' | 'scspa_activity'): Promise<number> => {
+  try {
+    const { count } = await supabase.from(table).select('id', { count: 'exact', head: true })
+    return count ?? 0
+  } catch {
+    return 0
+  }
+}
+
+const fetchDashboardData = async () => {
+  // Fetch all parallel data to prevent waterfall
+  const [
+    { data: chassisData },
+    { count: actCount },
+    dcliCount,
+    ccmCount,
+    scspaCount,
+  ] = await Promise.all([
+    supabase.from('chassis_master').select('chassis_number, gps_provider'),
+    supabase.from('mg_data').select('id', { count: 'exact', head: true }),
+    safeCount('dcli_activity'),
+    safeCount('ccm_activity'),
+    safeCount('scspa_activity'),
+  ]);
+
+  const chassisRows = (chassisData ?? []) as ChassisMasterRow[];
+  const total = chassisRows.length;
+  const withGps = chassisRows.filter((r) => r.gps_provider != null && r.gps_provider !== '').length;
+
+  const vendorData: VendorRow[] = [
+    { vendor: 'DCLI', count: dcliCount },
+    { vendor: 'CCM', count: ccmCount },
+    { vendor: 'SCSPA', count: scspaCount },
+  ];
+
+  const gpsProviders = ['Samsara', 'BlackBerry', 'Fleetview', 'Fleetlocate', 'Anytrek'];
+  const gpsData: GpsRow[] = gpsProviders.map((provider) => ({
+    name: provider,
+    value: chassisRows.filter((r) => r.gps_provider?.toLowerCase().includes(provider.toLowerCase())).length,
+  }));
+
+  return {
+    chassisCount: total,
+    gpsCoverage: total > 0 ? Math.round((withGps / total) * 100) : 0,
+    recentActivityCount: actCount || 0,
+    vendorData,
+    gpsData
+  };
+};
+
 export default function Dashboard() {
-  const [loading, setLoading] = useState(true)
-  const [chassisCount, setChassisCount] = useState(0)
-  const [gpsCoverage, setGpsCoverage] = useState(0)
-  const [recentActivityCount, setRecentActivityCount] = useState(0)
-  const [vendorData, setVendorData] = useState<VendorRow[]>([])
-  const [gpsData, setGpsData] = useState<GpsRow[]>([])
+  // 1. Data Fetching Phase (React Query)
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['dashboard-metrics'],
+    queryFn: fetchDashboardData,
+    staleTime: 1000 * 60 * 5 // 5 minutes cache
+  });
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      try {
-        const { data: chassisData } = await supabase
-          .from('chassis_master')
-          .select('chassis_number, gps_provider')
-        const total = chassisData?.length || 0
-        setChassisCount(total)
-        const ltCount = total
-        const stCount = 0
-        setChassisCount(total)
-
-        const withGps = (chassisData || []).filter(r => r.gps_provider != null && r.gps_provider !== '').length
-        setGpsCoverage(total > 0 ? Math.round((withGps / total) * 100) : 0)
-
-        // Recent activity from mg_data
-        const { count: actCount } = await supabase
-          .from('mg_data')
-          .select('id', { count: 'exact', head: true })
-        setRecentActivityCount(actCount || 0)
-
-        // Vendor record counts
-        const vendors: VendorRow[] = []
-        for (const { table, label } of [
-          { table: 'dcli_activity', label: 'DCLI' },
-          { table: 'ccm_activity', label: 'CCM' },
-          { table: 'scspa_activity', label: 'SCSPA' },
-        ] as const) {
-          try {
-            const { count } = await supabase.from(table).select('id', { count: 'exact', head: true })
-            vendors.push({ vendor: label, count: count || 0 })
-          } catch {
-            vendors.push({ vendor: label, count: 0 })
-          }
-        }
-        setVendorData(vendors)
-
-        // GPS provider distribution
-        const gpsProviders = ['Samsara', 'BlackBerry', 'Fleetview', 'Fleetlocate', 'Anytrek']
-        const gpsResults: GpsRow[] = gpsProviders.map(provider => ({
-          name: provider,
-          value: (chassisData || []).filter(r => r.gps_provider?.toLowerCase().includes(provider.toLowerCase())).length,
-        }))
-        setGpsData(gpsResults)
-      } catch {
-        // dashboard shows empty state
-      } finally {
-        setLoading(false)
+  const { data: rpcData, isLoading: rpcLoading } = useQuery({
+    queryKey: ['dashboard-rpcs'],
+    queryFn: async () => {
+      const [unbilledRes, gapRes, dormantRes] = await Promise.all([
+        supabase.rpc('get_unbilled_summary'),
+        supabase.rpc('get_revenue_gap_summary', { p_months: null }),
+        supabase.rpc('get_dormant_chassis_summary'),
+      ])
+      return {
+        unbilled: (unbilledRes.data as UnbilledSummary | null),
+        gap: (gapRes.data as GapSummary | null),
+        dormant: (dormantRes.data as DormantSummary | null),
       }
-    }
-    load()
-  }, [])
+    },
+    staleTime: 1000 * 60 * 5
+  })
 
+  // 2. Analytics Tracking
+  useEffect(() => {
+    Analytics.track('dashboard_loaded', {
+      cached: !!data
+    });
+  }, [data]);
+
+  if (isError) {
+    // Analytics error tracking handled implicitly by error boundary or manual track
+    Analytics.track('validation_error', { source: 'dashboard_fetch' });
+    return <div className="p-8 text-destructive font-bold">Error loading dashboard data. Please refresh.</div>;
+  }
+
+  const unbilledAtRisk = rpcData?.unbilled?.total_at_risk ?? 0
+  const gapTotal = rpcData?.gap?.total_gap ?? 0
+  const idleLeaseCost = rpcData?.dormant?.total_idle_lease_cost ?? 0
+  const totalRatedM = ((rpcData?.gap?.total_rated ?? 0) / 1_000_000).toFixed(1)
+  const topDormant = rpcData?.dormant?.top_dormant ?? []
+
+  // Strict 8px grid system applied via standard Tailwind classes (p-8 = 32px, space-y-8 = 32px, gap-8 = 32px)
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+    <div className="p-8 space-y-8 max-w-7xl mx-auto">
+      <div className="flex flex-col space-y-2 mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Chassis Compass Navigator — Fleet Overview</p>
-        <DataFreshnessBar tableName="mg_data" label="TMS Data" />
+        <div className="pt-4">
+          <DataFreshnessBar tableName="mg_data" label="TMS Data" />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Chassis</CardTitle></CardHeader>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Chassis</CardTitle>
+          </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{loading ? '...' : chassisCount.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">Active fleet units</p>
+            {isLoading ? <Skeleton className="h-10 w-24 rounded" /> : (
+              <p className="text-4xl font-bold tracking-tight">{data?.chassisCount.toLocaleString()}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">Active fleet units</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               GPS Coverage
               <Tooltip>
-                <TooltipTrigger asChild><span className="text-xs cursor-help">(?)</span></TooltipTrigger>
+                <TooltipTrigger asChild>
+                  <span className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[10px] cursor-help">?</span>
+                </TooltipTrigger>
                 <TooltipContent>Long-term chassis with a GPS provider assigned</TooltipContent>
               </Tooltip>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{loading ? '...' : `${gpsCoverage}%`}</p>
+            {isLoading ? <Skeleton className="h-10 w-24 rounded" /> : (
+              <p className="text-4xl font-bold tracking-tight">{`${data?.gpsCoverage}%`}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">Visibility tracked</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">TMS Records</CardTitle></CardHeader>
+
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider">TMS Records</CardTitle>
+          </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{loading ? '...' : recentActivityCount.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground mt-1">Total MG loads</p>
+            {isLoading ? <Skeleton className="h-10 w-24 rounded" /> : (
+              <p className="text-4xl font-bold tracking-tight">{data?.recentActivityCount.toLocaleString()}</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-2">Total MG loads recorded</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle>Vendor Record Counts</CardTitle></CardHeader>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <Link to="/unbilled-loads" className="block hover:opacity-80 transition-opacity">
+          <Card className="shadow-sm border-border/50">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <AlertCircle size={14} />
+                Unbilled Revenue
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {rpcLoading ? <Skeleton className="h-10 w-24 rounded" /> : (
+                <p className={`text-4xl font-bold tracking-tight ${unbilledAtRisk > 0 ? 'text-red-600' : ''}`}>
+                  {safeAmount(unbilledAtRisk)}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                {`${rpcData?.unbilled?.total_count ?? 0} loads · avg ${rpcData?.unbilled?.avg_days_since_drop ?? 0}d since drop`}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/billing-exposure" className="block hover:opacity-80 transition-opacity">
+          <Card className="shadow-sm border-border/50">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <TrendingDown size={14} />
+                Revenue Gap (All Time)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {rpcLoading ? <Skeleton className="h-10 w-24 rounded" /> : (
+                <p className={`text-4xl font-bold tracking-tight ${gapTotal > 0 ? 'text-amber-600' : ''}`}>
+                  {safeAmount(gapTotal)}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                {`${rpcData?.gap?.gap_pct ?? 0}% of $${totalRatedM}M rated`}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link to="/utilization" className="block hover:opacity-80 transition-opacity">
+          <Card className="shadow-sm border-border/50">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <Timer size={14} />
+                Idle Lease Cost
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {rpcLoading ? <Skeleton className="h-10 w-24 rounded" /> : (
+                <p className={`text-4xl font-bold tracking-tight ${idleLeaseCost > 0 ? 'text-orange-600' : ''}`}>
+                  {safeAmount(idleLeaseCost)}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                {`${rpcData?.dormant?.dormant_count ?? 0} dormant · ${rpcData?.dormant?.idle_count ?? 0} idle · avg ${rpcData?.dormant?.avg_days_idle_dormant ?? 0}d`}
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-6">
+            <CardTitle className="text-lg">Vendor Record Counts</CardTitle>
+          </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={vendorData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="vendor" />
-                <YAxis />
-                <RechartsTooltip />
-                <Bar dataKey="count" fill="#3b82f6" name="Records" />
-              </BarChart>
-            </ResponsiveContainer>
+            {isLoading ? <Skeleton className="h-[240px] w-full rounded-md" /> : (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={data?.vendorData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="vendor" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={8} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dx={-8} />
+                  <RechartsTooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                  <Bar dataKey="count" fill="#3b82f6" name="Records" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>GPS Provider Distribution</CardTitle></CardHeader>
+        <Card className="shadow-sm border-border/50">
+          <CardHeader className="pb-6">
+            <CardTitle className="text-lg">GPS Provider Distribution</CardTitle>
+          </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={240}>
-              <PieChart>
-                <Pie data={gpsData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(props: { name?: string; percent?: number }) => `${props.name ?? ''} ${((props.percent ?? 0) * 100).toFixed(0)}%`}>
-                  {gpsData.map((_, index) => <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
-                </Pie>
-                <Legend />
-                <RechartsTooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {isLoading ? <Skeleton className="h-[240px] w-full rounded-md" /> : (
+              <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                  <Pie
+                    data={data?.gpsData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%" cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={2}
+                  >
+                    {data?.gpsData?.map((_, index) => <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }} />
+                  <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {topDormant.length > 0 && (
+        <Card className="shadow-sm border-border/50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center justify-between">
+              Top Dormant Chassis — Lease Cost Accruing
+              <Link to="/utilization" className="text-sm font-normal text-blue-600 hover:underline">
+                View all →
+              </Link>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Chassis #</TableHead>
+                  <TableHead>Lessor</TableHead>
+                  <TableHead>Region</TableHead>
+                  <TableHead>Days Idle</TableHead>
+                  <TableHead>Daily Rate</TableHead>
+                  <TableHead>Idle Cost</TableHead>
+                  <TableHead>Last Activity</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {topDormant.slice(0, 5).map((row) => {
+                  const daysClass = row.days_idle > 90
+                    ? 'text-red-600'
+                    : row.days_idle > 60
+                      ? 'text-amber-600'
+                      : ''
+                  return (
+                    <TableRow key={row.chassis_number}>
+                      <TableCell className="font-medium">{row.chassis_number}</TableCell>
+                      <TableCell>{row.lessor}</TableCell>
+                      <TableCell>{row.region}</TableCell>
+                      <TableCell className={daysClass}>{row.days_idle}</TableCell>
+                      <TableCell>{safeAmount(row.lease_rate_per_day)}</TableCell>
+                      <TableCell className="text-red-600">{safeAmount(row.idle_lease_cost)}</TableCell>
+                      <TableCell>{row.last_activity_date}</TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
-

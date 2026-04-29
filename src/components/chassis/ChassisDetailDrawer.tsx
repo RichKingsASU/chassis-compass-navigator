@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { X, Copy, Truck, Package, History, Activity, Warehouse } from 'lucide-react'
+import { X, Copy, Truck, Package, History, Activity, Warehouse, Settings2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 
 interface ChassisDetailDrawerProps {
   chassisNumber: string | null
@@ -67,6 +69,56 @@ interface YardEvent {
   Condition: string | null
 }
 
+interface ChassisMasterRecord {
+  chassis_status: string | null
+  chassis_category: string | null
+  lessor: string | null
+  region: string | null
+  chassis_type: string | null
+  on_hire_date: string | null
+  off_hire_date: string | null
+  contract_end_date: string | null
+  current_rate_per_day: number | null
+  notes: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+const FORREST_STATUS_OPTIONS = [
+  'Active',
+  'Reserved',
+  'Available',
+  'Out of Service',
+  'Under Repair',
+  'Returned',
+  'Off-Hired',
+  'Inactive',
+]
+
+function renderStatusBadge(status: string | null | undefined) {
+  if (!status) return <Badge variant="outline">N/A</Badge>
+  switch (status) {
+    case 'Active':
+      return <Badge className="bg-green-600 hover:bg-green-700">Active</Badge>
+    case 'Reserved':
+      return <Badge className="bg-blue-600 hover:bg-blue-700">Reserved</Badge>
+    case 'Available':
+      return <Badge className="bg-teal-600 hover:bg-teal-700">Available</Badge>
+    case 'Out of Service':
+      return <Badge className="bg-orange-600 hover:bg-orange-700">Out of Service</Badge>
+    case 'Under Repair':
+      return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Under Repair</Badge>
+    case 'Returned':
+      return <Badge variant="secondary">Returned</Badge>
+    case 'Off-Hired':
+      return <Badge variant="outline">Off-Hired</Badge>
+    case 'Inactive':
+      return <Badge variant="destructive">Inactive</Badge>
+    default:
+      return <Badge variant="outline">{status}</Badge>
+  }
+}
+
 function FieldGrid({ items }: { items: { label: string; value: React.ReactNode }[] }) {
   return (
     <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
@@ -91,6 +143,16 @@ export default function ChassisDetailDrawer({
   const [loadHistory, setLoadHistory] = useState<MgTmsRecord[]>([])
   const [dcliActivity, setDcliActivity] = useState<DcliRecord[]>([])
   const [yardEvents, setYardEvents] = useState<YardEvent[]>([])
+  const [masterRecord, setMasterRecord] = useState<ChassisMasterRecord | null>(null)
+  const [statusValue, setStatusValue] = useState<string>('Active')
+  const [notesValue, setNotesValue] = useState<string>('')
+  const [savingStatus, setSavingStatus] = useState(false)
+
+  const isForrestChassis =
+    masterRecord?.lessor === 'Forrest' ||
+    chassisNumber?.startsWith('FRQZ') ||
+    chassisNumber?.startsWith('FRQT') ||
+    false
 
   useEffect(() => {
     if (!chassisNumber || !open) return
@@ -100,17 +162,17 @@ export default function ChassisDetailDrawer({
       try {
         const trimmed = chassisNumber!.trim()
         // Use ilike with trimmed value for fuzzy matching on spaces
-        const [activeRes, historyRes, dcliRes, yardRes] = await Promise.all([
+        const [activeRes, historyRes, dcliRes, yardRes, masterRes] = await Promise.all([
           // Active load - most recent
           supabase
-            .from('mg_tms')
+            .from('mg_data')
             .select('*')
             .ilike('chassis_number', `%${trimmed}%`)
             .order('created_date', { ascending: false })
             .limit(1),
           // Load history
           supabase
-            .from('mg_tms')
+            .from('mg_data')
             .select(
               'ld_num, so_num, status, customer_name, pickup_loc_name, delivery_loc_name, pickup_actual_date, delivery_actual_date, cust_rate_charge, container_number, mbl, created_date'
             )
@@ -131,12 +193,22 @@ export default function ChassisDetailDrawer({
             .eq('ChassisNo', chassisNumber)
             .order('EventDate', { ascending: false })
             .limit(50),
+          // chassis_master record
+          supabase
+            .from('chassis_master')
+            .select('chassis_status, chassis_category, lessor, region, chassis_type, on_hire_date, off_hire_date, contract_end_date, current_rate_per_day, notes, created_at, updated_at')
+            .eq('chassis_number', chassisNumber)
+            .maybeSingle(),
         ])
 
         setActiveLoad((activeRes.data?.[0] as MgTmsRecord) || null)
         setLoadHistory((historyRes.data as MgTmsRecord[]) || [])
         setDcliActivity((dcliRes.data as DcliRecord[]) || [])
         setYardEvents((yardRes.data as YardEvent[]) || [])
+        const master = (masterRes.data as ChassisMasterRecord | null) || null
+        setMasterRecord(master)
+        setStatusValue(master?.chassis_status || 'Active')
+        setNotesValue(master?.notes || '')
       } catch (err) {
         console.error('Failed to fetch chassis detail:', err)
       } finally {
@@ -146,6 +218,31 @@ export default function ChassisDetailDrawer({
 
     fetchData()
   }, [chassisNumber, open])
+
+  async function handleStatusUpdate() {
+    if (!chassisNumber) return
+    setSavingStatus(true)
+    try {
+      const { error } = await supabase
+        .from('chassis_master')
+        .update({
+          chassis_status: statusValue,
+          notes: notesValue || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('chassis_number', chassisNumber)
+      if (error) throw error
+      toast.success(`Status updated for ${chassisNumber}`)
+      setMasterRecord((prev) =>
+        prev ? { ...prev, chassis_status: statusValue, notes: notesValue || null } : prev,
+      )
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to update status')
+    } finally {
+      setSavingStatus(false)
+    }
+  }
 
   function copyChassisNumber() {
     if (chassisNumber) {
@@ -191,6 +288,7 @@ export default function ChassisDetailDrawer({
                 <TabsTrigger value="load-history" className="text-xs">History ({totalLoads})</TabsTrigger>
                 <TabsTrigger value="dcli" className="text-xs">DCLI ({dcliActivity.length})</TabsTrigger>
                 <TabsTrigger value="yard" className="text-xs">Yard ({yardEvents.length})</TabsTrigger>
+                <TabsTrigger value="manage" className="text-xs">{isForrestChassis ? 'Manage' : 'Info'}</TabsTrigger>
               </TabsList>
 
               {/* TAB 1: Overview */}
@@ -343,6 +441,67 @@ export default function ChassisDetailDrawer({
                         ))}
                       </TableBody>
                     </Table>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* TAB 6: Manage / Info */}
+              <TabsContent value="manage">
+                {!masterRecord ? (
+                  <EmptyState
+                    icon={Settings2}
+                    title="Not in chassis master"
+                    description={`No chassis_master record found for ${chassisNumber}.`}
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    <FieldGrid
+                      items={[
+                        { label: 'Chassis Status', value: renderStatusBadge(masterRecord.chassis_status) },
+                        { label: 'Category', value: masterRecord.chassis_category },
+                        { label: 'Lessor', value: masterRecord.lessor },
+                        { label: 'Region', value: masterRecord.region },
+                        { label: 'Chassis Type', value: masterRecord.chassis_type },
+                        { label: 'On Hire Date', value: formatDate(masterRecord.on_hire_date) },
+                        { label: 'Off Hire Date', value: formatDate(masterRecord.off_hire_date) },
+                        { label: 'Contract End', value: formatDate(masterRecord.contract_end_date) },
+                        { label: 'Rate / Day', value: formatCurrency(masterRecord.current_rate_per_day) },
+                        { label: 'Notes', value: masterRecord.notes || '—' },
+                        { label: 'Created', value: formatDate(masterRecord.created_at) },
+                        { label: 'Updated', value: formatDate(masterRecord.updated_at) },
+                      ]}
+                    />
+
+                    {isForrestChassis && (
+                      <div className="border-t pt-4 space-y-3">
+                        <h4 className="text-sm font-semibold">Update Status</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">Status</label>
+                            <Select value={statusValue} onValueChange={setStatusValue}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {FORREST_STATUS_OPTIONS.map((s) => (
+                                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-muted-foreground mb-1 block">Notes</label>
+                            <Textarea
+                              value={notesValue}
+                              onChange={(e) => setNotesValue(e.target.value)}
+                              placeholder="Notes..."
+                              rows={3}
+                            />
+                          </div>
+                          <Button onClick={handleStatusUpdate} disabled={savingStatus}>
+                            {savingStatus ? 'Saving...' : 'Update Status'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </TabsContent>

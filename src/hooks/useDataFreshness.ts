@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 interface FreshnessEntry {
   refreshedAt: Date
   rowCount: number
+  status: string
 }
 
 export function useDataFreshness() {
@@ -12,23 +13,28 @@ export function useDataFreshness() {
   useEffect(() => {
     async function load() {
       try {
-        // data_refresh_log may not exist locally — use mg_data updated_at as fallback
-        const { data: mgData } = await supabase
-          .from('mg_data')
-          .select('updated_at', { count: 'exact', head: false })
-          .order('updated_at', { ascending: false })
-          .limit(1)
+        const { data } = await supabase
+          .from('data_refresh_log')
+          .select('source_file, run_at, rows_processed, status')
+          .order('run_at', { ascending: false })
+          .limit(20)
 
-        if (mgData && mgData.length > 0) {
-          setFreshness({
-            mg_data: {
-              refreshedAt: new Date(mgData[0].updated_at),
-              rowCount: 0,
-            },
-          })
+        if (data && data.length > 0) {
+          const map: Record<string, FreshnessEntry> = {}
+          for (const row of data) {
+            const key = row.source_file || 'unknown'
+            if (!map[key]) {
+              map[key] = {
+                refreshedAt: new Date(row.run_at),
+                rowCount: row.rows_processed ?? 0,
+                status: row.status ?? 'unknown',
+              }
+            }
+          }
+          setFreshness(map)
         }
       } catch {
-        // silently fail — freshness bar will show "Never refreshed"
+        // silently fail
       }
     }
     load()

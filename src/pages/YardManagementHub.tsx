@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertCircle,
   Warehouse,
@@ -42,6 +42,7 @@ import InventoryDashboard from '@/features/yard/components/InventoryDashboard';
 import BillingAnalytics from '@/features/yard/components/BillingAnalytics';
 import ReportsHistory from '@/features/yard/components/ReportsHistory';
 import YardConfigPanel from '@/features/yard/components/YardConfigPanel';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 type UserRole = 'YARD_OPERATOR' | 'INTERNAL' | 'ADMIN';
 
@@ -89,7 +90,6 @@ async function getLastActivity(): Promise<Record<string, string> | null> {
 interface CreateYardModalProps {
   open: boolean;
   onClose: () => void;
-  onCreated: () => void;
 }
 
 const TIMEZONES = [
@@ -99,8 +99,8 @@ const TIMEZONES = [
   'America/New_York',
 ];
 
-function CreateYardModal({ open, onClose, onCreated }: CreateYardModalProps) {
-  const [saving, setSaving] = useState(false);
+function CreateYardModal({ open, onClose }: CreateYardModalProps) {
+  const queryClient = useQueryClient();
   const [form, setForm] = useState({
     name: '',
     shortCode: '',
@@ -119,15 +119,12 @@ function CreateYardModal({ open, onClose, onCreated }: CreateYardModalProps) {
   const set = (field: string, value: string | number) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.name || !form.shortCode || !form.city || !form.state) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-    setSaving(true);
-    try {
-      await createYard({
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      if (!form.name || !form.shortCode || !form.city || !form.state) {
+        throw new Error('Please fill in all required fields');
+      }
+      return createYard({
         name: form.name,
         shortCode: form.shortCode.toUpperCase(),
         addressLine1: form.addressLine1 || undefined,
@@ -142,8 +139,10 @@ function CreateYardModal({ open, onClose, onCreated }: CreateYardModalProps) {
         active: true,
         notes: form.notes || undefined,
       });
+    },
+    onSuccess: () => {
       toast.success('Yard created successfully');
-      onCreated();
+      queryClient.invalidateQueries({ queryKey: ['yard_management_data'] });
       onClose();
       setForm({
         name: '',
@@ -159,12 +158,11 @@ function CreateYardModal({ open, onClose, onCreated }: CreateYardModalProps) {
         timezone: 'America/Los_Angeles',
         notes: '',
       });
-    } catch (err: any) {
+    },
+    onError: (err: Error) => {
       toast.error(err?.message || 'Failed to create yard');
-    } finally {
-      setSaving(false);
     }
-  }
+  });
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -172,7 +170,7 @@ function CreateYardModal({ open, onClose, onCreated }: CreateYardModalProps) {
         <DialogHeader>
           <DialogTitle>Create New Yard</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Yard Name *</Label>
@@ -279,8 +277,8 @@ function CreateYardModal({ open, onClose, onCreated }: CreateYardModalProps) {
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Creating...' : 'Create Yard'}
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending ? 'Creating...' : 'Create Yard'}
             </Button>
           </DialogFooter>
         </form>
@@ -295,10 +293,9 @@ interface FleetOverviewProps {
   occupancy: Record<string, number>;
   lastActivity: Record<string, string>;
   onSelectYard: (id: string) => void;
-  onRefresh: () => void;
 }
 
-function FleetOverview({ yards, occupancy, lastActivity, onSelectYard, onRefresh }: FleetOverviewProps) {
+function FleetOverview({ yards, occupancy, lastActivity, onSelectYard }: FleetOverviewProps) {
   const [createOpen, setCreateOpen] = useState(false);
 
   const totalYards = yards.length;
@@ -321,7 +318,7 @@ function FleetOverview({ yards, occupancy, lastActivity, onSelectYard, onRefresh
   return (
     <>
       {/* KPI Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
         {kpis.map((kpi) => (
           <Card key={kpi.label}>
             <CardContent className="pt-4 pb-3 px-4">
@@ -336,7 +333,7 @@ function FleetOverview({ yards, occupancy, lastActivity, onSelectYard, onRefresh
       </div>
 
       {/* Yard Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {yards.map((yard) => {
           const occ = occupancy[yard.id] || 0;
           const pct = yard.capacity > 0 ? (occ / yard.capacity) * 100 : 0;
@@ -390,7 +387,7 @@ function FleetOverview({ yards, occupancy, lastActivity, onSelectYard, onRefresh
                   </p>
                 )}
 
-                <Button className="w-full mt-2" onClick={() => onSelectYard(yard.id)}>
+                <Button className="w-full mt-4" onClick={() => onSelectYard(yard.id)}>
                   Manage Yard
                 </Button>
               </CardContent>
@@ -413,7 +410,6 @@ function FleetOverview({ yards, occupancy, lastActivity, onSelectYard, onRefresh
       <CreateYardModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={onRefresh}
       />
     </>
   );
@@ -469,13 +465,13 @@ function SingleYardDetail({ yard, yards, userRole, onBack, onSwitchYard }: Singl
           {userRole === 'ADMIN' && <TabsTrigger value="config">Yard Config</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="dashboard" className="mt-6">
+        <TabsContent value="dashboard" className="mt-8">
           <InventoryDashboard yardId={yard.id} yardName={yard.name} />
         </TabsContent>
-        <TabsContent value="records" className="mt-6">
+        <TabsContent value="records" className="mt-8">
           <ReportsHistory yardId={yard.id} yardName={yard.name} />
         </TabsContent>
-        <TabsContent value="billing" className="mt-6">
+        <TabsContent value="billing" className="mt-8">
           <BillingAnalytics
             yardId={yard.id}
             yardConfig={{
@@ -487,7 +483,7 @@ function SingleYardDetail({ yard, yards, userRole, onBack, onSwitchYard }: Singl
           />
         </TabsContent>
         {userRole === 'ADMIN' && (
-          <TabsContent value="config" className="mt-6">
+          <TabsContent value="config" className="mt-8">
             <YardConfigPanel />
           </TabsContent>
         )}
@@ -500,71 +496,74 @@ function SingleYardDetail({ yard, yards, userRole, onBack, onSwitchYard }: Singl
 export default function YardManagementHub() {
   const { user } = useAuth();
   const userRole = getUserRole(user);
-
-  const [yards, setYards] = useState<YardConfig[]>([]);
-  const [occupancy, setOccupancy] = useState<Record<string, number>>({});
-  const [lastActivity, setLastActivity] = useState<Record<string, string>>({});
   const [selectedYardId, setSelectedYardId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [eventsUnavailable, setEventsUnavailable] = useState(false);
 
-  const selectedYard = yards.find((y) => y.id === selectedYardId) || null;
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setEventsUnavailable(false);
-    try {
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['yard_management_data'],
+    queryFn: async () => {
       const [yardListResult, occ, last] = await Promise.all([
         getAllYards().catch(() => [] as YardConfig[]),
         getOccupancyCounts(),
         getLastActivity(),
       ]);
-      setYards(yardListResult);
-      setOccupancy(occ || {});
-      setLastActivity(last || {});
-      if (occ === null || last === null) setEventsUnavailable(true);
-    } finally {
-      setLoading(false);
+      return {
+        yards: yardListResult,
+        occupancy: occ || {},
+        lastActivity: last || {},
+        eventsUnavailable: occ === null || last === null
+      }
     }
-  }, []);
+  });
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const yards = data?.yards || [];
+  const occupancy = data?.occupancy || {};
+  const lastActivity = data?.lastActivity || {};
+  const eventsUnavailable = data?.eventsUnavailable || false;
+
+  const selectedYard = yards.find((y) => y.id === selectedYardId) || null;
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto" />
-          <p className="text-muted-foreground">Loading yards...</p>
+      <div className="p-8 space-y-8">
+        <div className="flex items-center gap-3 mb-8">
+          <Warehouse className="h-7 w-7" />
+          <div>
+            <Skeleton className="h-8 w-64 mb-2" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+          {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
+          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-48 w-full" />)}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       {/* Header — only show on Fleet Overview */}
       {!selectedYard && (
         <div className="flex items-center gap-3">
           <Warehouse className="h-7 w-7" />
           <div>
             <h1 className="text-3xl font-bold">Yard Management</h1>
-            <p className="text-muted-foreground">Fleet overview across all yards</p>
+            <p className="text-muted-foreground mt-2">Fleet overview across all yards</p>
           </div>
         </div>
       )}
 
       {!selectedYard && eventsUnavailable && (
-        <div className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-900">
+        <div className="flex items-start gap-2 rounded-md border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-900">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
           <span>Live event data unavailable — schema reload may be needed in Supabase</span>
         </div>
       )}
 
       {!selectedYard && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {[
             { id: 'PIER S', path: '/yards/pola' },
             { id: 'JED YARD', path: '/yards/jedyard' },
@@ -578,7 +577,7 @@ export default function YardManagementHub() {
                 <Warehouse className="h-6 w-6" />
                 <div>
                   <h3 className="text-lg font-bold">{y.id}</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {eventsUnavailable
                       ? 'Recent events unavailable'
                       : `${occupancy[y.id] || 0} recent events`}
@@ -604,7 +603,6 @@ export default function YardManagementHub() {
           occupancy={occupancy}
           lastActivity={lastActivity}
           onSelectYard={setSelectedYardId}
-          onRefresh={loadData}
         />
       )}
     </div>

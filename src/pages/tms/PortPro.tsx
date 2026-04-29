@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/utils/dateUtils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useQuery } from '@tanstack/react-query'
 
 interface PPRecord {
   id: string
@@ -21,74 +23,61 @@ interface PPRecord {
 }
 
 export default function PortPro() {
-  const [records, setRecords] = useState<PPRecord[]>([])
-  const [filtered, setFiltered] = useState<PPRecord[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      try {
-        const { data, error: fetchErr } = await supabase
-          .from('portpro_tms')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(500)
-        if (fetchErr) throw fetchErr
-        setRecords(data || [])
-        setFiltered(data || [])
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load Port Pro data')
-      } finally {
-        setLoading(false)
-      }
+  const { data: records = [], isLoading: loading, error: errorObj } = useQuery({
+    queryKey: ['portpro_tms'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('portpro_tms')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(500)
+      if (error) throw error
+      return (data || []) as PPRecord[]
     }
-    load()
-  }, [])
+  })
 
-  useEffect(() => {
-    if (!search) {
-      setFiltered(records)
-      return
-    }
+  const error = errorObj?.message || null
+
+  const filtered = useMemo(() => {
+    if (!search) return records
     const q = search.toUpperCase()
-    setFiltered(records.filter(r =>
+    return records.filter(r =>
       r.order_number?.includes(q) ||
       r.chassis_number?.includes(q) ||
       r.container_number?.includes(q) ||
       r.customer?.toUpperCase().includes(q) ||
       r.carrier?.toUpperCase().includes(q) ||
       r.terminal?.toUpperCase().includes(q)
-    ))
+    )
   }, [search, records])
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Port Pro TMS</h1>
-        <p className="text-muted-foreground">Port Pro Transportation Management System — Port drayage data</p>
+        <p className="text-muted-foreground mt-2">Port Pro Transportation Management System — Port drayage data</p>
       </div>
 
-      {error && records.length > 0 && <div className="p-4 bg-destructive/10 text-destructive rounded-md">{error}</div>}
+      {error && records.length > 0 && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Records</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{records.length.toLocaleString()}</p></CardContent>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{records.length.toLocaleString()}</p>}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Filtered</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{filtered.length.toLocaleString()}</p></CardContent>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{filtered.length.toLocaleString()}</p>}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Unique Chassis</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{new Set(records.map(r => r.chassis_number).filter(Boolean)).size}</p></CardContent>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{new Set(records.map(r => r.chassis_number).filter(Boolean)).size}</p>}</CardContent>
         </Card>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex gap-4">
         <input
           type="text"
           placeholder="Search order#, chassis, container, customer..."
@@ -100,8 +89,10 @@ export default function PortPro() {
       </div>
 
       <Card>
-        <CardContent className="pt-4">
-          {loading ? <p className="text-muted-foreground">Loading Port Pro data...</p> : (
+        <CardContent className="pt-6">
+          {loading ? (
+             <div className="space-y-4">{[...Array(8)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+          ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -142,7 +133,7 @@ export default function PortPro() {
             </div>
           )}
           {filtered.length > 100 && (
-            <p className="text-sm text-muted-foreground text-center mt-2">Showing 100 of {filtered.length} records.</p>
+            <p className="text-sm text-muted-foreground text-center mt-4">Showing 100 of {filtered.length} records.</p>
           )}
         </CardContent>
       </Card>

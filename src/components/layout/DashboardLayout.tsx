@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { SidebarProvider, Sidebar, SidebarContent } from '@/components/ui/sidebar'
 import SidebarNavigation from './SidebarNavigation'
 import DashboardHeader from './DashboardHeader'
+import AIChatPanel from './AIChatPanel'
 import { getPageTitle } from '@/utils/navigationHelpers'
 import {
   LayoutDashboard,
@@ -16,10 +18,30 @@ import {
 
 const navItems = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { title: 'Chassis Management', path: '/chassis', icon: Truck },
+  {
+    title: 'Chassis Management',
+    path: '/chassis',
+    icon: Truck,
+    subItems: [
+      { title: 'Fleet Overview', path: '/chassis/fleet-overview' },
+      { title: 'Equipment Board', path: '/chassis/equipment-board' },
+      { title: 'Chassis Tracker', path: '/chassis-tracker' },
+      { title: 'Repair & Costs', path: '/chassis/repairs' },
+    ],
+  },
   { title: 'Utilization', path: '/utilization', icon: BarChart3 },
   { title: 'TMS Data', path: '/tms', icon: Database },
-  { title: 'Yard Management', path: '/yard', icon: Warehouse },
+  {
+    title: 'Yard Management',
+    path: '/yard',
+    icon: Warehouse,
+    subItems: [
+      { title: 'Yard Dashboard', path: '/yard/dashboard' },
+      { title: '17th St Yard', path: '/yard/17th' },
+      { title: 'JED Yard', path: '/yard/jed' },
+      { title: 'Pier S', path: '/yard/pier-s' },
+    ],
+  },
   {
     title: 'GPS Providers',
     path: '/gps',
@@ -54,11 +76,21 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const location = useLocation()
+  const [isChatOpen, setIsChatOpen] = useState(false)
   const pageTitle = getPageTitle(
     location.pathname,
     navItems,
     location.state as { title?: string } | null
   )
+
+  useEffect(() => {
+    const handler = () => setIsChatOpen(true)
+    window.addEventListener('ccn:open-ai-chat', handler)
+    return () => window.removeEventListener('ccn:open-ai-chat', handler)
+  }, [])
+
+  const contextString =
+    'Fleet summary: 12,168 chassis tracked, 951 unbilled loads at $987K risk, 9,217 dormant chassis burning $92K in idle lease costs, $3M revenue gap at 7.2%'
 
   return (
     <SidebarProvider>
@@ -82,6 +114,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <main className="flex-1 bg-muted/30">{children}</main>
         </div>
       </div>
+      <AIChatPanel
+        open={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        context={contextString}
+      />
     </SidebarProvider>
   )
 }

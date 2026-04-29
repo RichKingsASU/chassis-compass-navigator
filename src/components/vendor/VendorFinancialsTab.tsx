@@ -1,15 +1,37 @@
 import { useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  ResponsiveContainer, 
+  PieChart, 
+  Pie, 
+  Cell, 
+  Legend,
+  CartesianGrid
+} from 'recharts'
+import { 
+  TrendingUp, 
+  PieChart as PieChartIcon, 
+  History, 
+  DollarSign,
+  BarChart3
+} from 'lucide-react'
 import type { VendorInvoice } from './VendorInvoicesTab'
+import { formatCurrency } from '@/utils/dateUtils'
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount)
+export interface VendorFinancialsTabProps {
+  invoices: VendorInvoice[]
 }
 
-const tooltipFormatter = (value: unknown): string => {
-  const n = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(n) ? formatCurrency(n) : ''
+const COLORS = {
+  PAID: '#10b981', // emerald-500
+  OUTSTANDING: '#f59e0b', // amber-500
+  MONTHLY: '#3b82f6', // blue-500
+  AGING: '#f43f5e', // rose-500
 }
 
 function monthKey(dateStr: string): string {
@@ -22,13 +44,6 @@ function monthKey(dateStr: string): string {
 function daysBetween(a: Date, b: Date): number {
   return Math.floor((a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24))
 }
-
-export interface VendorFinancialsTabProps {
-  invoices: VendorInvoice[]
-}
-
-const PAID_COLOR = '#3b82f6'
-const OUTSTANDING_COLOR = '#f59e0b'
 
 export function VendorFinancialsTab({ invoices }: VendorFinancialsTabProps) {
   const monthly = useMemo(() => {
@@ -75,59 +90,166 @@ export function VendorFinancialsTab({ invoices }: VendorFinancialsTabProps) {
     return Object.entries(buckets).map(([bucket, amount]) => ({ bucket, amount }))
   }, [invoices])
 
+  const totalExposure = useMemo(() => paidVsOutstanding.reduce((s, r) => s + r.value, 0), [paidVsOutstanding])
+
   if (invoices.length === 0) {
     return (
-      <Card className="p-8 text-center">
-        <p className="text-muted-foreground">No invoice data available yet. Add invoices to see financial summaries.</p>
+      <Card className="border-none shadow-xl bg-muted/20">
+        <CardContent className="flex flex-col items-center justify-center py-24 text-center space-y-4">
+          <PieChartIcon size={48} className="text-muted-foreground opacity-20" />
+          <p className="text-sm font-black uppercase tracking-widest text-muted-foreground">Financial dataset unavailable</p>
+        </CardContent>
       </Card>
     )
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card>
-        <CardHeader><CardTitle>Monthly Spend</CardTitle></CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={monthly}>
-              <XAxis dataKey="month" />
-              <YAxis tickFormatter={formatCurrency} />
-              <Tooltip formatter={tooltipFormatter} />
-              <Bar dataKey="amount" fill="#6366f1" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+    <div className="space-y-8">
+      {/* Top Level KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <Card className="border-none shadow-xl bg-emerald-500/[0.03]">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Total Invoiced</p>
+              <DollarSign size={14} className="text-emerald-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-black text-emerald-600">{formatCurrency(totalExposure)}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-xl bg-amber-500/[0.03]">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">At Risk (Outstanding)</p>
+              <TrendingUp size={14} className="text-amber-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-black text-amber-600">{formatCurrency(paidVsOutstanding[1].value)}</p>
+          </CardContent>
+        </Card>
+      </div>
 
-      <Card>
-        <CardHeader><CardTitle>Paid vs Outstanding</CardTitle></CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={paidVsOutstanding} dataKey="value" nameKey="name" outerRadius={90} label={({ name }) => name}>
-                <Cell fill={PAID_COLOR} />
-                <Cell fill={OUTSTANDING_COLOR} />
-              </Pie>
-              <Tooltip formatter={tooltipFormatter} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Monthly Trend */}
+        <Card className="border-none shadow-xl overflow-hidden">
+          <CardHeader className="bg-muted/30 border-b py-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <BarChart3 size={18} className="text-primary" /> Expenditure Horizon
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-8">
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthly}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.05)" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700 }} />
+                  <YAxis hide />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-background border-2 shadow-2xl p-4 rounded-xl">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{payload[0].payload.month}</p>
+                            <p className="text-xl font-black text-primary">{formatCurrency(payload[0].value as number)}</p>
+                          </div>
+                        )
+                      }
+                      return null
+                    }}
+                  />
+                  <Bar dataKey="amount" fill={COLORS.MONTHLY} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
 
-      <Card className="lg:col-span-2">
-        <CardHeader><CardTitle>Aging Buckets (Outstanding)</CardTitle></CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={aging}>
-              <XAxis dataKey="bucket" />
-              <YAxis tickFormatter={formatCurrency} />
-              <Tooltip formatter={tooltipFormatter} />
-              <Bar dataKey="amount" fill="#f59e0b" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+        {/* Allocation */}
+        <Card className="border-none shadow-xl overflow-hidden">
+          <CardHeader className="bg-muted/30 border-b py-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <PieChartIcon size={18} className="text-primary" /> Capital Allocation
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-8">
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie 
+                    data={paidVsOutstanding} 
+                    dataKey="value" 
+                    nameKey="name" 
+                    innerRadius={70}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    stroke="none"
+                  >
+                    <Cell fill={COLORS.PAID} />
+                    <Cell fill={COLORS.OUTSTANDING} />
+                  </Pie>
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-background border-2 shadow-2xl p-4 rounded-xl">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{payload[0].name}</p>
+                            <p className="text-xl font-black">{formatCurrency(payload[0].value as number)}</p>
+                          </div>
+                        )
+                      }
+                      return null
+                    }}
+                  />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    align="center"
+                    iconType="circle"
+                    formatter={(value) => <span className="text-[10px] font-black uppercase tracking-widest ml-1">{value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Aging Buckets */}
+        <Card className="border-none shadow-xl overflow-hidden lg:col-span-2">
+          <CardHeader className="bg-muted/30 border-b py-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <History size={18} className="text-primary" /> Aging Velocity (Unpaid)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-8">
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={aging} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(0,0,0,0.05)" />
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="bucket" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900 }} width={80} />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(0,0,0,0.02)' }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-background border-2 shadow-2xl p-4 rounded-xl">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{payload[0].payload.bucket} Days</p>
+                            <p className="text-xl font-black text-destructive">{formatCurrency(payload[0].value as number)}</p>
+                          </div>
+                        )
+                      }
+                      return null
+                    }}
+                  />
+                  <Bar dataKey="amount" fill={COLORS.AGING} radius={[0, 4, 4, 0]} barSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

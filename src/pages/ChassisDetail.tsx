@@ -97,7 +97,7 @@ export default function ChassisDetail() {
           .order('pickup_actual_date', { ascending: false })
           .limit(50)
 
-        setLoads(loadsData || [])
+        setLoads(((loadsData || []) as unknown) as Load[])
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load chassis data')
       } finally {

@@ -53,9 +53,9 @@ export default function LongTermChassis() {
     async function load() {
       setLoading(true)
       try {
-        // Fetch from mg_tms — we'll compute dormancy client-side from last activity
+        // Fetch from mg_data — we'll compute dormancy client-side from last activity
         const { data: result, error: fetchErr } = await supabase
-          .from('mg_tms')
+          .from('mg_data')
           .select('*')
           .order('create_date', { ascending: false })
           .limit(2000)

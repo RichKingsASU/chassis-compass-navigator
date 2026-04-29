@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import DataFreshnessBar from '@/components/DataFreshnessBar'
+import { useQuery } from '@tanstack/react-query'
 
 interface ActiveLoad {
   id: string
@@ -23,33 +25,31 @@ interface ActiveLoad {
 }
 
 export default function ActiveLoads() {
-  const [records, setRecords] = useState<ActiveLoad[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [unbilledOnly, setUnbilledOnly] = useState(false)
+  const [page, setPage] = useState(1)
+  const ITEMS_PER_PAGE = 15
 
+  // Reset pagination when search or unbilled changes
   useEffect(() => {
-    async function load() {
-      setLoading(true)
-      try {
-        const { data, error: fetchErr } = await supabase
-          .from('mg_tms')
-          .select('id, ld_num, chassis_number, container_number, customer_name, carrier_name, status, pickup_actual_date, delivery_actual_date, cust_rate_charge, unbilledflag, acct_mg_name')
-          .not('status', 'in', '("Cancelled","Void","Rejected")')
-          .order('pickup_actual_date', { ascending: false })
-          .limit(500)
-        if (fetchErr) throw fetchErr
-        setRecords(data || [])
-      } catch (err: unknown) {
-        console.error('Active loads query error:', err)
-        setError(err instanceof Error ? err.message : 'Failed to load active loads')
-      } finally {
-        setLoading(false)
-      }
+    setPage(1)
+  }, [search, unbilledOnly])
+
+  const { data: records = [], isLoading: loading, error: fetchError } = useQuery({
+    queryKey: ['mg_tms_active_loads'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('mg_data')
+        .select('id, ld_num, chassis_number, container_number, customer_name, carrier_name, status, pickup_actual_date, delivery_actual_date, cust_rate_charge, unbilledflag, acct_mg_name')
+        .not('status', 'in', '("Cancelled","Void","Rejected")')
+        .order('pickup_actual_date', { ascending: false })
+        .limit(1000)
+      if (error) throw error
+      return data || []
     }
-    load()
-  }, [])
+  })
+
+  const error = fetchError ? (fetchError as Error).message : null
 
   const unbilledCount = records.filter(r => r.unbilledflag === 'Y').length
 
@@ -66,43 +66,46 @@ export default function ActiveLoads() {
     )
   })
 
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
+  const paginatedRecords = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Active Loads</h1>
-        <p className="text-muted-foreground">Current loads from Mercury Gate TMS — excludes cancelled and void</p>
+        <p className="text-muted-foreground mt-2">Current loads from Mercury Gate TMS — excludes cancelled and void</p>
       </div>
 
-      <DataFreshnessBar tableName="mg_tms" />
+      <DataFreshnessBar tableName="mg_data" />
 
       {error && (
         <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/30">
-          Query error — data could not be loaded. Check console for details.
+          Query error — data could not be loaded. {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Active Loads</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{records.length}</p></CardContent>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{records.length.toLocaleString()}</p>}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Filtered</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold">{filtered.length}</p></CardContent>
+          <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{filtered.length.toLocaleString()}</p>}</CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Unbilled</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold text-red-600">{unbilledCount}</p></CardContent>
+          <CardContent>{loading ? <Skeleton className="h-9 w-16" /> : <p className="text-3xl font-bold text-red-600">{unbilledCount.toLocaleString()}</p>}</CardContent>
         </Card>
       </div>
 
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-4 flex-wrap">
         <input
           type="text"
           placeholder="Search LD#, chassis, container, customer, carrier..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-64 px-3 py-2 border rounded-md text-sm"
+          className="flex-1 min-w-64 px-4 py-2 border rounded-md text-sm"
         />
         <Button
           variant={unbilledOnly ? 'default' : 'outline'}
@@ -114,53 +117,64 @@ export default function ActiveLoads() {
       </div>
 
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="pt-6">
           {loading ? (
             <div className="space-y-2">
-              {[...Array(5)].map((_, i) => <div key={i} className="h-10 bg-muted animate-pulse rounded" />)}
+              {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
           ) : !error && filtered.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">No records found for the current filters.</p>
+            <p className="text-center text-muted-foreground py-12">No records found for the current filters.</p>
           ) : !error ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Load #</TableHead>
-                    <TableHead>Unbilled</TableHead>
-                    <TableHead>Chassis #</TableHead>
-                    <TableHead>Container #</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Carrier</TableHead>
-                    <TableHead>Account Manager</TableHead>
-                    <TableHead>Pickup Date</TableHead>
-                    <TableHead>Delivery Date</TableHead>
-                    <TableHead className="text-right">Customer Rate</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.slice(0, 100).map(r => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-mono text-sm">{r.ld_num || 'N/A'}</TableCell>
-                      <TableCell>
-                        {r.unbilledflag === 'Y' && <Badge className="bg-red-100 text-red-800 border-red-300">UNBILLED</Badge>}
-                      </TableCell>
-                      <TableCell className="font-mono text-sm">{r.chassis_number?.trim() || 'N/A'}</TableCell>
-                      <TableCell className="font-mono text-sm">{r.container_number || 'N/A'}</TableCell>
-                      <TableCell>{r.customer_name || 'N/A'}</TableCell>
-                      <TableCell>{r.carrier_name || 'N/A'}</TableCell>
-                      <TableCell>{r.acct_mg_name || 'N/A'}</TableCell>
-                      <TableCell>{formatDate(r.pickup_actual_date)}</TableCell>
-                      <TableCell>{formatDate(r.delivery_actual_date)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(r.cust_rate_charge)}</TableCell>
-                      <TableCell><Badge variant="outline">{r.status || 'N/A'}</Badge></TableCell>
+            <div className="space-y-4">
+              <div className="rounded-md border overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Load #</TableHead>
+                      <TableHead>Unbilled</TableHead>
+                      <TableHead>Chassis #</TableHead>
+                      <TableHead>Container #</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Carrier</TableHead>
+                      <TableHead>Account Manager</TableHead>
+                      <TableHead>Pickup Date</TableHead>
+                      <TableHead>Delivery Date</TableHead>
+                      <TableHead className="text-right">Customer Rate</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {filtered.length > 100 && (
-                <p className="text-sm text-muted-foreground text-center mt-2">Showing 100 of {filtered.length} records.</p>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedRecords.map(r => (
+                      <TableRow key={r.id} className="hover:bg-muted/50">
+                        <TableCell className="font-mono text-sm">{r.ld_num || 'N/A'}</TableCell>
+                        <TableCell>
+                          {r.unbilledflag === 'Y' && <Badge className="bg-red-100 text-red-800 border-red-300">UNBILLED</Badge>}
+                        </TableCell>
+                        <TableCell className="font-mono text-sm">{r.chassis_number?.trim() || 'N/A'}</TableCell>
+                        <TableCell className="font-mono text-sm">{r.container_number || 'N/A'}</TableCell>
+                        <TableCell>{r.customer_name || 'N/A'}</TableCell>
+                        <TableCell>{r.carrier_name || 'N/A'}</TableCell>
+                        <TableCell>{r.acct_mg_name || 'N/A'}</TableCell>
+                        <TableCell>{formatDate(r.pickup_actual_date)}</TableCell>
+                        <TableCell>{formatDate(r.delivery_actual_date)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(r.cust_rate_charge)}</TableCell>
+                        <TableCell><Badge variant="outline">{r.status || 'N/A'}</Badge></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              
+              {filtered.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {Math.min((page - 1) * ITEMS_PER_PAGE + 1, filtered.length)} to {Math.min(page * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} records
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>Previous</Button>
+                    <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>Next</Button>
+                  </div>
+                </div>
               )}
             </div>
           ) : null}

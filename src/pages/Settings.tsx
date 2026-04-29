@@ -7,8 +7,11 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 export default function Settings() {
+  const queryClient = useQueryClient()
   const [darkMode, setDarkMode] = useState(false)
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [disputeAlerts, setDisputeAlerts] = useState(true)
@@ -16,44 +19,48 @@ export default function Settings() {
   const [saved, setSaved] = useState(false)
   const [signOutLoading, setSignOutLoading] = useState(false)
 
-  const [googleMapsApiKey, setGoogleMapsApiKey] = useState('')
-  const [mapsKeySaving, setMapsKeySaving] = useState(false)
-  const [mapsKeySaved, setMapsKeySaved] = useState(false)
-  const [mapsKeyError, setMapsKeyError] = useState<string | null>(null)
+  const [localApiKey, setLocalApiKey] = useState('')
   const [showApiKey, setShowApiKey] = useState(false)
 
-  useEffect(() => {
-    async function loadApiKey() {
+  // Fetch API Key
+  const { data: apiKeyData, isLoading: keyLoading } = useQuery({
+    queryKey: ['settings_google_maps_api_key'],
+    queryFn: async () => {
       const { data } = await supabase
         .from('app_settings')
         .select('value')
         .eq('key', 'google_maps_api_key')
         .single()
-      if (data?.value) setGoogleMapsApiKey(data.value)
+      return data?.value || ''
     }
-    loadApiKey()
-  }, [])
+  })
 
-  async function handleSaveApiKey() {
-    setMapsKeySaving(true)
-    setMapsKeySaved(false)
-    setMapsKeyError(null)
-    try {
+  // Sync local state when data arrives
+  useEffect(() => {
+    if (apiKeyData !== undefined) {
+      setLocalApiKey(apiKeyData)
+    }
+  }, [apiKeyData])
+
+  // Save API Key Mutation
+  const saveKeyMutation = useMutation({
+    mutationFn: async (key: string) => {
       const { error } = await supabase
         .from('app_settings')
         .upsert(
-          { key: 'google_maps_api_key', value: googleMapsApiKey.trim() },
+          { key: 'google_maps_api_key', value: key.trim() },
           { onConflict: 'key' }
         )
       if (error) throw error
-      setMapsKeySaved(true)
-      setTimeout(() => setMapsKeySaved(false), 2000)
-    } catch (err: unknown) {
-      setMapsKeyError(err instanceof Error ? err.message : 'Failed to save API key')
-    } finally {
-      setMapsKeySaving(false)
+    },
+    onSuccess: () => {
+      toast.success('API Key saved successfully')
+      queryClient.invalidateQueries({ queryKey: ['settings_google_maps_api_key'] })
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to save API key')
     }
-  }
+  })
 
   async function handleSave() {
     setSaving(true)
@@ -62,6 +69,7 @@ export default function Settings() {
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+    toast.success('Settings saved')
   }
 
   async function handleSignOut() {
@@ -80,10 +88,10 @@ export default function Settings() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-2xl">
+    <div className="p-8 space-y-8 max-w-2xl">
       <div>
         <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and application preferences</p>
+        <p className="text-muted-foreground mt-2">Manage your account and application preferences</p>
       </div>
 
       <Card>
@@ -144,10 +152,11 @@ export default function Settings() {
               <Input
                 id="google-maps-key"
                 type={showApiKey ? 'text' : 'password'}
-                placeholder="Enter your Google Maps API key"
-                value={googleMapsApiKey}
-                onChange={e => setGoogleMapsApiKey(e.target.value)}
+                placeholder={keyLoading ? "Loading..." : "Enter your Google Maps API key"}
+                value={localApiKey}
+                onChange={e => setLocalApiKey(e.target.value)}
                 className="flex-1 font-mono text-sm"
+                disabled={keyLoading}
               />
               <Button
                 variant="outline"
@@ -158,10 +167,13 @@ export default function Settings() {
                 {showApiKey ? 'Hide' : 'Show'}
               </Button>
             </div>
-            {mapsKeyError && <p className="text-xs text-destructive mt-1">{mapsKeyError}</p>}
           </div>
-          <Button onClick={handleSaveApiKey} disabled={mapsKeySaving || !googleMapsApiKey.trim()} size="sm">
-            {mapsKeySaving ? 'Saving...' : mapsKeySaved ? 'Saved!' : 'Save API Key'}
+          <Button 
+            onClick={() => saveKeyMutation.mutate(localApiKey)} 
+            disabled={saveKeyMutation.isPending || !localApiKey.trim()} 
+            size="sm"
+          >
+            {saveKeyMutation.isPending ? 'Saving...' : saveKeyMutation.isSuccess ? 'Saved!' : 'Save API Key'}
           </Button>
         </CardContent>
       </Card>
@@ -169,7 +181,7 @@ export default function Settings() {
       <Card>
         <CardHeader><CardTitle>Vendors</CardTitle></CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-4">
             {['DCLI', 'CCM', 'TRAC', 'FLEXIVAN', 'WCCP', 'SCSPA'].map(v => (
               <div key={v} className="flex items-center gap-2 p-2 border rounded text-sm">
                 <div className="w-2 h-2 rounded-full bg-green-500" />
@@ -180,7 +192,7 @@ export default function Settings() {
         </CardContent>
       </Card>
 
-      <div className="flex gap-3">
+      <div className="flex gap-4">
         <Button onClick={handleSave} disabled={saving}>
           {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Settings'}
         </Button>

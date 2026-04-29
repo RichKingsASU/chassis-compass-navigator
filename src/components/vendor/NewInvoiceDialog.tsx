@@ -7,6 +7,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Badge } from '@/components/ui/badge'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { FileText, DollarSign, Calendar, Tag, Info, Loader2, Save, X } from 'lucide-react'
 
 export interface NewInvoiceDialogProps {
   open: boolean
@@ -39,34 +42,33 @@ const EMPTY: FormState = {
 }
 
 export function NewInvoiceDialog({ open, onOpenChange, vendorSlug, onCreated }: NewInvoiceDialogProps) {
+  const queryClient = useQueryClient()
   const [form, setForm] = useState<FormState>(EMPTY)
-  const [submitting, setSubmitting] = useState(false)
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({})
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm(prev => ({ ...prev, [key]: value }))
+    if (errors[key]) setErrors(prev => ({ ...prev, [key]: undefined }))
   }
 
   const validate = (): boolean => {
     const next: Partial<Record<keyof FormState, string>> = {}
-    if (!form.invoice_number.trim()) next.invoice_number = 'Invoice number is required'
-    if (!form.invoice_date) next.invoice_date = 'Invoice date is required'
-    if (!form.due_date) next.due_date = 'Due date is required'
+    if (!form.invoice_number.trim()) next.invoice_number = 'Required'
+    if (!form.invoice_date) next.invoice_date = 'Required'
+    if (!form.due_date) next.due_date = 'Required'
     if (form.invoice_date && form.due_date && form.due_date < form.invoice_date) {
-      next.due_date = 'Due date must be on or after invoice date'
+      next.due_date = 'Invalid date range'
     }
     const amount = parseFloat(form.invoice_amount)
     if (!form.invoice_amount || Number.isNaN(amount) || amount <= 0) {
-      next.invoice_amount = 'Amount must be greater than 0'
+      next.invoice_amount = 'Invalid amount'
     }
     setErrors(next)
     return Object.keys(next).length === 0
   }
 
-  const handleSubmit = async () => {
-    if (!validate()) return
-    setSubmitting(true)
-    try {
+  const mutation = useMutation({
+    mutationFn: async () => {
       const { error } = await supabase.from('vendor_invoices').insert({
         vendor_slug: vendorSlug.toLowerCase(),
         invoice_number: form.invoice_number.trim(),
@@ -78,117 +80,140 @@ export function NewInvoiceDialog({ open, onOpenChange, vendorSlug, onCreated }: 
         notes: form.notes.trim() || null,
       })
       if (error) throw error
-      toast.success(`Invoice ${form.invoice_number.trim()} added successfully`)
+    },
+    onSuccess: () => {
+      toast.success(`Invoice ${form.invoice_number.trim()} synchronized successfully`)
+      queryClient.invalidateQueries({ queryKey: ['vendor_invoices', vendorSlug] })
       setForm(EMPTY)
       setErrors({})
       onOpenChange(false)
       onCreated?.()
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to create invoice'
-      toast.error(message)
-    } finally {
-      setSubmitting(false)
+    },
+    onError: (err: Error) => {
+      toast.error(err.message)
     }
-  }
+  })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg" aria-describedby="new-invoice-description">
-        <DialogHeader>
-          <DialogTitle>New Invoice</DialogTitle>
-          <DialogDescription id="new-invoice-description">
-            Record a new vendor invoice. Invoice Number, Invoice Date, Due Date, and Invoice Amount are required.
-          </DialogDescription>
+      <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl rounded-2xl" aria-describedby="new-invoice-description">
+        <DialogHeader className="p-8 bg-primary text-primary-foreground">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-primary-foreground/10 rounded-2xl">
+              <FileText size={24} strokeWidth={3} />
+            </div>
+            <div>
+              <DialogTitle className="text-2xl font-black tracking-tight uppercase">Invoice Ingestion</DialogTitle>
+              <DialogDescription id="new-invoice-description" className="text-primary-foreground/70 font-medium">
+                Manual entry for {vendorSlug.toUpperCase()} audit tracking.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="space-y-1">
-            <Label htmlFor="invoice_number">Invoice Number *</Label>
+        <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <Info size={12} /> Reference Number
+            </Label>
             <Input
               id="invoice_number"
               value={form.invoice_number}
               onChange={e => update('invoice_number', e.target.value)}
-              placeholder="INV-0001"
+              placeholder="e.g. INV-10294"
+              className={`h-12 text-lg font-black font-mono border-2 transition-all ${errors.invoice_number ? 'border-destructive' : 'focus:border-primary'}`}
             />
-            {errors.invoice_number && <p className="text-xs text-destructive">{errors.invoice_number}</p>}
+            {errors.invoice_number && <p className="text-[10px] text-destructive font-black uppercase tracking-widest">{errors.invoice_number}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label htmlFor="invoice_date">Invoice Date *</Label>
+          <div className="grid grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Calendar size={12} /> Invoiced Date
+              </Label>
               <Input
-                id="invoice_date"
                 type="date"
                 value={form.invoice_date}
+                className="h-12 font-bold border-2"
                 onChange={e => update('invoice_date', e.target.value)}
               />
-              {errors.invoice_date && <p className="text-xs text-destructive">{errors.invoice_date}</p>}
+              {errors.invoice_date && <p className="text-[10px] text-destructive font-black uppercase tracking-widest">{errors.invoice_date}</p>}
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="due_date">Due Date *</Label>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Calendar size={12} /> Maturity Date
+              </Label>
               <Input
-                id="due_date"
                 type="date"
                 value={form.due_date}
+                className="h-12 font-bold border-2"
                 onChange={e => update('due_date', e.target.value)}
               />
-              {errors.due_date && <p className="text-xs text-destructive">{errors.due_date}</p>}
+              {errors.due_date && <p className="text-[10px] text-destructive font-black uppercase tracking-widest">{errors.due_date}</p>}
             </div>
           </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="invoice_amount">Invoice Amount (USD) *</Label>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <DollarSign size={12} /> Valuation (USD)
+            </Label>
             <Input
-              id="invoice_amount"
               type="number"
               min="0"
               step="0.01"
               value={form.invoice_amount}
               onChange={e => update('invoice_amount', e.target.value)}
               placeholder="0.00"
+              className={`h-12 text-2xl font-black border-2 transition-all ${errors.invoice_amount ? 'border-destructive' : 'focus:border-primary'}`}
             />
-            {errors.invoice_amount && <p className="text-xs text-destructive">{errors.invoice_amount}</p>}
+            {errors.invoice_amount && <p className="text-[10px] text-destructive font-black uppercase tracking-widest">{errors.invoice_amount}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Category</Label>
+          <div className="grid grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Tag size={12} /> Classification
+              </Label>
               <Select value={form.invoice_category} onValueChange={v => update('invoice_category', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-12 font-bold border-2"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {CATEGORIES.map(c => <SelectItem key={c} value={c} className="font-bold text-[10px] uppercase tracking-widest">{c}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>Status</Label>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                Workflow
+              </Label>
               <Select value={form.invoice_status} onValueChange={v => update('invoice_status', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-12 font-bold border-2"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  {STATUSES.map(s => <SelectItem key={s} value={s} className="font-bold text-[10px] uppercase tracking-widest">{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="notes">Notes / Remarks</Label>
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              Contextual Notes
+            </Label>
             <Textarea
-              id="notes"
               value={form.notes}
               onChange={e => update('notes', e.target.value)}
-              placeholder="Optional"
-              rows={3}
+              placeholder="Optional administrative context..."
+              className="border-2 font-medium min-h-[100px]"
             />
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
-            Cancel
+        <DialogFooter className="p-8 bg-muted/30 border-t gap-4">
+          <Button variant="ghost" className="font-bold h-12 px-8" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
+            Abort
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting}>
-            {submitting ? 'Saving…' : 'Create Invoice'}
+          <Button className="h-12 px-8 font-black shadow-xl shadow-primary/20 gap-2" onClick={() => { if (validate()) mutation.mutate() }} disabled={mutation.isPending}>
+            {mutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} strokeWidth={3} />}
+            Commit Ingestion
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -84,7 +84,7 @@ export default function PerDiemReconciliationPage() {
         <p className="text-muted-foreground">DCLI vendor days vs Forrest TMS days — identify overbilling</p>
       </div>
 
-      <DataFreshnessBar tableName="mg_tms" />
+      <DataFreshnessBar tableName="mg_data" />
 
       {error && (
         <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/30">

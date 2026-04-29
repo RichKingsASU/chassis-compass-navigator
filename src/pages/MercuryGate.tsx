@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { safeDate, safeAmount } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import DataFreshnessBar from '@/components/DataFreshnessBar'
+import { useQuery } from '@tanstack/react-query'
 
 interface MGRecord {
   id: string
@@ -37,36 +38,26 @@ interface MGRecord {
 }
 
 export default function MercuryGate() {
-  const [records, setRecords] = useState<MGRecord[]>([])
-  const [filtered, setFiltered] = useState<MGRecord[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedRecord, setSelectedRecord] = useState<MGRecord | null>(null)
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true)
-      try {
-        const { data, error: fetchErr } = await supabase
-          .from('mg_data')
-          .select('*')
-          .order('create_date', { ascending: false })
-          .limit(500)
-        if (fetchErr) throw fetchErr
-        setRecords(data || [])
-        setFiltered(data || [])
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load TMS data')
-      } finally {
-        setLoading(false)
-      }
+  const { data: records = [], isLoading: loading, error: errorObj } = useQuery({
+    queryKey: ['mg_data'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('mg_data')
+        .select('*')
+        .order('create_date', { ascending: false })
+        .limit(500)
+      if (error) throw error
+      return (data || []) as MGRecord[]
     }
-    load()
-  }, [])
+  })
 
-  useEffect(() => {
+  const error = errorObj?.message || null
+
+  const filtered = useMemo(() => {
     let result = records
     if (search) {
       const q = search.toUpperCase().trim()
@@ -81,7 +72,7 @@ export default function MercuryGate() {
     if (statusFilter !== 'all') {
       result = result.filter(r => r.status?.toLowerCase() === statusFilter)
     }
-    setFiltered(result)
+    return result
   }, [search, statusFilter, records])
 
   const totalRevenue = records
@@ -89,16 +80,18 @@ export default function MercuryGate() {
     .reduce((s, r) => s + (parseFloat(r.customer_rate_amount) || 0), 0)
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Mercury Gate TMS</h1>
-        <p className="text-muted-foreground">MercuryGate Transportation Management System data</p>
-        <DataFreshnessBar tableName="mg_data" label="MG TMS" />
+        <p className="text-muted-foreground mt-2">MercuryGate Transportation Management System data</p>
+        <div className="mt-4">
+          <DataFreshnessBar tableName="mg_data" label="MG TMS" />
+        </div>
       </div>
 
       {error && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Total Records</CardTitle></CardHeader>
           <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{records.length.toLocaleString()}</p>}</CardContent>
@@ -125,9 +118,9 @@ export default function MercuryGate() {
         </Card>
       </div>
 
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-4 flex-wrap">
         <input type="text" placeholder="Search LD#, chassis, container, acct mgr, carrier..." value={search} onChange={e => setSearch(e.target.value)} className="flex-1 min-w-64 px-3 py-2 border rounded-md text-sm" />
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-2 border rounded-md text-sm">
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-2 border rounded-md text-sm bg-background">
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
           <option value="in transit">In Transit</option>
@@ -138,9 +131,9 @@ export default function MercuryGate() {
       </div>
 
       <Card>
-        <CardContent className="pt-4">
+        <CardContent className="pt-6">
           {loading ? (
-            <div className="space-y-2">{[...Array(8)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+            <div className="space-y-4">{[...Array(8)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -162,7 +155,7 @@ export default function MercuryGate() {
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={12} className="text-center text-muted-foreground py-8">No records found.</TableCell></TableRow>
                   ) : filtered.slice(0, 100).map(r => (
                     <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedRecord(r)}>
                       <TableCell className="font-mono text-sm">{r.ld_num || 'N/A'}</TableCell>
@@ -183,7 +176,7 @@ export default function MercuryGate() {
               </Table>
             </div>
           )}
-          {filtered.length > 100 && <p className="text-sm text-muted-foreground text-center mt-2">Showing 100 of {filtered.length} records.</p>}
+          {filtered.length > 100 && <p className="text-sm text-muted-foreground text-center mt-4">Showing 100 of {filtered.length} records.</p>}
         </CardContent>
       </Card>
 
@@ -194,8 +187,8 @@ export default function MercuryGate() {
             <SheetDescription>Mercury Gate Load Details</SheetDescription>
           </SheetHeader>
           {selectedRecord && (
-            <div className="mt-6 space-y-4">
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <div className="mt-8 space-y-4">
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-6 text-sm">
                 <DField label="Load #" value={selectedRecord.ld_num} />
                 <DField label="SO #" value={selectedRecord.so_num} />
                 <DField label="Status" value={selectedRecord.status} />
@@ -228,7 +221,7 @@ export default function MercuryGate() {
 function DField({ label, value }: { label: string; value?: string | number | null }) {
   return (
     <div>
-      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dt className="text-muted-foreground text-xs mb-1">{label}</dt>
       <dd className="font-medium">{value || 'N/A'}</dd>
     </div>
   )

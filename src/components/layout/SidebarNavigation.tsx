@@ -28,6 +28,7 @@ import {
   BarChart3,
   DollarSign,
   Plug,
+  Sparkles,
 } from 'lucide-react'
 
 interface NavigationItem {
@@ -40,44 +41,52 @@ interface NavigationItem {
 const navItems: NavigationItem[] = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
   {
-    title: 'Chassis Management',
-    path: '/chassis',
-    icon: Truck,
-    subItems: [
-      { title: 'Overview', path: '/chassis' },
-      { title: 'Chassis Locator', path: '/chassis/locator' },
-    ],
-  },
-  {
-    title: 'TMS Data',
-    path: '/tms',
+    title: 'Operations',
+    path: '/unbilled-loads',
     icon: Database,
     subItems: [
+      { title: 'Unbilled Loads', path: '/unbilled-loads' },
+      { title: 'Active Loads', path: '/active-loads' },
+      { title: 'Terminal Events', path: '/terminal-events' },
       { title: 'Mercury Gate', path: '/tms/mercury-gate' },
       { title: 'Port Pro', path: '/tms/port-pro' },
     ],
   },
-  { title: 'Utilization', path: '/utilization', icon: BarChart3 },
+  {
+    title: 'Analytics',
+    path: '/utilization',
+    icon: BarChart3,
+    subItems: [
+      { title: 'Chassis Utilization', path: '/utilization' },
+      { title: 'Revenue Gap', path: '/billing-exposure' },
+      { title: 'Per Diem Recon', path: '/perdiem' },
+    ],
+  },
+
+  {
+    title: 'Chassis Management',
+    path: '/chassis',
+    icon: Truck,
+    subItems: [
+      { title: 'Fleet Overview', path: '/chassis/fleet-overview' },
+      { title: 'Equipment Board', path: '/chassis/equipment-board' },
+      { title: 'Chassis Tracker', path: '/chassis-tracker' },
+      { title: 'Repair & Costs', path: '/chassis/repairs' },
+      { title: 'Chassis Locator', path: '/chassis/locator' },
+      { title: 'Fleet Map 🗺', path: '/gps/fleet-map' },
+      { title: 'GPS Analytics 📊', path: '/gps/analytics' },
+      { title: 'GPS Providers', path: '/gps' },
+    ],
+  },
   {
     title: 'Yard Management',
     path: '/yard',
     icon: Warehouse,
     subItems: [
-      { title: 'PIER S', path: '/yards/pola' },
-      { title: 'JED YARD', path: '/yards/jedyard' },
-    ],
-  },
-  {
-    title: 'GPS Providers',
-    path: '/gps',
-    icon: MapPin,
-    subItems: [
-      { title: 'Overview', path: '/gps' },
-      { title: 'Samsara', path: '/gps/samsara' },
-      { title: 'BlackBerry Radar', path: '/gps/blackberry' },
-      { title: 'Fleetview', path: '/gps/fleetview' },
-      { title: 'Fleetlocate', path: '/gps/fleetlocate' },
-      { title: 'Anytrek', path: '/gps/anytrek' },
+      { title: 'Yard Dashboard', path: '/yard/dashboard' },
+      { title: '17th St Yard', path: '/yard/17th' },
+      { title: 'JED Yard', path: '/yard/jed' },
+      { title: 'Pier S', path: '/yard/pier-s' },
     ],
   },
   {
@@ -94,20 +103,18 @@ const navItems: NavigationItem[] = [
       { title: 'WCCP', path: '/vendors/wccp' },
     ],
   },
+  { title: 'Provar', path: '/provar', icon: Plug },
   {
-    title: 'Finance',
-    path: '/unbilled-loads',
-    icon: DollarSign,
+    title: 'Settings',
+    path: '/settings',
+    icon: Settings,
     subItems: [
-      { title: 'Unbilled Loads', path: '/unbilled-loads' },
-      { title: 'Per Diem Recon', path: '/perdiem' },
-      { title: 'Billing Exposure', path: '/billing-exposure' },
-      { title: 'Terminal Events', path: '/terminal-events' },
+      { title: 'General', path: '/settings' },
+      { title: 'BC Export Config', path: '/settings/bc-export-config' },
     ],
   },
-  { title: 'Provar', path: '/provar', icon: Plug },
-  { title: 'Settings', path: '/settings', icon: Settings },
 ]
+
 
 export default function SidebarNavigation() {
   const location = useLocation()
@@ -191,6 +198,17 @@ export default function SidebarNavigation() {
             )
           })}
         </SidebarMenu>
+        <div className="mt-auto pt-4 border-t">
+          <button
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('ccn:open-ai-chat'))
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-colors"
+          >
+            <Sparkles size={16} />
+            Ask AI about your fleet
+          </button>
+        </div>
       </SidebarGroupContent>
     </SidebarGroup>
   )

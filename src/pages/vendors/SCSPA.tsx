@@ -1,193 +1,231 @@
-import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useCallback, useMemo } from 'react'
 import { safeDate, safeAmount } from '@/lib/formatters'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import { NewInvoiceDialog } from '@/components/vendor/NewInvoiceDialog'
 import { VendorTabNav, type VendorTabKey } from '@/components/vendor/VendorTabNav'
 import { VendorInvoicesTab, type VendorInvoice } from '@/components/vendor/VendorInvoicesTab'
 import { VendorFinancialsTab } from '@/components/vendor/VendorFinancialsTab'
 import { VendorDocumentsTab } from '@/components/vendor/VendorDocumentsTab'
-import { VendorEmptyState } from '@/components/vendor/VendorEmptyState'
+import { DataGrid } from '@/components/ui/DataGrid'
+import type { ColDef, ICellRendererParams } from 'ag-grid-community'
+import { useScspaActivity } from '@/features/scspa/hooks/useScspaActivity'
+import { useVendorKpis } from '@/hooks/useVendorKpis'
+import type { ScspaActivityRow } from '@/features/scspa/types'
+import { 
+  Building2, 
+  ExternalLink, 
+  ShieldAlert, 
+  Activity, 
+  FileText, 
+  DollarSign,
+  Box,
+  Anchor
+} from 'lucide-react'
 
 const VENDOR_SLUG = 'scspa'
-
-interface ScspaRecord {
-  id: string
-  chassis_number: string
-  chassis: string
-  pick_up_location: string
-  location_in: string
-  days_out: number
-  date_out: string
-  date_in: string
-  pool_contract: string
-  container: string
-  ss_scac: string
-  amount: number
-  portal_status: string
-  [key: string]: unknown
-}
+const ACTIVITY_TABLE = 'scspa_activity'
 
 export default function SCSPAPage() {
-  const [records, setRecords] = useState<ScspaRecord[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<VendorTabKey>('dashboard')
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false)
   const [invoiceRefreshKey, setInvoiceRefreshKey] = useState(0)
   const [invoices, setInvoices] = useState<VendorInvoice[]>([])
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true)
-      setError(null)
-      try {
-        const { data, error: fetchErr } = await supabase
-          .from('scspa_activity')
-          .select('*')
-          .order('date_out', { ascending: false })
-          .limit(500)
-        if (fetchErr) throw fetchErr
-        setRecords(data || [])
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Failed to load data')
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
-  }, [])
+  const { data: kpis, isLoading: kpisLoading } = useVendorKpis(VENDOR_SLUG, ACTIVITY_TABLE, invoiceRefreshKey)
+  const { data: activity = [], isLoading: activityLoading } = useScspaActivity()
 
   const handleInvoicesLoaded = useCallback((rows: VendorInvoice[]) => {
     setInvoices(rows)
   }, [])
 
-  const totalRecords = records.length
-  const totalAmount = records.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
-  const closedAmount = records.filter(r => r.portal_status?.toLowerCase() === 'closed').reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
-  const openAmount = totalAmount - closedAmount
-
-  const filtered = search
-    ? records.filter(r => {
-        const q = search.toUpperCase().trim()
-        const cn = (r.chassis_number || r.chassis || '')
-        return cn.trim().toUpperCase().includes(q)
-      })
-    : records
+  const activityColumnDefs = useMemo<ColDef<ScspaActivityRow>[]>(() => [
+    { 
+      headerName: 'Artifact ID', 
+      field: 'invoice', 
+      pinned: 'left', 
+      width: 160, 
+      cellClass: 'font-mono font-black text-primary' 
+    },
+    { headerName: 'Classification', field: 'invoice_category', width: 160, cellClass: 'text-[10px] font-black uppercase tracking-tighter text-muted-foreground' },
+    { headerName: 'Timeline', field: 'invoice_date', width: 140, valueFormatter: (p) => safeDate(p.value) },
+    { headerName: 'Due Date', field: 'due_date', width: 140, valueFormatter: (p) => safeDate(p.value) },
+    { 
+      headerName: 'Valuation', 
+      field: 'invoice_amount', 
+      type: 'numericColumn', 
+      width: 140, 
+      valueFormatter: (p) => safeAmount(p.value),
+      cellClass: 'font-black'
+    },
+    { 
+      headerName: 'Settled', 
+      field: 'amount_paid', 
+      type: 'numericColumn', 
+      width: 140, 
+      valueFormatter: (p) => safeAmount(p.value),
+      cellClass: 'font-bold text-emerald-600'
+    },
+    { 
+      headerName: 'Balance', 
+      field: 'amount_due', 
+      type: 'numericColumn', 
+      width: 140, 
+      valueFormatter: (p) => safeAmount(p.value),
+      cellClass: 'font-bold text-amber-600'
+    },
+    { 
+      headerName: 'Status', 
+      field: 'invoice_status', 
+      width: 140,
+      cellRenderer: (params: ICellRendererParams) => (
+        <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5">
+          {params.value || 'UNKNOWN'}
+        </Badge>
+      )
+    },
+  ], [])
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">SCSPA</h1>
-        <p className="text-muted-foreground">South Carolina State Ports Authority — Vendor Dashboard</p>
+    <div className="p-8 space-y-8">
+      <div className="flex items-center gap-4">
+        <div className="p-4 bg-primary rounded-3xl text-primary-foreground shadow-2xl shadow-primary/20">
+          <Anchor size={32} strokeWidth={3} />
+        </div>
+        <div>
+          <h1 className="text-4xl font-black tracking-tighter uppercase">SCSPA HUB</h1>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">South Carolina State Ports Authority</p>
+        </div>
       </div>
-
-      {error && records.length > 0 && <div className="p-4 bg-destructive/10 border border-destructive/30 text-destructive rounded-md">{error}</div>}
 
       <VendorTabNav
         vendorSlug={VENDOR_SLUG}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onNewInvoice={() => setInvoiceDialogOpen(true)}
-        counts={{ invoices: invoices.length, activity: totalRecords }}
+        counts={{ invoices: invoices.length, activity: activity.length }}
       />
 
       {activeTab === 'dashboard' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Records</CardTitle></CardHeader>
-              <CardContent>{loading ? <Skeleton className="h-9 w-20" /> : <p className="text-3xl font-bold">{totalRecords}</p>}</CardContent>
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <Card className="border-none shadow-xl bg-primary/[0.02]">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Global Artifacts</p>
+                  <FileText size={14} className="text-primary" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {kpisLoading ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-black">{kpis?.totalInvoices.toLocaleString()}</p>}
+              </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Amount</CardTitle></CardHeader>
-              <CardContent>{loading ? <Skeleton className="h-9 w-24" /> : <p className="text-3xl font-bold">{safeAmount(totalAmount)}</p>}</CardContent>
+            <Card className="border-none shadow-xl bg-emerald-500/[0.02]">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Total Valuation</p>
+                  <DollarSign size={14} className="text-emerald-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {kpisLoading ? <Skeleton className="h-10 w-32" /> : <p className="text-4xl font-black text-emerald-600">{safeAmount(kpis?.totalBilled)}</p>}
+              </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Amount Paid</CardTitle></CardHeader>
-              <CardContent>{loading ? <Skeleton className="h-9 w-24" /> : <p className="text-3xl font-bold text-green-600">{safeAmount(closedAmount)}</p>}</CardContent>
+            <Card className="border-none shadow-xl bg-amber-500/[0.02]">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Open Audits</p>
+                  <ShieldAlert size={14} className="text-amber-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {kpisLoading ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-black text-amber-600">{kpis?.openAudits.toLocaleString()}</p>}
+              </CardContent>
             </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Outstanding</CardTitle></CardHeader>
-              <CardContent>{loading ? <Skeleton className="h-9 w-24" /> : <p className="text-3xl font-bold text-red-600">{safeAmount(openAmount)}</p>}</CardContent>
+            <Card className="border-none shadow-xl bg-purple-500/[0.02]">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-purple-700 uppercase tracking-widest">Activity Nodes</p>
+                  <Activity size={14} className="text-purple-600" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {kpisLoading ? <Skeleton className="h-10 w-24" /> : <p className="text-4xl font-black text-purple-600">{kpis?.activityCount.toLocaleString()}</p>}
+              </CardContent>
             </Card>
           </div>
 
-          <Card>
-            <CardHeader><CardTitle>Contact Information</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              <p><span className="font-medium">Company:</span> South Carolina State Ports Authority (SCSPA)</p>
-              <p><span className="font-medium">Website:</span> <a href="https://www.scspa.com" className="text-primary underline" target="_blank" rel="noreferrer">www.scspa.com</a></p>
-              <p><span className="font-medium">Phone:</span> 1-843-577-8121</p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <Card className="border-none shadow-xl bg-card/50 backdrop-blur-sm">
+              <CardHeader className="bg-muted/30 border-b py-4">
+                <CardTitle className="text-lg flex items-center gap-2 font-black tracking-tight uppercase">
+                  <Box size={18} className="text-primary" /> Nexus Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-6">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Legal Entity</p>
+                  <p className="text-xl font-black">SC State Ports Authority</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Operational Portal</p>
+                  <a href="https://scspa.com" className="text-xl font-black text-primary hover:underline flex items-center gap-2" target="_blank" rel="noreferrer">
+                    scspa.com
+                    <ExternalLink size={16} strokeWidth={3} />
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-none shadow-xl bg-amber-500/[0.03]">
+              <CardHeader className="bg-amber-500/10 border-b py-4">
+                <CardTitle className="text-lg flex items-center gap-2 font-black tracking-tight uppercase text-amber-700">
+                  <ShieldAlert size={18} /> Dispute Policy
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <p className="text-sm font-bold text-amber-800 leading-relaxed uppercase tracking-tight">
+                  Maritime facility disputes require documentation within standard port authority timelines (usually 30-60 days).
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'invoices' && (
+        <div className="animate-in fade-in duration-500">
+          <VendorInvoicesTab
+            vendorSlug={VENDOR_SLUG}
+            refreshKey={invoiceRefreshKey}
+            onNewInvoice={() => setInvoiceDialogOpen(true)}
+            onDataLoaded={handleInvoicesLoaded}
+          />
+        </div>
+      )}
+
+      {activeTab === 'activity' && (
+        <div className="space-y-6 animate-in fade-in duration-500">
+          <Card className="border-none shadow-2xl overflow-hidden">
+            <CardHeader className="bg-muted/30 border-b py-6">
+              <div className="flex items-center gap-3">
+                <Activity size={20} className="text-primary" />
+                <CardTitle className="text-xl font-black uppercase tracking-tight">Operational Logs</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <DataGrid<ScspaActivityRow> 
+                rowData={activity} 
+                columnDefs={activityColumnDefs} 
+                loading={activityLoading} 
+              />
             </CardContent>
           </Card>
         </div>
       )}
 
-      {activeTab === 'invoices' && (
-        <VendorInvoicesTab
-          vendorSlug={VENDOR_SLUG}
-          refreshKey={invoiceRefreshKey}
-          onNewInvoice={() => setInvoiceDialogOpen(true)}
-          onDataLoaded={handleInvoicesLoaded}
-        />
-      )}
-
-      {activeTab === 'activity' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">SCSPA Activity</h2>
-            <p className="text-sm text-muted-foreground">{filtered.length} records</p>
-          </div>
-          <input type="text" placeholder="Search chassis number..." value={search} onChange={e => setSearch(e.target.value)} className="w-full px-3 py-2 border rounded-md text-sm" />
-          {loading ? (
-            <div className="space-y-2">{[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-          ) : records.length === 0 ? (
-            <VendorEmptyState title="Activity" />
-          ) : (
-            <Card>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Chassis #</TableHead>
-                    <TableHead>Pick Up Location</TableHead>
-                    <TableHead>Location In</TableHead>
-                    <TableHead>Days Out</TableHead>
-                    <TableHead>Date Out</TableHead>
-                    <TableHead>Date In</TableHead>
-                    <TableHead>Pool/Contract</TableHead>
-                    <TableHead>Container</TableHead>
-                    <TableHead>SS/SCAC</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">No records found.</TableCell></TableRow>
-                  ) : filtered.slice(0, 100).map(r => (
-                    <TableRow key={r.id}>
-                      <TableCell className="font-mono text-sm">{(r.chassis_number || r.chassis || '')?.trim()}</TableCell>
-                      <TableCell className="text-sm">{r.pick_up_location || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.location_in || 'N/A'}</TableCell>
-                      <TableCell>{r.days_out ?? 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{safeDate(r.date_out)}</TableCell>
-                      <TableCell className="text-sm">{safeDate(r.date_in)}</TableCell>
-                      <TableCell className="text-sm">{r.pool_contract || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.container || 'N/A'}</TableCell>
-                      <TableCell className="text-sm">{r.ss_scac || 'N/A'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'financials' && <VendorFinancialsTab invoices={invoices} />}
-      {activeTab === 'documents' && <VendorDocumentsTab />}
+      {activeTab === 'financials' && <div className="animate-in fade-in duration-500"><VendorFinancialsTab invoices={invoices} /></div>}
+      {activeTab === 'documents' && <div className="animate-in fade-in duration-500"><VendorDocumentsTab /></div>}
 
       <NewInvoiceDialog
         open={invoiceDialogOpen}

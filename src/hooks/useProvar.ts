@@ -6,8 +6,8 @@ import {
   type ProvarPortal,
   type ProvarPortalSummary,
   type ProvarSyncLogRow,
-  type ProvarToReturnRow,
   type PullSummary,
+  type ProvarPullRun,
 } from '@/types/provar'
 
 function todayIso(): string {
@@ -16,26 +16,22 @@ function todayIso(): string {
 
 export function useProvar() {
   const [containers, setContainers] = useState<ProvarContainerRow[]>([])
-  const [toReturn, setToReturn] = useState<ProvarToReturnRow[]>([])
   const [syncLog, setSyncLog] = useState<ProvarSyncLogRow[]>([])
   const [loading, setLoading] = useState(true)
   const [isPulling, setIsPulling] = useState(false)
   const [lastPullResult, setLastPullResult] = useState<PullSummary | null>(
     null,
   )
+  const [activeRunId, setActiveRunId] = useState<string | null>(null)
+  const [activeRun, setActiveRun] = useState<ProvarPullRun | null>(null)
 
   const refetch = useCallback(async () => {
     setLoading(true)
     const today = todayIso()
 
-    const [containersRes, toReturnRes, logRes] = await Promise.all([
+    const [containersRes, logRes] = await Promise.all([
       supabase
         .from('provar_containers_sheet')
-        .select('*')
-        .eq('snapshot_date', today)
-        .order('ingested_at', { ascending: false }),
-      supabase
-        .from('provar_to_return')
         .select('*')
         .eq('snapshot_date', today)
         .order('ingested_at', { ascending: false }),
@@ -49,9 +45,6 @@ export function useProvar() {
     if (!containersRes.error) {
       setContainers((containersRes.data ?? []) as ProvarContainerRow[])
     }
-    if (!toReturnRes.error) {
-      setToReturn((toReturnRes.data ?? []) as ProvarToReturnRow[])
-    }
     if (!logRes.error) {
       setSyncLog((logRes.data ?? []) as ProvarSyncLogRow[])
     }
@@ -63,74 +56,70 @@ export function useProvar() {
     refetch()
   }, [refetch])
 
-  // Build per-portal summary from log + today's counts
+  // Polling for active run status
+  useEffect(() => {
+    if (!activeRunId) return
+
+    const poll = async () => {
+      const { data, error } = await supabase
+        .from('provar_pull_runs')
+        .select('*')
+        .eq('id', activeRunId)
+        .single()
+
+      if (!error && data) {
+        const run = data as ProvarPullRun
+        setActiveRun(run)
+        if (run.status === 'completed' || run.status === 'failed') {
+          setActiveRunId(null)
+          refetch()
+        }
+      }
+    }
+
+    const interval = setInterval(poll, 3000)
+    poll()
+    return () => clearInterval(interval)
+  }, [activeRunId, refetch])
+
   const portalSummaries = useMemo<ProvarPortalSummary[]>(() => {
     return PROVAR_PORTALS.map((portal) => {
       const containers_count = containers.filter(
         (c) => c.portal === portal,
       ).length
-      const to_return_count = toReturn.filter(
-        (r) => r.portal === portal,
-      ).length
-
-      // Latest log entry for this portal, regardless of endpoint
       const latestLog = syncLog.find((l) => l.portal === portal)
 
       return {
         portal,
         containers_count,
-        to_return_count,
         last_pulled: latestLog?.ran_at ?? null,
         last_status: (latestLog?.status as 'success' | 'error') ?? 'never',
       }
     })
-  }, [containers, toReturn, syncLog])
+  }, [containers, syncLog])
 
   const triggerPull = useCallback(
-    async (portals?: ProvarPortal[]): Promise<PullSummary | null> => {
+    async (portals?: ProvarPortal[]): Promise<PullSummary> => {
       setIsPulling(true)
       try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+        const payload =
+          portals && portals.length > 0 ? { portals } : {}
 
-        if (!supabaseUrl || !anonKey) {
-          throw new Error(
-            'VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set in .env.local',
-          )
-        }
-
-        const res = await fetch(
-          `${supabaseUrl}/functions/v1/provar-pull`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${anonKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(portals && portals.length > 0 ? { portals } : {}),
-          },
+        const { data, error } = await supabase.functions.invoke<PullSummary>(
+          'provar-pull',
+          { body: payload },
         )
 
-        const summary = (await res.json()) as PullSummary
-        setLastPullResult(summary)
-        await refetch()
-        return summary
-      } catch (err) {
-        const errorSummary: PullSummary = {
-          results: [
-            {
-              portal: 'all',
-              endpoint: 'all',
-              status: 'error',
-              rows_affected: 0,
-              error_message: String(err),
-            },
-          ],
-          total_rows: 0,
-          errors: 1,
+        if (error) {
+          throw new Error(error.message || 'Edge function invocation failed')
         }
-        setLastPullResult(errorSummary)
-        return errorSummary
+        if (!data) {
+          throw new Error('Edge function returned no data')
+        }
+
+        setLastPullResult(data)
+        await refetch()
+        return data
       } finally {
         setIsPulling(false)
       }
@@ -138,15 +127,37 @@ export function useProvar() {
     [refetch],
   )
 
+  const startAutomationPull = useCallback(
+    async (portal: string = 'all', dateRange: string = 'last_7_days') => {
+      setIsPulling(true)
+      try {
+        const { data, error } = await supabase.functions.invoke<{ run_id: string }>(
+          'start-provar-pull',
+          { body: { portal, dateRange } },
+        )
+
+        if (error) throw new Error(error.message)
+        if (!data?.run_id) throw new Error('No run ID returned')
+
+        setActiveRunId(data.run_id)
+        return data.run_id
+      } finally {
+        setIsPulling(false)
+      }
+    },
+    [],
+  )
+
   return {
     containers,
-    toReturn,
     syncLog,
     portalSummaries,
     loading,
     isPulling,
     lastPullResult,
+    activeRun,
     triggerPull,
+    startAutomationPull,
     refetch,
   }
 }

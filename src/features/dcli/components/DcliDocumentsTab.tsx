@@ -1,10 +1,24 @@
-import { useMemo, useState } from 'react'
-import { Download, ExternalLink, FileSpreadsheet, FileText, Search } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import {
+  Download,
+  ExternalLink,
+  FileSpreadsheet,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  Mail,
+  Search,
+  Upload,
+} from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { supabase } from '@/lib/supabase'
 import { useDcliDocuments } from '../hooks/useDcliDocuments'
 import type { DcliDocumentWithUrl } from '../types'
 import { formatBytes, isPdf, isXlsx } from '../format'
+
+const UPLOAD_BUCKET = 'dcli-invoices'
 
 interface InvoiceGroup {
   invoiceNumber: string
@@ -14,6 +28,8 @@ interface InvoiceGroup {
   latestCreatedAt: string
 }
 
+type BadgeKind = 'pdf' | 'xlsx' | 'jpg' | 'png' | 'email' | 'txt' | 'zip' | 'file'
+
 function formatDateShort(value: string | null | undefined): string {
   if (!value) return '—'
   const d = new Date(value)
@@ -21,15 +37,45 @@ function formatDateShort(value: string | null | undefined): string {
   return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
 }
 
-function DocumentEntry({ doc, kind }: { doc: DcliDocumentWithUrl; kind: 'pdf' | 'xlsx' | 'other' }) {
-  const Icon = kind === 'pdf' ? FileText : kind === 'xlsx' ? FileSpreadsheet : FileText
-  const badgeClass =
-    kind === 'pdf'
-      ? 'bg-red-100 text-red-700 border-red-200'
-      : kind === 'xlsx'
-      ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-      : 'bg-muted text-muted-foreground border-border'
-  const label = kind === 'pdf' ? 'PDF' : kind === 'xlsx' ? 'XLSX' : (doc.file_type ?? 'File').toUpperCase()
+function getBadgeKind(fileType: string | null | undefined, name: string | null | undefined): BadgeKind {
+  if (isPdf(fileType, name)) return 'pdf'
+  if (isXlsx(fileType, name)) return 'xlsx'
+  const t = (fileType ?? '').toLowerCase()
+  const n = (name ?? '').toLowerCase()
+  if (t === 'image/jpeg' || t === 'image/jpg' || n.endsWith('.jpg') || n.endsWith('.jpeg')) return 'jpg'
+  if (t === 'image/png' || n.endsWith('.png')) return 'png'
+  if (t === 'message/rfc822' || n.endsWith('.eml')) return 'email'
+  if (t === 'text/plain' || n.endsWith('.txt')) return 'txt'
+  if (t === 'application/zip' || n.endsWith('.zip')) return 'zip'
+  return 'file'
+}
+
+const BADGE_STYLES: Record<BadgeKind, { className: string; label: string }> = {
+  pdf:   { className: 'bg-red-100 text-red-700 border-red-200',           label: 'PDF' },
+  xlsx:  { className: 'bg-emerald-100 text-emerald-700 border-emerald-200', label: 'XLSX' },
+  jpg:   { className: 'bg-blue-100 text-blue-700 border-blue-200',         label: 'JPG' },
+  png:   { className: 'bg-blue-100 text-blue-700 border-blue-200',         label: 'PNG' },
+  email: { className: 'bg-purple-100 text-purple-700 border-purple-200',   label: 'EMAIL' },
+  txt:   { className: 'bg-muted text-muted-foreground border-border',      label: 'TXT' },
+  zip:   { className: 'bg-muted text-muted-foreground border-border',      label: 'ZIP' },
+  file:  { className: 'bg-muted text-muted-foreground border-border',      label: 'FILE' },
+}
+
+function iconForKind(kind: BadgeKind) {
+  switch (kind) {
+    case 'pdf': return FileText
+    case 'xlsx': return FileSpreadsheet
+    case 'jpg':
+    case 'png': return ImageIcon
+    case 'email': return Mail
+    default: return FileText
+  }
+}
+
+function DocumentEntry({ doc }: { doc: DcliDocumentWithUrl }) {
+  const kind = getBadgeKind(doc.file_type, doc.original_name)
+  const { className: badgeClass, label } = BADGE_STYLES[kind]
+  const Icon = iconForKind(kind)
   const open = () => {
     if (doc.signed_url) window.open(doc.signed_url, '_blank', 'noopener')
   }
@@ -65,8 +111,108 @@ function DocumentEntry({ doc, kind }: { doc: DcliDocumentWithUrl; kind: 'pdf' | 
   )
 }
 
+interface InvoiceCardProps {
+  group: InvoiceGroup
+  onUploaded: () => void
+}
+
+function InvoiceCard({ group, onUploaded }: InvoiceCardProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploading(true)
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${group.invoiceNumber}/${safeName}`
+      const { error: upErr } = await supabase.storage
+        .from(UPLOAD_BUCKET)
+        .upload(path, file, { upsert: false, contentType: file.type || undefined })
+      if (upErr) {
+        if (/Bucket not found/i.test(upErr.message)) {
+          throw new Error(`Bucket "${UPLOAD_BUCKET}" not found. Create it in Supabase Storage first.`)
+        }
+        throw upErr
+      }
+
+      const { data: { user } } = await supabase.auth.getUser()
+      const { error: insErr } = await supabase.from('invoice_documents').insert({
+        invoice_id: group.invoiceNumber,
+        vendor: 'dcli',
+        file_name: file.name,
+        storage_path: path,
+        file_type: file.type || null,
+        uploaded_at: new Date().toISOString(),
+        uploaded_by: user?.email ?? user?.id ?? null,
+      })
+      if (insErr) {
+        if (/does not exist|schema cache/i.test(insErr.message)) {
+          throw new Error(
+            'Table "invoice_documents" does not exist. Run the flagged migration in Supabase SQL editor.'
+          )
+        }
+        throw insErr
+      }
+
+      toast.success(`Uploaded ${file.name} to invoice ${group.invoiceNumber}`)
+      onUploaded()
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="pb-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <CardTitle className="text-base font-mono truncate">{group.invoiceNumber}</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Last upload {formatDateShort(group.latestCreatedAt)}
+            </p>
+          </div>
+          <div className="flex-shrink-0">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="*/*"
+              className="hidden"
+              onChange={handleFileSelected}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+              {uploading ? 'Uploading…' : 'Upload'}
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {group.pdf && <DocumentEntry doc={group.pdf} />}
+        {group.xlsx && <DocumentEntry doc={group.xlsx} />}
+        {group.others.map((doc) => (
+          <DocumentEntry key={doc.id} doc={doc} />
+        ))}
+        {!group.pdf && !group.xlsx && group.others.length === 0 && (
+          <p className="text-sm text-muted-foreground">No files attached.</p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export function DcliDocumentsTab() {
-  const { documents, loading, error } = useDcliDocuments()
+  const { documents, loading, error, refresh } = useDcliDocuments()
   const [search, setSearch] = useState('')
 
   const groups = useMemo<InvoiceGroup[]>(() => {
@@ -133,24 +279,7 @@ export function DcliDocumentsTab() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((group) => (
-            <Card key={group.invoiceNumber} className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-mono">{group.invoiceNumber}</CardTitle>
-                <p className="text-xs text-muted-foreground">
-                  Last upload {formatDateShort(group.latestCreatedAt)}
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {group.pdf && <DocumentEntry doc={group.pdf} kind="pdf" />}
-                {group.xlsx && <DocumentEntry doc={group.xlsx} kind="xlsx" />}
-                {group.others.map((doc) => (
-                  <DocumentEntry key={doc.id} doc={doc} kind="other" />
-                ))}
-                {!group.pdf && !group.xlsx && group.others.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No files attached.</p>
-                )}
-              </CardContent>
-            </Card>
+            <InvoiceCard key={group.invoiceNumber} group={group} onUploaded={refresh} />
           ))}
         </div>
       )}
