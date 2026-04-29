@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import Map, { NavigationControl, ScaleControl, FullscreenControl } from 'react-map-gl/mapbox'
+import Map, { NavigationControl, ScaleControl, FullscreenControl } from 'react-map-gl'
 import { DeckGL } from '@deck.gl/react'
 import { ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import 'mapbox-gl/dist/mapbox-gl.css'
@@ -26,7 +26,7 @@ const SOURCE_HEX: Record<string, string> = {
   SAMSARA:         '#06b6d4',
 }
 
-const INITIAL_VIEW = {
+const INITIAL_VIEW_STATE = {
   longitude: -118.216,
   latitude: 33.770,
   zoom: 9.5,
@@ -34,13 +34,13 @@ const INITIAL_VIEW = {
   bearing: 0,
 }
 
-type ViewState = typeof INITIAL_VIEW & {
+type ViewState = typeof INITIAL_VIEW_STATE & {
   transitionDuration?: number
 }
 
 export default function ChassisTracker() {
   const { data: gpsData = [], isLoading, error, dataUpdatedAt } = useChassisGps()
-  const [viewState, setViewState] = useState<ViewState>(INITIAL_VIEW)
+  const [viewState, setViewState] = useState<ViewState>(INITIAL_VIEW_STATE)
   const [hoveredObject, setHoveredObject] = useState<ChassisGpsPoint | null>(null)
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
   const [selectedChassis, setSelectedChassis] = useState<string | null>(null)
@@ -49,7 +49,7 @@ export default function ChassisTracker() {
     new Set(['FLEETLOCATE', 'ANYTREK', 'BLACKBERRY_LOG', 'BLACKBERRY_TRAN', 'SAMSARA'])
   )
   const [dormantThreshold, setDormantThreshold] = useState(0)
-  const [zoom, setZoom] = useState(INITIAL_VIEW.zoom)
+  const [zoom, setZoom] = useState(INITIAL_VIEW_STATE.zoom)
 
   const filteredData = useMemo(() => {
     return gpsData.filter(point => {
@@ -333,8 +333,8 @@ export default function ChassisTracker() {
           style={{ position: 'absolute', inset: '0' }}
         >
           <Map
-            mapboxAccessToken={MAPBOX_TOKEN}
-            mapStyle={MAP_STYLE}
+            mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
+            mapStyle="mapbox://styles/mapbox/dark-v11"
             reuseMaps
           >
             <NavigationControl position="top-right" />
