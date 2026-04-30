@@ -4,11 +4,14 @@ import { Button } from '@/components/ui/button';
 import { WarRoomKpiRail } from '@/components/war-room/WarRoomKpiRail';
 import { WarRoomMap } from '@/components/war-room/WarRoomMap';
 import { ChassisDetailDrawer } from '@/components/war-room/ChassisDetailDrawer';
+import { PierSEventFeed } from '@/components/war-room/PierSEventFeed';
 import { useWarRoomData } from '@/hooks/useWarRoomData';
+import { usePierSToday } from '@/hooks/usePierSToday';
 import type { WarRoomChassis } from '@/types/warroom';
 
 export default function WarRoom() {
   const { chassisData, kpi, loading, error, statusFilter, setStatusFilter, refetch } = useWarRoomData();
+  const { events: pierSEvents, loading: pierSLoading, error: pierSError } = usePierSToday();
   const [selectedChassis, setSelectedChassis] = useState<WarRoomChassis | null>(null);
 
   const handleSelectChassis = useCallback((chassis: WarRoomChassis) => {
@@ -50,21 +53,30 @@ export default function WarRoom() {
         </div>
       )}
 
-      <div className="flex-1 relative min-h-0">
-        {chassisData.length === 0 && !loading ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-            <AlertCircle className="h-8 w-8 opacity-30" />
-            <p className="text-sm">No location data found.</p>
-            <p className="text-xs opacity-60">
-              Verify mg_locations and mg_data are populated in Supabase.
-            </p>
-          </div>
-        ) : (
-          <WarRoomMap
-            data={chassisData}
-            onSelectChassis={handleSelectChassis}
+      <div className="flex-1 flex min-h-0">
+        <div className="flex-1 relative min-h-0">
+          {chassisData.length === 0 && !loading ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+              <AlertCircle className="h-8 w-8 opacity-30" />
+              <p className="text-sm">No location data found.</p>
+              <p className="text-xs opacity-60">
+                Verify mg_locations and mg_data are populated in Supabase.
+              </p>
+            </div>
+          ) : (
+            <WarRoomMap
+              data={chassisData}
+              onSelectChassis={handleSelectChassis}
+            />
+          )}
+        </div>
+        <aside className="hidden md:flex w-80 shrink-0">
+          <PierSEventFeed
+            events={pierSEvents}
+            loading={pierSLoading}
+            error={pierSError}
           />
-        )}
+        </aside>
       </div>
 
       <ChassisDetailDrawer
