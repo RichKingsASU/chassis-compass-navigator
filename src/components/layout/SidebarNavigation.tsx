@@ -29,6 +29,7 @@ import {
   DollarSign,
   Plug,
   Sparkles,
+  Radar,
 } from 'lucide-react'
 
 interface NavigationItem {
@@ -40,6 +41,7 @@ interface NavigationItem {
 
 const navItems: NavigationItem[] = [
   { title: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { title: 'War Room', path: '/war-room', icon: Radar },
   {
     title: 'Operations',
     path: '/unbilled-loads',
