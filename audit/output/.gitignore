@@ -1,0 +1,3 @@
+# Audit output is generated locally — don't commit it.
+*
+!.gitignore
