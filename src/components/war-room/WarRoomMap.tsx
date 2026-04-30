@@ -1,11 +1,10 @@
 import { useMemo, useCallback, useState } from 'react';
-import Map from 'react-map-gl';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import { DeckGL } from '@deck.gl/react';
 import { ScatterplotLayer } from '@deck.gl/layers';
+import { Map } from 'maplibre-gl';
 import type { WarRoomChassis } from '@/types/warroom';
 import { STATUS_COLORS } from '@/types/warroom';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
 interface Props {
   data: WarRoomChassis[];
@@ -19,6 +18,8 @@ const INITIAL_VIEW = {
   pitch: 0,
   bearing: 0,
 };
+
+const MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
 export function WarRoomMap({ data, onSelectChassis }: Props) {
   const [viewState, setViewState] = useState(INITIAL_VIEW);
@@ -91,12 +92,9 @@ export function WarRoomMap({ data, onSelectChassis }: Props) {
         getTooltip={getTooltip}
         style={{ position: 'relative', width: '100%', height: '100%' }}
         getCursor={() => cursor}
+        map={Map}
+        mapStyle={MAP_STYLE}
       >
-        <Map
-          mapLib={maplibregl}
-          mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
-          attributionControl={false}
-        />
       </DeckGL>
 
       {/* Legend */}
