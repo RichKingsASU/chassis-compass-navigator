@@ -1,9 +1,8 @@
 import { useMemo, useCallback, useState } from 'react';
-import Map from 'react-map-gl';
-import maplibregl from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import { DeckGL } from '@deck.gl/react';
 import { ScatterplotLayer } from '@deck.gl/layers';
+import Map from 'react-map-gl/mapbox';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import type { WarRoomChassis } from '@/types/warroom';
 import { STATUS_COLORS } from '@/types/warroom';
 
@@ -93,8 +92,8 @@ export function WarRoomMap({ data, onSelectChassis }: Props) {
         getCursor={() => cursor}
       >
         <Map
-          mapLib={maplibregl}
-          mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+          mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN as string}
+          mapStyle="mapbox://styles/mapbox/dark-v11"
           attributionControl={false}
         />
       </DeckGL>
