@@ -36,6 +36,7 @@ const BillingExposurePage = lazy(() => import('@/features/billing-exposure/Billi
 const TerminalEventsPage = lazy(() => import('@/features/terminal-events/TerminalEventsPage'))
 const ProvarPage = lazy(() => import('@/pages/ProvarPage'))
 const OpportunityLost = lazy(() => import('@/pages/OpportunityLost'))
+const WarRoom = lazy(() => import('@/pages/WarRoom'))
 
 // Yards
 const YardManagementHub = lazy(() => import('@/pages/YardManagementHub'))
@@ -92,6 +93,7 @@ export default function App() {
                   <Route path="/terminal-events" element={<ProtectedPage><TerminalEventsPage /></ProtectedPage>} />
                   <Route path="/provar" element={<ProtectedPage><ProvarPage /></ProtectedPage>} />
                   <Route path="/analytics/opportunity-lost" element={<ProtectedPage><OpportunityLost /></ProtectedPage>} />
+                  <Route path="/war-room" element={<ProtectedPage><WarRoom /></ProtectedPage>} />
 
                   {/* Yards — new redesigned routes */}
                   <Route path="/yard" element={<ProtectedPage><YardDashboard /></ProtectedPage>} />
