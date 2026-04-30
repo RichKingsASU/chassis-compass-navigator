@@ -1,5 +1,6 @@
 import { useMemo, useCallback, useState } from 'react';
-import Map from 'react-map-gl/maplibre';
+import Map from 'react-map-gl';
+import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { DeckGL } from '@deck.gl/react';
 import { ScatterplotLayer } from '@deck.gl/layers';
@@ -92,6 +93,7 @@ export function WarRoomMap({ data, onSelectChassis }: Props) {
         getCursor={() => cursor}
       >
         <Map
+          mapLib={maplibregl}
           mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
           attributionControl={false}
         />
