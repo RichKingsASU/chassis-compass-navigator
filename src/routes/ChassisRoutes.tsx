@@ -8,6 +8,7 @@ const ChassisOverview = lazy(() => import('@/pages/ChassisOverview'));
 const LongTermChassis = lazy(() => import('@/pages/LongTermChassis'));
 const ShortTermChassis = lazy(() => import('@/pages/ShortTermChassis'));
 const ChassisDetail = lazy(() => import('@/pages/ChassisDetail'));
+const ChassisDetailPage = lazy(() => import('@/pages/ChassisDetailPage'));
 const ChassisLocator = lazy(() => import('@/pages/ChassisLocator'));
 
 // New redesigned pages
@@ -39,8 +40,8 @@ export default function ChassisRoutes() {
         <Route path="long-term" element={<ProtectedPage><LongTermChassis /></ProtectedPage>} />
         <Route path="short-term" element={<ProtectedPage><ShortTermChassis /></ProtectedPage>} />
         <Route path="locator" element={<ProtectedPage><ChassisLocator /></ProtectedPage>} />
-        {/* Put :id last to avoid matching static routes like 'overview' */}
-        <Route path=":id" element={<ProtectedPage><ChassisDetail /></ProtectedPage>} />
+        {/* Put :chassisNumber last to avoid matching static routes like 'overview' */}
+        <Route path=":chassisNumber" element={<ProtectedPage><ChassisDetailPage /></ProtectedPage>} />
       </Routes>
     </Suspense>
   );
