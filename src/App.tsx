@@ -35,7 +35,7 @@ const PerDiemPage = lazy(() => import('@/features/perdiem/PerDiemPage'))
 const BillingExposurePage = lazy(() => import('@/features/billing-exposure/BillingExposurePage'))
 const TerminalEventsPage = lazy(() => import('@/features/terminal-events/TerminalEventsPage'))
 const ProvarPage = lazy(() => import('@/pages/ProvarPage'))
-const OpportunityLost = lazy(() => import('@/pages/OpportunityLost'))
+const OpportunityLostPage = lazy(() => import('@/pages/analytics/OpportunityLostPage'))
 const WarRoom = lazy(() => import('@/pages/WarRoom'))
 
 // Yards
@@ -92,7 +92,7 @@ export default function App() {
                   <Route path="/billing-exposure" element={<ProtectedPage><BillingExposurePage /></ProtectedPage>} />
                   <Route path="/terminal-events" element={<ProtectedPage><TerminalEventsPage /></ProtectedPage>} />
                   <Route path="/provar" element={<ProtectedPage><ProvarPage /></ProtectedPage>} />
-                  <Route path="/analytics/opportunity-lost" element={<ProtectedPage><OpportunityLost /></ProtectedPage>} />
+                  <Route path="/analytics/opportunity-lost" element={<ProtectedPage><OpportunityLostPage /></ProtectedPage>} />
                   <Route path="/war-room" element={<ProtectedPage><WarRoom /></ProtectedPage>} />
 
                   {/* Yards — new redesigned routes */}

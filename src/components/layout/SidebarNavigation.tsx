@@ -30,13 +30,20 @@ import {
   Plug,
   Sparkles,
   Radar,
+  TrendingDown,
 } from 'lucide-react'
+
+interface SubNavigationItem {
+  title: string
+  path: string
+  icon?: React.ElementType
+}
 
 interface NavigationItem {
   title: string
   path: string
   icon: React.ElementType
-  subItems?: { title: string; path: string }[]
+  subItems?: SubNavigationItem[]
 }
 
 const navItems: NavigationItem[] = [
@@ -59,10 +66,10 @@ const navItems: NavigationItem[] = [
     path: '/utilization',
     icon: BarChart3,
     subItems: [
+      { title: 'Opportunity Lost', path: '/analytics/opportunity-lost', icon: TrendingDown },
       { title: 'Chassis Utilization', path: '/utilization' },
       { title: 'Revenue Gap', path: '/billing-exposure' },
       { title: 'Per Diem Recon', path: '/perdiem' },
-      { title: 'Opportunity Lost', path: '/analytics/opportunity-lost' },
     ],
   },
 
@@ -170,7 +177,8 @@ export default function SidebarNavigation() {
                                     : ''
                                 }
                               >
-                                {sub.title}
+                                {sub.icon && <sub.icon size={14} />}
+                                <span>{sub.title}</span>
                               </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
