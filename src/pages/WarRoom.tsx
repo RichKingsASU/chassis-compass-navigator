@@ -5,13 +5,17 @@ import { WarRoomKpiRail } from '@/components/war-room/WarRoomKpiRail';
 import { WarRoomMap } from '@/components/war-room/WarRoomMap';
 import { ChassisDetailDrawer } from '@/components/war-room/ChassisDetailDrawer';
 import { PierSEventFeed } from '@/components/war-room/PierSEventFeed';
+import { PierSInventoryPanel } from '@/components/war-room/PierSInventoryPanel';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useWarRoomData } from '@/hooks/useWarRoomData';
 import { usePierSToday } from '@/hooks/usePierSToday';
+import { usePierSInventory } from '@/hooks/usePierSInventory';
 import type { WarRoomChassis } from '@/types/warroom';
 
 export default function WarRoom() {
   const { chassisData, kpi, loading, error, statusFilter, setStatusFilter, refetch } = useWarRoomData();
   const { events: pierSEvents, loading: pierSLoading, error: pierSError } = usePierSToday();
+  const { inventory: pierSInventory, loading: inventoryLoading, error: inventoryError } = usePierSInventory();
   const [selectedChassis, setSelectedChassis] = useState<WarRoomChassis | null>(null);
 
   const handleSelectChassis = useCallback((chassis: WarRoomChassis) => {
@@ -70,12 +74,27 @@ export default function WarRoom() {
             />
           )}
         </div>
-        <aside className="hidden md:flex w-80 shrink-0">
-          <PierSEventFeed
-            events={pierSEvents}
-            loading={pierSLoading}
-            error={pierSError}
-          />
+        <aside className="hidden md:flex w-80 shrink-0 border-l border-border/50">
+          <Tabs defaultValue="events" className="flex flex-col w-full h-full">
+            <TabsList className="mx-2 mt-2 h-8 shrink-0 grid grid-cols-2">
+              <TabsTrigger value="events" className="text-xs">Gate Events</TabsTrigger>
+              <TabsTrigger value="inventory" className="text-xs">On-Site</TabsTrigger>
+            </TabsList>
+            <TabsContent value="events" className="flex-1 min-h-0 mt-2 data-[state=inactive]:hidden">
+              <PierSEventFeed
+                events={pierSEvents}
+                loading={pierSLoading}
+                error={pierSError}
+              />
+            </TabsContent>
+            <TabsContent value="inventory" className="flex-1 min-h-0 mt-2 data-[state=inactive]:hidden">
+              <PierSInventoryPanel
+                inventory={pierSInventory}
+                loading={inventoryLoading}
+                error={inventoryError}
+              />
+            </TabsContent>
+          </Tabs>
         </aside>
       </div>
 
