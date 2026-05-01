@@ -87,6 +87,88 @@ function GpsTable({
   )
 }
 
+function asNum(v: unknown): number | null {
+  if (v == null || v === '') return null
+  const n = typeof v === 'number' ? v : Number(v)
+  return isNaN(n) ? null : n
+}
+
+function bbSourceShort(s: GpsPing['source']): string {
+  if (s === 'BlackBerry TRAN') return 'TRAN'
+  if (s === 'BlackBerry LOG') return 'LOG'
+  return s
+}
+
+function BlackBerryTable({ pings, loading }: { pings: GpsPing[]; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="space-y-2 py-3">
+        {[...Array(4)].map((_, i) => (
+          <Skeleton key={i} className="h-8 w-full" />
+        ))}
+      </div>
+    )
+  }
+  if (pings.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+        No BlackBerry data for this chassis.
+      </div>
+    )
+  }
+  return (
+    <div className="overflow-x-auto rounded-md border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-xs">Timestamp</TableHead>
+            <TableHead className="text-xs">Geofence</TableHead>
+            <TableHead className="text-xs">Lat</TableHead>
+            <TableHead className="text-xs">Lon</TableHead>
+            <TableHead className="text-xs">Event Type</TableHead>
+            <TableHead className="text-xs">Container Mounted</TableHead>
+            <TableHead className="text-xs text-right">Velocity</TableHead>
+            <TableHead className="text-xs">Source</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pings.map((p, i) => {
+            const eventType = (p.raw?.event_type as string | null) ?? null
+            const containerMounted = p.raw?.container_mounted as boolean | null | undefined
+            const velocity = asNum(p.raw?.velocity)
+            return (
+              <TableRow key={i}>
+                <TableCell className="text-xs whitespace-nowrap">
+                  {formatPT(p.timestamp)}
+                </TableCell>
+                <TableCell className="text-xs">{p.landmark || '—'}</TableCell>
+                <TableCell className="text-xs font-mono">
+                  {p.lat != null ? p.lat.toFixed(5) : '—'}
+                </TableCell>
+                <TableCell className="text-xs font-mono">
+                  {p.lng != null ? p.lng.toFixed(5) : '—'}
+                </TableCell>
+                <TableCell className="text-xs">{eventType || '—'}</TableCell>
+                <TableCell className="text-xs">
+                  {containerMounted == null ? '—' : containerMounted ? 'Yes' : 'No'}
+                </TableCell>
+                <TableCell className="text-xs text-right">
+                  {velocity != null ? velocity : '—'}
+                </TableCell>
+                <TableCell className="text-xs">
+                  <Badge variant="outline" className="text-[10px]">
+                    {bbSourceShort(p.source)}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
 function SourceSummary({
   label,
   ts,
@@ -145,11 +227,9 @@ export default function GpsTelematicsPanel({
             <TabsTrigger value="anytrek">Anytrek</TabsTrigger>
           </TabsList>
           <TabsContent value="blackberry">
-            <GpsTable
+            <BlackBerryTable
               pings={bbCombined.slice(0, 10)}
               loading={bbTran.loading || bbLog.loading}
-              source="BlackBerry"
-              showCoords
             />
           </TabsContent>
           <TabsContent value="fleetlocate">

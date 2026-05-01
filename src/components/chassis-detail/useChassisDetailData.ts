@@ -20,14 +20,6 @@ function init<T>(initial: T): PanelState<T> {
   return { data: initial, loading: true, error: null }
 }
 
-function parseLatLng(value: unknown): { lat: number | null; lng: number | null } {
-  if (typeof value === 'string' && value.includes(',')) {
-    const [a, b] = value.split(',').map((s) => Number(s.trim()))
-    if (!isNaN(a) && !isNaN(b)) return { lat: a, lng: b }
-  }
-  return { lat: null, lng: null }
-}
-
 function asNumber(v: unknown): number | null {
   if (v == null || v === '') return null
   const n = typeof v === 'number' ? v : Number(v)
@@ -60,24 +52,22 @@ async function fetchBlackberryPings(
 ): Promise<GpsPing[]> {
   const { data, error } = await supabase
     .from(source.table)
-    .select('*')
+    .select(
+      'chassis_number, lat, lon, geofence_name, recorded_on, event_type, container_mounted, velocity'
+    )
     .ilike('chassis_number', `%${chassis}%`)
     .order('recorded_on', { ascending: false, nullsFirst: false })
     .limit(limit)
   if (error) throw error
-  return ((data || []) as RawRecord[]).map((r) => {
-    const llString = asString(r.latitude_longitude)
-    const parsed = llString ? parseLatLng(llString) : { lat: null, lng: null }
-    return {
-      source: source.source,
-      timestamp: asString(r.recorded_on) ?? asString(r._load_ts),
-      landmark: asString(r.geofence_name) ?? asString(r.geofence),
-      address: asString(r.address),
-      lat: asNumber(r.lat) ?? parsed.lat,
-      lng: asNumber(r.lon) ?? asNumber(r.lng) ?? parsed.lng,
-      raw: r,
-    }
-  })
+  return ((data || []) as RawRecord[]).map((r) => ({
+    source: source.source,
+    timestamp: asString(r.recorded_on),
+    landmark: asString(r.geofence_name),
+    address: null,
+    lat: asNumber(r.lat),
+    lng: asNumber(r.lon),
+    raw: r,
+  }))
 }
 
 async function fetchFleetlocatePings(
