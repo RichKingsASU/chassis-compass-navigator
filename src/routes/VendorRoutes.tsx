@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedPage } from '@/components/auth/ProtectedPage';
 
 // Vendors
+const VendorDashboard = lazy(() => import('@/pages/vendors/VendorDashboard'));
 const DCLI = lazy(() => import('@/pages/vendors/DCLI'));
 const CCM = lazy(() => import('@/pages/vendors/CCM'));
 const TRAC = lazy(() => import('@/pages/vendors/TRAC'));
@@ -55,6 +56,7 @@ export default function VendorRoutes() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
+        <Route index element={<ProtectedPage><VendorDashboard /></ProtectedPage>} />
         <Route path="dcli" element={<ProtectedPage><DCLI /></ProtectedPage>} />
         <Route path="dcli/invoices" element={<Navigate to="/vendors/dcli?tab=invoices" replace />} />
         <Route path="dcli/invoices/new" element={<ProtectedPage><DCLINewInvoice /></ProtectedPage>} />

@@ -94,10 +94,10 @@ const navItems: NavigationItem[] = [
   },
   {
     title: 'Equipment Vendor',
-    path: '/validation',
+    path: '/vendors',
     icon: FileCheck,
     subItems: [
-      { title: 'Overview', path: '/vendor-validation' },
+      { title: 'Overview', path: '/vendors' },
       { title: 'DCLI', path: '/vendors/dcli' },
       { title: 'CCM', path: '/vendors/ccm' },
       { title: 'SCSPA', path: '/vendors/scspa' },
